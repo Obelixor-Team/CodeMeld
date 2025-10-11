@@ -1,13 +1,13 @@
-from pathlib import Path
 import argparse
 import json
 import os
-import toml
-import xml.etree.ElementTree as ET
 import xml.dom.minidom
+import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pathspec
+import toml
 
 if TYPE_CHECKING:
     import tiktoken
@@ -102,31 +102,30 @@ def generate_output(
     root_path: Path,
     format: str,
     header_width: int,
-) -> tuple[str, str]: # Returns formatted_content, raw_content
+) -> tuple[str, str]:  # Returns formatted_content, raw_content
     output_content: str = ""
-    relative_path: Path # Declare relative_path here
+    relative_path: Path  # Declare relative_path here
     raw_combined_content: str = ""
+    raw_content_parts: list[str] = []
     if format == "json":
         json_data: dict[str, str] = {}
-        raw_content_parts: list[str] = [] # New
         for file_path in files_to_process:
             relative_path = file_path.relative_to(root_path)
             try:
                 with open(file_path, "r", encoding="utf-8") as infile:
                     content: str = infile.read()
                 json_data[str(relative_path)] = content
-                raw_content_parts.append(content) # New
+                raw_content_parts.append(content)
                 print(f"Processed: {relative_path}")
             except UnicodeDecodeError:
                 print(f"Skipping binary file: {relative_path}")
             except Exception as e:
                 print(f"Error reading file {relative_path}: {e}")
         output_content = json.dumps(json_data, indent=4)
-        raw_combined_content = "".join(raw_content_parts) # New
+        raw_combined_content = "".join(raw_content_parts)
 
     elif format == "xml":
         root_element: ET.Element = ET.Element("codebase")
-        raw_content_parts: list[str] = [] # New
         for file_path in files_to_process:
             relative_path = file_path.relative_to(root_path)
             try:
@@ -137,7 +136,7 @@ def generate_output(
                 path_element.text = str(relative_path)
                 content_element: ET.Element = ET.SubElement(file_element, "content")
                 content_element.text = content
-                raw_content_parts.append(content) # New
+                raw_content_parts.append(content)
                 print(f"Processed: {relative_path}")
             except UnicodeDecodeError:
                 print(f"Skipping binary file: {relative_path}")
@@ -147,17 +146,16 @@ def generate_output(
         rough_string: bytes = ET.tostring(root_element, "utf-8")
         reparsed = xml.dom.minidom.parseString(rough_string)
         output_content = reparsed.toprettyxml(indent="    ")
-        raw_combined_content = "".join(raw_content_parts) # New
+        raw_combined_content = "".join(raw_content_parts)
 
     else:  # text or markdown
-        formatted_content_parts: list[str] = [] # To build the formatted output
-        raw_content_parts: list[str] = [] # To build the raw content
+        formatted_content_parts: list[str] = []  # To build the formatted output
         for file_path in files_to_process:
             relative_path = file_path.relative_to(root_path)
             try:
                 with open(file_path, "r", encoding="utf-8") as infile:
                     content = infile.read()
-                raw_content_parts.append(content) # Append raw content
+                raw_content_parts.append(content)  # Append raw content
 
                 if format == "markdown":
                     lang: str = relative_path.suffix.lstrip(".")
@@ -178,7 +176,7 @@ def generate_output(
             except Exception as e:
                 print(f"Error reading file {relative_path}: {e}")
         output_content = "".join(formatted_content_parts)
-        raw_combined_content = "".join(raw_content_parts) # Assigned here
+        raw_combined_content = "".join(raw_content_parts)  # Assigned here
     return output_content, raw_combined_content
 
 
@@ -189,6 +187,7 @@ def write_output(output_path: Path, output_content: str):
         print(f"\nAll code files have been combined into: {output_path}")
     except Exception as e:
         print(f"Error creating or writing to output file {output_path}: {e}")
+
 
 def convert_to_text(content: str, input_format: str, header_width: int) -> str:
     """Converts XML or JSON content to a human-readable text/markdown format."""
@@ -201,7 +200,9 @@ def convert_to_text(content: str, input_format: str, header_width: int) -> str:
                 content_element: ET.Element | None = file_element.find("content")
                 if path_element is not None and content_element is not None:
                     file_path: str = path_element.text if path_element.text else "N/A"
-                    file_content: str = content_element.text if content_element.text else ""
+                    file_content: str = (
+                        content_element.text if content_element.text else ""
+                    )
                     text_output.append(f"{'=' * header_width}")
                     text_output.append(f"FILE: {file_path}")
                     text_output.append(f"{'=' * header_width}\n")
@@ -223,7 +224,7 @@ def convert_to_text(content: str, input_format: str, header_width: int) -> str:
             return "".join(text_output)
         except json.JSONDecodeError:
             return f"Error: Could not parse JSON content.\n{content}"
-    return content # Return original content if not XML or JSON
+    return content  # Return original content if not XML or JSON
 
 
 def scan_and_combine_code_files(
@@ -260,7 +261,8 @@ def scan_and_combine_code_files(
     for ext in extensions:
         if not ext.startswith("."):
             print(
-                f"Error: Custom extension '{ext}' must start with a dot (e.g., '.{ext}')."
+                f"Error: Custom extension '{ext}' must start with a dot "
+                f"(e.g., '.{ext}')."
             )
             return
         normalized_extensions.append(ext.lower())
@@ -270,7 +272,8 @@ def scan_and_combine_code_files(
     for ext in exclude_extensions:
         if not ext.startswith("."):
             print(
-                f"Error: Exclude extension '{ext}' must start with a dot (e.g., '.{ext}')."
+                f"Error: Exclude extension '{ext}' must start with a dot "
+                f"(e.g., '.{ext}')."
             )
             return
         normalized_exclude_extensions.append(ext.lower())
@@ -296,9 +299,12 @@ def scan_and_combine_code_files(
         ):
             files_to_process.append(file_path)
 
-    formatted_output_content, raw_combined_content = generate_output(files_to_process, root_path, format, header_width)
+    formatted_output_content, raw_combined_content = generate_output(
+        files_to_process, root_path, format, header_width
+    )
 
-    # Convert to text/markdown if original format was XML/JSON and final output is text/markdown
+    # Convert to text/markdown if original format was XML/JSON and final output is
+    # text/markdown
     if format in ["json", "xml"] and final_output_format in ["text", "markdown"]:
         output_content = convert_to_text(formatted_output_content, format, header_width)
     else:
@@ -308,7 +314,9 @@ def scan_and_combine_code_files(
     if count_tokens and tiktoken is not None:
         try:
             encoding = tiktoken.get_encoding("cl100k_base")
-            tokens: list[int] = encoding.encode(raw_combined_content) # Use raw_combined_content
+            tokens: list[int] = encoding.encode(
+                raw_combined_content
+            )  # Use raw_combined_content
             print(f"Total tokens in combined content: {len(tokens)}")
         except ValueError as e:
             print(f"Error counting tokens: {e}")
@@ -348,7 +356,10 @@ def main() -> None:
     parser.add_argument(
         "--exclude",
         nargs="+",
-        help="Custom file extensions to exclude (space separated, e.g., .txt .md). Exclusions take precedence over inclusions.",
+        help=(
+            "Custom file extensions to exclude (space separated, e.g., .txt .md). "
+            "Exclusions take precedence over inclusions."
+        ),
     )
     parser.add_argument(
         "--no-tokens",
@@ -382,7 +393,8 @@ def main() -> None:
 
     config: dict[str, Any] = load_config_from_pyproject(directory_path)
 
-    # Initialize parameters with config values, then override with command-line arguments
+    # Initialize parameters with config values, then override with command-line
+    # arguments
     default_extensions: list[str] = [
         ".py",
         ".js",
@@ -451,7 +463,9 @@ def main() -> None:
     if args.format != "text":
         final_format = args.format
 
-    final_convert_to: str = args.convert_to if args.convert_to is not None else final_format
+    final_convert_to: str = (
+        args.convert_to if args.convert_to is not None else final_format
+    )
 
     scan_and_combine_code_files(
         directory_path,
