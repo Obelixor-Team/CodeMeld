@@ -191,7 +191,9 @@ def write_output(output_path: Path, output_content: str):
         print(f"Error creating or writing to output file {output_path}: {e}")
 
 
-def convert_to_text(content: str, input_format: str, header_width: int) -> str:
+def convert_to_text(
+    content: str, input_format: str, header_width: int, output_format: str
+) -> str:
     """Converts XML or JSON content to a human-readable text/markdown format."""
     if input_format == "xml":
         try:
@@ -205,11 +207,20 @@ def convert_to_text(content: str, input_format: str, header_width: int) -> str:
                     file_content: str = (
                         content_element.text if content_element.text else ""
                     )
-                    text_output.append(f"{ '=' * header_width}")
-                    text_output.append(f"FILE: {file_path}")
-                    text_output.append(f"{ '=' * header_width}\n")
-                    text_output.append(file_content)
-                    text_output.append("\n\n")
+                    if output_format == "markdown":
+                        lang = Path(file_path).suffix.lstrip(".")
+                        text_output.append(
+                            f"## FILE: {file_path}\n\n"
+                            f"```{lang}\n"
+                            f"{file_content}\n"
+                            f"```\n\n"
+                        )
+                    else:
+                        text_output.append(f"{'=' * header_width}")
+                        text_output.append(f"FILE: {file_path}")
+                        text_output.append(f"{'=' * header_width}\n")
+                        text_output.append(file_content)
+                        text_output.append("\n\n")
             return "".join(text_output)
         except ET.ParseError:
             return f"Error: Could not parse XML content.\n{content}"
@@ -218,11 +229,20 @@ def convert_to_text(content: str, input_format: str, header_width: int) -> str:
             json_data: dict[str, str] = json.loads(content)
             text_output = []
             for file_path, file_content in json_data.items():
-                text_output.append(f"{ '=' * header_width}")
-                text_output.append(f"FILE: {file_path}")
-                text_output.append(f"{ '=' * header_width}\n")
-                text_output.append(file_content)
-                text_output.append("\n\n")
+                if output_format == "markdown":
+                    lang = Path(file_path).suffix.lstrip(".")
+                    text_output.append(
+                        f"## FILE: {file_path}\n\n"
+                        f"```{lang}\n"
+                        f"{file_content}\n"
+                        f"```\n\n"
+                    )
+                else:
+                    text_output.append(f"{'=' * header_width}")
+                    text_output.append(f"FILE: {file_path}")
+                    text_output.append(f"{'=' * header_width}\n")
+                    text_output.append(file_content)
+                    text_output.append("\n\n")
             return "".join(text_output)
         except json.JSONDecodeError:
             return f"Error: Could not parse JSON content.\n{content}"
@@ -308,7 +328,9 @@ def scan_and_combine_code_files(
     # Convert to text/markdown if original format was XML/JSON and final output is
     # text/markdown
     if format in ["json", "xml"] and final_output_format in ["text", "markdown"]:
-        output_content = convert_to_text(formatted_output_content, format, header_width)
+        output_content = convert_to_text(
+            formatted_output_content, format, header_width, final_output_format
+        )
     else:
         output_content = formatted_output_content
 

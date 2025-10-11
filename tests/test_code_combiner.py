@@ -3,6 +3,7 @@ from src.code_combiner import (
     is_code_file,
     get_gitignore_spec,
     scan_and_combine_code_files,
+    convert_to_text,
 )
 import os
 import tiktoken
@@ -57,7 +58,7 @@ def test_scan_and_combine_code_files_default(temp_project_dir):
     scan_and_combine_code_files(
         temp_project_dir,
         str(output_file),
-        extensions=[".py", ".js"],
+        extensions=[ ".py", ".js"],
         exclude_extensions=[],
     )
 
@@ -91,7 +92,7 @@ def test_scan_and_combine_code_files_no_gitignore(temp_project_dir):
     scan_and_combine_code_files(
         temp_project_dir,
         str(output_file),
-        extensions=[".py", ".js", ".txt"],
+        extensions=[ ".py", ".js", ".txt"],
         exclude_extensions=[],
         use_gitignore=False,
     )
@@ -124,7 +125,7 @@ def test_scan_and_combine_code_files_include_hidden(temp_project_dir):
     scan_and_combine_code_files(
         temp_project_dir,
         str(output_file),
-        extensions=[".py", ".js", ".txt"],
+        extensions=[ ".py", ".js", ".txt"],
         exclude_extensions=[],
         include_hidden=True,
     )
@@ -167,7 +168,6 @@ def test_scan_and_combine_code_files_invalid_extension_format(temp_project_dir, 
 
     assert not output_file.is_file()
 
-
 def test_scan_and_combine_code_files_non_existent_directory(tmp_path, capsys):
 
     output_file = tmp_path / "combined.txt"
@@ -175,7 +175,7 @@ def test_scan_and_combine_code_files_non_existent_directory(tmp_path, capsys):
     non_existent_dir = tmp_path / "non_existent"
 
     scan_and_combine_code_files(
-        non_existent_dir, str(output_file), extensions=[".py"], exclude_extensions=[]
+        non_existent_dir, str(output_file), extensions=[ ".py"], exclude_extensions=[]
     )
 
     captured = capsys.readouterr()
@@ -183,7 +183,6 @@ def test_scan_and_combine_code_files_non_existent_directory(tmp_path, capsys):
     assert f"Error: Directory '{non_existent_dir}' does not exist." in captured.out
 
     assert not output_file.is_file()
-
 
 def test_scan_and_combine_code_files_no_write_permissions(temp_project_dir, capsys):
 
@@ -194,7 +193,7 @@ def test_scan_and_combine_code_files_no_write_permissions(temp_project_dir, caps
     os.chmod(temp_project_dir, 0o555)  # Read and execute only
 
     scan_and_combine_code_files(
-        temp_project_dir, str(output_file), extensions=[".py"], exclude_extensions=[]
+        temp_project_dir, str(output_file), extensions=[ ".py"], exclude_extensions=[]
     )
 
     captured = capsys.readouterr()
@@ -208,7 +207,6 @@ def test_scan_and_combine_code_files_no_write_permissions(temp_project_dir, caps
 
     os.chmod(temp_project_dir, 0o755)  # Restore permissions
 
-
 def test_scan_and_combine_code_files_exclude_extensions(temp_project_dir):
 
     output_file = temp_project_dir / "combined.txt"
@@ -216,8 +214,8 @@ def test_scan_and_combine_code_files_exclude_extensions(temp_project_dir):
     scan_and_combine_code_files(
         temp_project_dir,
         str(output_file),
-        extensions=[".py", ".js", ".txt"],
-        exclude_extensions=[".js"],
+        extensions=[ ".py", ".js", ".txt"],
+        exclude_extensions=[ ".js"],
     )
 
     assert output_file.is_file()
@@ -234,7 +232,6 @@ def test_scan_and_combine_code_files_exclude_extensions(temp_project_dir):
 
     assert "console.log('world')" not in content
 
-
 def test_scan_and_combine_code_files_no_tokens(temp_project_dir, capsys):
 
     output_file = temp_project_dir / "combined.txt"
@@ -242,7 +239,7 @@ def test_scan_and_combine_code_files_no_tokens(temp_project_dir, capsys):
     scan_and_combine_code_files(
         temp_project_dir,
         str(output_file),
-        extensions=[".py"],
+        extensions=[ ".py"],
         exclude_extensions=[],
         count_tokens=False,
     )
@@ -253,7 +250,6 @@ def test_scan_and_combine_code_files_no_tokens(temp_project_dir, capsys):
 
     assert output_file.is_file()
 
-
 def test_scan_and_combine_code_files_header_width(temp_project_dir):
 
     output_file = temp_project_dir / "combined.txt"
@@ -263,7 +259,7 @@ def test_scan_and_combine_code_files_header_width(temp_project_dir):
     scan_and_combine_code_files(
         temp_project_dir,
         str(output_file),
-        extensions=[".py"],
+        extensions=[ ".py"],
         exclude_extensions=[],
         header_width=custom_width,
     )
@@ -274,8 +270,7 @@ def test_scan_and_combine_code_files_header_width(temp_project_dir):
 
     # Check if the header separator has the custom width
 
-    assert f"\n{'='*custom_width}\n" in content
-
+    assert f"\n{ '='*custom_width}\n" in content
 def test_token_counting_accuracy(tmp_path, capsys):
     # Create a dummy file
     file_content = "This is a test sentence for token counting."
@@ -286,7 +281,7 @@ def test_token_counting_accuracy(tmp_path, capsys):
     scan_and_combine_code_files(
         tmp_path,
         str(output_file),
-        extensions=[".txt"],
+        extensions=[ ".txt"],
         exclude_extensions=[],
         count_tokens=True,
     )
@@ -310,7 +305,7 @@ def test_scan_and_combine_code_files_json_format(temp_project_dir):
     scan_and_combine_code_files(
         temp_project_dir,
         str(output_file),
-        extensions=[".py", ".js"],
+        extensions=[ ".py", ".js"],
         exclude_extensions=[],
         format="json",
         final_output_format="json", # Added this line
@@ -332,7 +327,7 @@ def test_scan_and_combine_code_files_markdown_format(temp_project_dir):
     scan_and_combine_code_files(
         temp_project_dir,
         str(output_file),
-        extensions=[".py", ".js"],
+        extensions=[ ".py", ".js"],
         exclude_extensions=[],
         format="markdown",
     )
@@ -362,7 +357,7 @@ def test_scan_and_combine_code_files_config_file_and_override(temp_project_dir):
 [tool.code_combiner]
 
 
-extensions = [".js"]
+extensions = [ ".js" ]
 
 
 header_width = 30
@@ -378,7 +373,7 @@ header_width = 30
     scan_and_combine_code_files(
         temp_project_dir,
         str(output_file),
-        extensions=[".py"],
+        extensions=[ ".py"],
         exclude_extensions=[],
         header_width=40,
     )
@@ -393,7 +388,7 @@ header_width = 30
 
     assert "console.log('world')" not in content
 
-    assert f"\n{'='*40}\n" in content
+    assert f"\n{ '='*40}\n" in content
 
     # Run with no overriding command-line arguments, should use config
     output_file_2 = temp_project_dir / "combined_2.txt"
@@ -420,14 +415,14 @@ header_width = 30
 
     assert "console.log('world')" in content_2
 
-    assert f"\n{'='*30}\n" in content_2
+    assert f"\n{ '='*30}\n" in content_2
 
 def test_convert_to_text_xml_to_text(temp_project_dir):
     output_file = temp_project_dir / "combined.xml"
     scan_and_combine_code_files(
         temp_project_dir,
         str(output_file),
-        extensions=[".py", ".js"],
+        extensions=[ ".py", ".js"],
         exclude_extensions=[],
         format="xml",
     )
@@ -438,7 +433,7 @@ def test_convert_to_text_xml_to_text(temp_project_dir):
     scan_and_combine_code_files(
         temp_project_dir,
         str(text_output_file),
-        extensions=[".py", ".js"],
+        extensions=[ ".py", ".js"],
         exclude_extensions=[],
         format="xml",
         final_output_format="text",
@@ -455,3 +450,84 @@ def test_convert_to_text_xml_to_text(temp_project_dir):
     assert "<file>" not in text_content
     assert "<path>" not in text_content
     assert "<content>" not in text_content
+
+
+def test_convert_to_text_json_to_text(temp_project_dir):
+    output_file = temp_project_dir / "combined.json"
+    scan_and_combine_code_files(
+        temp_project_dir,
+        str(output_file),
+        extensions=[ ".py", ".js"],
+        exclude_extensions=[],
+        format="json",
+    )
+    assert output_file.is_file()
+    json_content = output_file.read_text()
+
+    text_output_file = temp_project_dir / "combined.txt"
+    scan_and_combine_code_files(
+        temp_project_dir,
+        str(text_output_file),
+        extensions=[ ".py", ".js"],
+        exclude_extensions=[],
+        format="json",
+        final_output_format="text",
+    )
+    assert text_output_file.is_file()
+    text_content = text_output_file.read_text()
+
+    assert "FILE: file1.py" in text_content
+    assert "print('hello')" in text_content
+    assert "FILE: file2.js" in text_content
+    assert "console.log('world')" in text_content
+    assert "FILE: subdir/file3.py" in text_content
+    assert "x = 1" in text_content
+    assert "{" not in text_content
+    assert "}" not in text_content
+
+
+def test_convert_to_text_json_to_markdown(temp_project_dir):
+    output_file = temp_project_dir / "combined.json"
+    scan_and_combine_code_files(
+        temp_project_dir,
+        str(output_file),
+        extensions=[ ".py", ".js"],
+        exclude_extensions=[],
+        format="json",
+    )
+    assert output_file.is_file()
+    json_content = output_file.read_text()
+
+    markdown_output_file = temp_project_dir / "combined.md"
+    scan_and_combine_code_files(
+        temp_project_dir,
+        str(markdown_output_file),
+        extensions=[ ".py", ".js"],
+        exclude_extensions=[],
+        format="json",
+        final_output_format="markdown",
+    )
+    assert markdown_output_file.is_file()
+    markdown_content = markdown_output_file.read_text()
+
+    assert "## FILE: file1.py" in markdown_content
+    assert "```py" in markdown_content
+    assert "print('hello')" in markdown_content
+    assert "## FILE: file2.js" in markdown_content
+    assert "```js" in markdown_content
+    assert "console.log('world')" in markdown_content
+    assert "## FILE: subdir/file3.py" in markdown_content
+    assert "```py" in markdown_content
+    assert "x = 1" in markdown_content
+
+
+def test_convert_to_text_invalid_xml():
+    invalid_xml = "<root><file><path>test.py</path><content>print('hello')</content>"
+    result = convert_to_text(invalid_xml, "xml", 80, "text")
+    assert "Error: Could not parse XML content" in result
+
+
+def test_convert_to_text_invalid_json():
+    invalid_json = '{"file1.py": "print(\'hello\')" '
+    result = convert_to_text(invalid_json, "json", 80, "text")
+    assert "Error: Could not parse JSON content" in result

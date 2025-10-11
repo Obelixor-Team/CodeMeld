@@ -123,7 +123,7 @@ format = "markdown"
 The primary goal of this script is to generate a single file that can be easily copied and pasted into an LLM chat interface.
 
 -   **Text Format (`--format text`)**: This is the default and recommended format for most LLMs. It produces a clean, readable output that is easy to copy and paste.
--   **Markdown Format (`--format markdown`)**: This format is useful when you want to preserve the file structure and code formatting in a more structured way. Most LLMs render Markdown correctly.
+-   **Markdown Format (`--format markdown`)**: This format is useful when you want to preserve the file structure and code formatting in a more structured way. Most LLMs render Markdown correctly. When converting from `json` or `xml` format, using `--convert-to markdown` will also generate a structured Markdown output suitable for LLMs.
 -   **JSON and XML Formats (`--format json` or `--format xml`)**: These formats are less common for direct use with LLMs but can be useful for programmatic analysis or if the LLM has specific input requirements.
 
 ## Troubleshooting
