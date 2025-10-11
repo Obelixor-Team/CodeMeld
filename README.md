@@ -5,11 +5,29 @@ A Python script to scan a specified directory, identify code files based on thei
 ## Features
 
 -   **Combine Code Files**: Merges multiple code files into a single, readable text file.
+-   **Multiple Output Formats**: Supports `text`, `markdown`, `json`, and `xml` output formats.
 -   **Gitignore Support**: Automatically excludes files and directories specified in `.gitignore` by default.
 -   **Hidden File Control**: Ignores hidden files and folders by default, with an option to include them.
--   **Custom Extensions**: Allows users to specify which file extensions to include.
+-   **Custom Extensions**: Allows users to specify which file extensions to include and exclude.
 -   **Token Counting**: Provides a token count of the combined output, useful for AI model contexts.
+-   **Configuration File**: Supports configuration via `pyproject.toml`.
 -   **Error Handling**: Basic error handling for file operations and token counting.
+
+## Dependencies
+
+### Runtime Dependencies
+
+-   `tiktoken`: For counting tokens in the output file.
+-   `pathspec`: For handling `.gitignore` patterns.
+-   `tqdm`: For showing progress.
+-   `toml`: For reading `pyproject.toml` configuration file.
+
+### Development Dependencies
+
+-   `pytest`: For running unit tests.
+-   `black`: For code formatting.
+-   `ruff`: For linting.
+-   `mypy`: For static type checking.
 
 ## Installation
 
@@ -49,10 +67,28 @@ A Python script to scan a specified directory, identify code files based on thei
 -   `-o, --output <filename>`: Specify the output file name (default: `combined_code.txt`).
 -   `-e, --extensions <ext1> <ext2> ...`: Custom file extensions to include (space-separated, e.g., `.py .js .ts`). Extensions must start with a dot.
 -   `--exclude <ext1> <ext2> ...`: Custom file extensions to exclude (space-separated, e.g., `.txt .md`). Exclusions take precedence over inclusions.
+-   `--format <format>`: Output format (`text`, `markdown`, `json`, `xml`). Default is `text`.
 -   `--no-gitignore`: Do not respect the `.gitignore` file. All files not explicitly excluded by other means will be considered.
 -   `--include-hidden`: Include hidden files and folders (those starting with a dot). By default, hidden files are ignored.
 -   `--no-tokens`: Do not count tokens in the combined output file.
 -   `--header-width <width>`: Specify the width of the separator lines in the combined file header (default: 80).
+
+### Configuration File
+
+Alternatively, you can configure the script using a `pyproject.toml` file in your project's root directory. Settings under the `[tool.code_combiner]` section will be loaded. Command-line arguments will always override settings from the configuration file.
+
+Example `pyproject.toml`:
+
+```toml
+[tool.code_combiner]
+extensions = [".py", ".js"]
+exclude_extensions = [".txt"]
+use_gitignore = true
+include_hidden = false
+count_tokens = true
+header_width = 70
+format = "markdown"
+```
 
 ### Examples
 
@@ -68,11 +104,25 @@ A Python script to scan a specified directory, identify code files based on thei
     .venv/bin/python src/code_combiner.py /path/to/your/project --include-hidden --no-gitignore -o all_project_files.txt
     ```
 
-3.  **Combine files in a directory, respecting `.gitignore`, but only including `.md` files**:
+3.  **Combine files in a directory and output as Markdown**:
 
     ```bash
-    .venv/bin/python src/code_combiner.py . -e .md -o documentation.txt
+    .venv/bin/python src/code_combiner.py . -e .py .md -o documentation.md --format markdown
     ```
+
+4.  **Combine files using settings from `pyproject.toml` and output as JSON**:
+
+    ```bash
+    .venv/bin/python src/code_combiner.py . -o combined.json --format json
+    ```
+
+### Using with Large Language Models (LLMs)
+
+The primary goal of this script is to generate a single file that can be easily copied and pasted into an LLM chat interface.
+
+-   **Text Format (`--format text`)**: This is the default and recommended format for most LLMs. It produces a clean, readable output that is easy to copy and paste.
+-   **Markdown Format (`--format markdown`)**: This format is useful when you want to preserve the file structure and code formatting in a more structured way. Most LLMs render Markdown correctly.
+-   **JSON and XML Formats (`--format json` or `--format xml`)**: These formats are less common for direct use with LLMs but can be useful for programmatic analysis or if the LLM has specific input requirements.
 
 ## Development
 

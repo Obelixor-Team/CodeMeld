@@ -14,6 +14,8 @@ install:
 	.venv/bin/pip install -r requirements.txt
 	.venv/bin/pip install -r requirements-dev.txt
 
+all: format lint check test radon
+
 format:
 	.venv/bin/black src
 
@@ -23,4 +25,8 @@ lint:
 check:
 	.venv/bin/mypy src
 
-all: format lint check
+test:
+	PYTHONPATH=. .venv/bin/pytest tests/
+
+radon:
+	.venv/bin/radon cc src -a -nc
