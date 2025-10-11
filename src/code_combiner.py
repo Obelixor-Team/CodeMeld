@@ -1,5 +1,6 @@
 from pathlib import Path
 import argparse
+import tiktoken
 
 
 def is_code_file(filename, extensions):
@@ -56,7 +57,7 @@ def scan_and_combine_code_files(root_dir, output_file, extensions=None):
                         # Write file header
                         outfile.write(f"\n{'='*80}\n")
                         outfile.write(f"FILE: {relative_path}\n")
-                        outfile.write(f"{ '='*80}\n\n")
+                        outfile.write(f"{'='*80}\n\n")
 
                         # Write file content
                         outfile.write(content)
@@ -73,8 +74,15 @@ def scan_and_combine_code_files(root_dir, output_file, extensions=None):
 
         print(f"\nAll code files have been combined into: {output_path}")
 
+        # Count tokens in the output file
+        with open(output_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            encoding = tiktoken.get_encoding("cl100k_base")
+            tokens = encoding.encode(content)
+            print(f"Total tokens in combined file: {len(tokens)}")
+
     except Exception as e:
-        print(f"Error creating output file: {e}")
+        print(f"Error: {e}")
 
 
 def main():
