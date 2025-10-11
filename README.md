@@ -144,6 +144,17 @@ Or, if you are using the virtual environment directly:
 PYTHONPATH=$(pwd) .venv/bin/pytest
 ```
 
+### `Warning: tiktoken not found. Token counting will be skipped.`
+
+This warning indicates that the `tiktoken` library, which is used for token counting, is not installed. `tiktoken` is an optional dependency. If you wish to enable token counting, you can install it using pip:
+
+```bash
+pip install tiktoken
+```
+
+If you do not need token counting, you can safely ignore this warning.
+
+
 ## Development
 
 ### Code Quality Checks

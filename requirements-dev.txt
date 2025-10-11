@@ -3,3 +3,4 @@ ruff
 mypy
 radon
 types-toml
+pytest-cov

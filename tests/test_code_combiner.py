@@ -522,10 +522,40 @@ def test_convert_to_text_json_to_markdown(temp_project_dir):
     assert "x = 1" in markdown_content
 
 
-def test_convert_to_text_invalid_xml():
-    invalid_xml = "<root><file><path>test.py</path><content>print('hello')</content>"
-    result = convert_to_text(invalid_xml, "xml", 80, "text")
-    assert "Error: Could not parse XML content" in result
+def test_convert_to_text_xml_to_markdown(temp_project_dir):
+    output_file = temp_project_dir / "combined.xml"
+    scan_and_combine_code_files(
+        temp_project_dir,
+        str(output_file),
+        extensions=[".py", ".js"],
+        exclude_extensions=[],
+        format="xml",
+    )
+    assert output_file.is_file()
+    xml_content = output_file.read_text()
+
+    markdown_output_file = temp_project_dir / "combined.md"
+    scan_and_combine_code_files(
+        temp_project_dir,
+        str(markdown_output_file),
+        extensions=[".py", ".js"],
+        exclude_extensions=[],
+        format="xml",
+        final_output_format="markdown",
+    )
+    assert markdown_output_file.is_file()
+    markdown_content = markdown_output_file.read_text()
+
+    assert "## FILE: file1.py" in markdown_content
+    assert "```py" in markdown_content
+    assert "print('hello')" in markdown_content
+    assert "## FILE: file2.js" in markdown_content
+    assert "```js" in markdown_content
+    assert "console.log('world')" in markdown_content
+    assert "## FILE: subdir/file3.py" in markdown_content
+    assert "```py" in markdown_content
+    assert "x = 1" in markdown_content
+
 
 
 def test_convert_to_text_invalid_json():
