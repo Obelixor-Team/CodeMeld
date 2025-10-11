@@ -152,3 +152,17 @@ def test_scan_and_combine_code_files_no_tokens(temp_project_dir, capsys):
     captured = capsys.readouterr()
     assert "Total tokens in combined file:" not in captured.out
     assert output_file.is_file()
+
+
+def test_scan_and_combine_code_files_header_width(temp_project_dir):
+    output_file = temp_project_dir / "combined.txt"
+    custom_width = 50
+    scan_and_combine_code_files(
+        temp_project_dir, str(output_file), extensions=[".py"], header_width=custom_width
+    )
+
+    assert output_file.is_file()
+    content = output_file.read_text()
+
+    # Check if the header separator has the custom width
+    assert f"\n{'='*custom_width}\n" in content

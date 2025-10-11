@@ -80,6 +80,7 @@ def scan_and_combine_code_files(
     use_gitignore: bool = True,
     include_hidden: bool = False,
     count_tokens: bool = True,
+    header_width: int = 80,
 ):
     """Scan directory and combine code files into one output file"""
 
@@ -178,9 +179,9 @@ def scan_and_combine_code_files(
                     content = infile.read()
 
                 # Write file header
-                combined_content += f"\n{'='*80}\n"
+                combined_content += f"\n{'='*header_width}\n"
                 combined_content += f"FILE: {relative_path}\n"
-                combined_content += f"{'='*80}\n\n"
+                combined_content += f"{'='*header_width}\n\n"
 
                 # Write file content
                 combined_content += content
@@ -252,6 +253,12 @@ def main():
         action="store_true",
         help="Do not count tokens in the combined output file.",
     )
+    parser.add_argument(
+        "--header-width",
+        type=int,
+        default=80,
+        help="Width of the separator lines in the combined file header (default: 80).",
+    )
 
     args = parser.parse_args()
     directory_path = Path(args.directory)
@@ -268,6 +275,7 @@ def main():
         not args.no_gitignore,
         args.include_hidden,
         not args.no_tokens,
+        args.header_width,
     )
 
 

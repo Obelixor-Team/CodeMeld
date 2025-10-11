@@ -52,6 +52,7 @@ A Python script to scan a specified directory, identify code files based on thei
 -   `--no-gitignore`: Do not respect the `.gitignore` file. All files not explicitly excluded by other means will be considered.
 -   `--include-hidden`: Include hidden files and folders (those starting with a dot). By default, hidden files are ignored.
 -   `--no-tokens`: Do not count tokens in the combined output file.
+-   `--header-width <width>`: Specify the width of the separator lines in the combined file header (default: 80).
 
 ### Examples
 
