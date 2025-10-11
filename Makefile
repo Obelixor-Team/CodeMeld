@@ -11,6 +11,7 @@ help:
 	@echo "  all        Run format, lint, and check."
 
 install:
+	.venv/bin/pip install -r requirements.txt
 	.venv/bin/pip install -r requirements-dev.txt
 
 format:
