@@ -5,6 +5,8 @@ from src.code_combiner import (
     scan_and_combine_code_files,
 )
 import os
+import tiktoken
+import re
 
 
 # Fixture for a temporary directory structure
@@ -274,6 +276,80 @@ def test_scan_and_combine_code_files_header_width(temp_project_dir):
 
     assert f"\n{'='*custom_width}\n" in content
 
+def test_token_counting_accuracy(tmp_path, capsys):
+    # Create a dummy file
+    file_content = "This is a test sentence for token counting."
+    (tmp_path / "test_file.txt").write_text(file_content)
+
+    output_file = tmp_path / "combined.txt"
+
+    scan_and_combine_code_files(
+        tmp_path,
+        str(output_file),
+        extensions=[".txt"],
+        exclude_extensions=[],
+        count_tokens=True,
+    )
+
+    captured = capsys.readouterr()
+
+    # Manually calculate expected tokens
+    encoding = tiktoken.get_encoding("cl100k_base")
+    expected_tokens = len(encoding.encode(file_content))
+
+    import re
+    match = re.search(r"Total tokens in combined content: (\d+)", captured.out)
+    assert match is not None
+    actual_tokens = int(match.group(1))
+    assert actual_tokens == expected_tokens
+
+import json
+
+def test_scan_and_combine_code_files_json_format(temp_project_dir):
+    output_file = temp_project_dir / "combined.json"
+    scan_and_combine_code_files(
+        temp_project_dir,
+        str(output_file),
+        extensions=[".py", ".js"],
+        exclude_extensions=[],
+        format="json",
+        final_output_format="json", # Added this line
+    )
+    assert output_file.is_file()
+    content = output_file.read_text()
+    json_data = json.loads(content)
+
+    assert "file1.py" in json_data
+    assert "print('hello')" in json_data["file1.py"]
+    assert "file2.js" in json_data
+    assert "console.log('world')" in json_data["file2.js"]
+    assert "subdir/file3.py" in json_data
+    assert "x = 1" in json_data["subdir/file3.py"]
+    assert "ignored_file.txt" not in json_data
+
+def test_scan_and_combine_code_files_markdown_format(temp_project_dir):
+    output_file = temp_project_dir / "combined.md"
+    scan_and_combine_code_files(
+        temp_project_dir,
+        str(output_file),
+        extensions=[".py", ".js"],
+        exclude_extensions=[],
+        format="markdown",
+    )
+    assert output_file.is_file()
+    content = output_file.read_text()
+
+    assert "## FILE: file1.py" in content
+    assert "```py" in content
+    assert "print('hello')" in content
+    assert "## FILE: file2.js" in content
+    assert "```js" in content
+    assert "console.log('world')" in content
+    assert "## FILE: subdir/file3.py" in content
+    assert "```py" in content
+    assert "x = 1" in content
+    assert "ignored_file.txt" not in content
+
 
 def test_scan_and_combine_code_files_config_file_and_override(temp_project_dir):
 
@@ -345,3 +421,37 @@ header_width = 30
     assert "console.log('world')" in content_2
 
     assert f"\n{'='*30}\n" in content_2
+
+def test_convert_to_text_xml_to_text(temp_project_dir):
+    output_file = temp_project_dir / "combined.xml"
+    scan_and_combine_code_files(
+        temp_project_dir,
+        str(output_file),
+        extensions=[".py", ".js"],
+        exclude_extensions=[],
+        format="xml",
+    )
+    assert output_file.is_file()
+    xml_content = output_file.read_text()
+
+    text_output_file = temp_project_dir / "combined.txt"
+    scan_and_combine_code_files(
+        temp_project_dir,
+        str(text_output_file),
+        extensions=[".py", ".js"],
+        exclude_extensions=[],
+        format="xml",
+        final_output_format="text",
+    )
+    assert text_output_file.is_file()
+    text_content = text_output_file.read_text()
+
+    assert "FILE: file1.py" in text_content
+    assert "print('hello')" in text_content
+    assert "FILE: file2.js" in text_content
+    assert "console.log('world')" in text_content
+    assert "FILE: subdir/file3.py" in text_content
+    assert "x = 1" in text_content
+    assert "<file>" not in text_content
+    assert "<path>" not in text_content
+    assert "<content>" not in text_content

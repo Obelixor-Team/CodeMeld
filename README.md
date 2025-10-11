@@ -28,6 +28,7 @@ A Python script to scan a specified directory, identify code files based on thei
 -   `black`: For code formatting.
 -   `ruff`: For linting.
 -   `mypy`: For static type checking.
+-   `radon`: For calculating code complexity metrics.
 
 ## Installation
 
@@ -68,6 +69,7 @@ A Python script to scan a specified directory, identify code files based on thei
 -   `-e, --extensions <ext1> <ext2> ...`: Custom file extensions to include (space-separated, e.g., `.py .js .ts`). Extensions must start with a dot.
 -   `--exclude <ext1> <ext2> ...`: Custom file extensions to exclude (space-separated, e.g., `.txt .md`). Exclusions take precedence over inclusions.
 -   `--format <format>`: Output format (`text`, `markdown`, `json`, `xml`). Default is `text`.
+-   `--convert-to <format>`: Convert XML/JSON output to `text` or `markdown` format. This option is only applicable when `--format` is `json` or `xml`.
 -   `--no-gitignore`: Do not respect the `.gitignore` file. All files not explicitly excluded by other means will be considered.
 -   `--include-hidden`: Include hidden files and folders (those starting with a dot). By default, hidden files are ignored.
 -   `--no-tokens`: Do not count tokens in the combined output file.
@@ -123,6 +125,24 @@ The primary goal of this script is to generate a single file that can be easily 
 -   **Text Format (`--format text`)**: This is the default and recommended format for most LLMs. It produces a clean, readable output that is easy to copy and paste.
 -   **Markdown Format (`--format markdown`)**: This format is useful when you want to preserve the file structure and code formatting in a more structured way. Most LLMs render Markdown correctly.
 -   **JSON and XML Formats (`--format json` or `--format xml`)**: These formats are less common for direct use with LLMs but can be useful for programmatic analysis or if the LLM has specific input requirements.
+
+## Troubleshooting
+
+### `ModuleNotFoundError: No module named 'src'` when running tests
+
+If you encounter this error when running `pytest`, it means Python cannot find the `src` module. To fix this, you need to add the project's root directory to your `PYTHONPATH` environment variable.
+
+You can do this by running `pytest` with the following command:
+
+```bash
+PYTHONPATH=$(pwd) pytest
+```
+
+Or, if you are using the virtual environment directly:
+
+```bash
+PYTHONPATH=$(pwd) .venv/bin/pytest
+```
 
 ## Development
 

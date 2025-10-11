@@ -4,7 +4,8 @@ import json
 import os
 import toml
 import xml.etree.ElementTree as ET
-from typing import TYPE_CHECKING
+import xml.dom.minidom
+from typing import TYPE_CHECKING, Any
 
 import pathspec
 
@@ -19,13 +20,13 @@ except ImportError:
     print("Warning: tiktoken not found. Token counting will be skipped.")
 
 
-def load_config_from_pyproject(root_path: Path) -> dict:
+def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
     """Load configuration from pyproject.toml if available."""
-    config = {}
+    config: dict[str, Any] = {}
     pyproject_path = root_path / "pyproject.toml"
     if pyproject_path.is_file():
         try:
-            pyproject_data = toml.load(pyproject_path)
+            pyproject_data: dict[str, Any] = toml.load(pyproject_path)
             if "tool" in pyproject_data and "code_combiner" in pyproject_data["tool"]:
                 config = pyproject_data["tool"]["code_combiner"]
         except Exception as e:
@@ -37,7 +38,7 @@ def is_code_file(
     filename: str, extensions: list[str], exclude_extensions: list[str]
 ) -> bool:
     """Check if file has a code extension"""
-    suffix = Path(filename).suffix.lower()
+    suffix: str = Path(filename).suffix.lower()
     if suffix in exclude_extensions:
         return False
     return suffix in extensions
@@ -63,8 +64,8 @@ def should_process_file(
     if not is_code_file(file_path.name, extensions, exclude_extensions):
         return False
 
-    relative_path = file_path.relative_to(root_path)
-    is_hidden = any(part.startswith(".") for part in relative_path.parts)
+    relative_path: Path = file_path.relative_to(root_path)
+    is_hidden: bool = any(part.startswith(".") for part in relative_path.parts)
 
     # If --no-gitignore is present, we skip all gitignore and hidden file filtering
     if not use_gitignore:
@@ -86,9 +87,9 @@ def should_process_file(
 
 def get_gitignore_spec(root_path: Path) -> pathspec.PathSpec | None:
     """Get the pathspec from the .gitignore file"""
-    current_path = root_path.resolve()
+    current_path: Path = root_path.resolve()
     while current_path != current_path.parent:
-        gitignore_path = current_path / ".gitignore"
+        gitignore_path: Path = current_path / ".gitignore"
         if gitignore_path.is_file():
             with open(gitignore_path, "r", encoding="utf-8") as f:
                 return pathspec.PathSpec.from_lines("gitwildmatch", f)
@@ -101,61 +102,74 @@ def generate_output(
     root_path: Path,
     format: str,
     header_width: int,
-) -> str:
-    output_content = ""
+) -> tuple[str, str]: # Returns formatted_content, raw_content
+    output_content: str = ""
+    relative_path: Path # Declare relative_path here
+    raw_combined_content: str = ""
     if format == "json":
-        json_data = {}
+        json_data: dict[str, str] = {}
+        raw_content_parts: list[str] = [] # New
         for file_path in files_to_process:
             relative_path = file_path.relative_to(root_path)
             try:
                 with open(file_path, "r", encoding="utf-8") as infile:
-                    content = infile.read()
+                    content: str = infile.read()
                 json_data[str(relative_path)] = content
+                raw_content_parts.append(content) # New
                 print(f"Processed: {relative_path}")
             except UnicodeDecodeError:
                 print(f"Skipping binary file: {relative_path}")
             except Exception as e:
                 print(f"Error reading file {relative_path}: {e}")
         output_content = json.dumps(json_data, indent=4)
+        raw_combined_content = "".join(raw_content_parts) # New
 
     elif format == "xml":
-        root_element = ET.Element("codebase")
+        root_element: ET.Element = ET.Element("codebase")
+        raw_content_parts: list[str] = [] # New
         for file_path in files_to_process:
             relative_path = file_path.relative_to(root_path)
             try:
                 with open(file_path, "r", encoding="utf-8") as infile:
                     content = infile.read()
-                file_element = ET.SubElement(root_element, "file")
-                path_element = ET.SubElement(file_element, "path")
+                file_element: ET.Element = ET.SubElement(root_element, "file")
+                path_element: ET.Element = ET.SubElement(file_element, "path")
                 path_element.text = str(relative_path)
-                content_element = ET.SubElement(file_element, "content")
+                content_element: ET.Element = ET.SubElement(file_element, "content")
                 content_element.text = content
+                raw_content_parts.append(content) # New
                 print(f"Processed: {relative_path}")
             except UnicodeDecodeError:
                 print(f"Skipping binary file: {relative_path}")
             except Exception as e:
                 print(f"Error reading file {relative_path}: {e}")
-        output_content = ET.tostring(root_element, encoding="unicode")
+        # Use minidom for pretty printing XML
+        rough_string: bytes = ET.tostring(root_element, "utf-8")
+        reparsed = xml.dom.minidom.parseString(rough_string)
+        output_content = reparsed.toprettyxml(indent="    ")
+        raw_combined_content = "".join(raw_content_parts) # New
 
     else:  # text or markdown
-        combined_content = ""
+        formatted_content_parts: list[str] = [] # To build the formatted output
+        raw_content_parts: list[str] = [] # To build the raw content
         for file_path in files_to_process:
             relative_path = file_path.relative_to(root_path)
             try:
                 with open(file_path, "r", encoding="utf-8") as infile:
                     content = infile.read()
+                raw_content_parts.append(content) # Append raw content
 
                 if format == "markdown":
-                    lang = relative_path.suffix.lstrip(".")
-                    combined_content += (
+                    lang: str = relative_path.suffix.lstrip(".")
+                    formatted_content_parts.append(
                         f"## FILE: {relative_path}\n\n```{lang}\n{content}\n```\n\n"
                     )
                 else:  # text
-                    combined_content += f"\n{'='*header_width}\n"
-                    combined_content += f"FILE: {relative_path}\n"
-                    combined_content += f"{'='*header_width}\n\n"
-                    combined_content += content
-                    combined_content += "\n\n"
+                    formatted_content_parts.append(f"\n{'='*header_width}\n")
+                    formatted_content_parts.append(f"FILE: {relative_path}\n")
+                    formatted_content_parts.append(f"{'='*header_width}\n\n")
+                    formatted_content_parts.append(content)
+                    formatted_content_parts.append("\n\n")
 
                 print(f"Processed: {relative_path}")
 
@@ -163,8 +177,9 @@ def generate_output(
                 print(f"Skipping binary file: {relative_path}")
             except Exception as e:
                 print(f"Error reading file {relative_path}: {e}")
-        output_content = combined_content
-    return output_content
+        output_content = "".join(formatted_content_parts)
+        raw_combined_content = "".join(raw_content_parts) # Assigned here
+    return output_content, raw_combined_content
 
 
 def write_output(output_path: Path, output_content: str):
@@ -174,6 +189,41 @@ def write_output(output_path: Path, output_content: str):
         print(f"\nAll code files have been combined into: {output_path}")
     except Exception as e:
         print(f"Error creating or writing to output file {output_path}: {e}")
+
+def convert_to_text(content: str, input_format: str, header_width: int) -> str:
+    """Converts XML or JSON content to a human-readable text/markdown format."""
+    if input_format == "xml":
+        try:
+            root: ET.Element = ET.fromstring(content)
+            text_output: list[str] = []
+            for file_element in root.findall("file"):
+                path_element: ET.Element | None = file_element.find("path")
+                content_element: ET.Element | None = file_element.find("content")
+                if path_element is not None and content_element is not None:
+                    file_path: str = path_element.text if path_element.text else "N/A"
+                    file_content: str = content_element.text if content_element.text else ""
+                    text_output.append(f"{'=' * header_width}")
+                    text_output.append(f"FILE: {file_path}")
+                    text_output.append(f"{'=' * header_width}\n")
+                    text_output.append(file_content)
+                    text_output.append("\n\n")
+            return "".join(text_output)
+        except ET.ParseError:
+            return f"Error: Could not parse XML content.\n{content}"
+    elif input_format == "json":
+        try:
+            json_data: dict[str, str] = json.loads(content)
+            text_output = []
+            for file_path, file_content in json_data.items():
+                text_output.append(f"{'=' * header_width}")
+                text_output.append(f"FILE: {file_path}")
+                text_output.append(f"{'=' * header_width}\n")
+                text_output.append(file_content)
+                text_output.append("\n\n")
+            return "".join(text_output)
+        except json.JSONDecodeError:
+            return f"Error: Could not parse JSON content.\n{content}"
+    return content # Return original content if not XML or JSON
 
 
 def scan_and_combine_code_files(
@@ -186,17 +236,18 @@ def scan_and_combine_code_files(
     count_tokens: bool = True,
     header_width: int = 80,
     format: str = "text",
+    final_output_format: str = "text",
 ):
     """Scan directory and combine code files into one output file"""
 
-    root_path = Path(root_dir)
-    output_path = Path(output_file)
+    root_path: Path = Path(root_dir)
+    output_path: Path = Path(output_file)
 
     if not root_path.is_dir():
         print(f"Error: Directory '{root_path}' does not exist.")
         return
 
-    output_dir = output_path.parent
+    output_dir: Path = output_path.parent
     if not output_dir.is_dir():
         print(f"Error: Output directory '{output_dir}' does not exist.")
         return
@@ -205,7 +256,7 @@ def scan_and_combine_code_files(
         return
 
     # Validate and normalize extensions and exclude_extensions
-    normalized_extensions = []
+    normalized_extensions: list[str] = []
     for ext in extensions:
         if not ext.startswith("."):
             print(
@@ -215,7 +266,7 @@ def scan_and_combine_code_files(
         normalized_extensions.append(ext.lower())
     extensions = normalized_extensions
 
-    normalized_exclude_extensions = []
+    normalized_exclude_extensions: list[str] = []
     for ext in exclude_extensions:
         if not ext.startswith("."):
             print(
@@ -225,12 +276,12 @@ def scan_and_combine_code_files(
         normalized_exclude_extensions.append(ext.lower())
     exclude_extensions = normalized_exclude_extensions
 
-    spec = None
+    spec: pathspec.PathSpec | None = None
     if use_gitignore:
         spec = get_gitignore_spec(root_path)
 
-    all_files = root_path.rglob("*")
-    files_to_process = []
+    all_files: list[Path] = list(root_path.rglob("*"))
+    files_to_process: list[Path] = []
 
     for file_path in all_files:
         if should_process_file(
@@ -245,13 +296,19 @@ def scan_and_combine_code_files(
         ):
             files_to_process.append(file_path)
 
-    output_content = generate_output(files_to_process, root_path, format, header_width)
+    formatted_output_content, raw_combined_content = generate_output(files_to_process, root_path, format, header_width)
+
+    # Convert to text/markdown if original format was XML/JSON and final output is text/markdown
+    if format in ["json", "xml"] and final_output_format in ["text", "markdown"]:
+        output_content = convert_to_text(formatted_output_content, format, header_width)
+    else:
+        output_content = formatted_output_content
 
     # Count tokens before writing to file
     if count_tokens and tiktoken is not None:
         try:
             encoding = tiktoken.get_encoding("cl100k_base")
-            tokens = encoding.encode(output_content)
+            tokens: list[int] = encoding.encode(raw_combined_content) # Use raw_combined_content
             print(f"Total tokens in combined content: {len(tokens)}")
         except ValueError as e:
             print(f"Error counting tokens: {e}")
@@ -261,7 +318,7 @@ def scan_and_combine_code_files(
     write_output(output_path, output_content)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Combine code files from a directory into a single file."
     )
@@ -310,18 +367,23 @@ def main():
         choices=["text", "markdown", "json", "xml"],
         help="Output format (text, markdown, json, xml). Default is text.",
     )
+    parser.add_argument(
+        "--convert-to",
+        choices=["text", "markdown"],
+        help="Convert XML/JSON output to text or markdown format.",
+    )
 
     args = parser.parse_args()
-    directory_path = Path(args.directory)
+    directory_path: Path = Path(args.directory)
 
     if not directory_path.is_dir():
         print(f"Error: Directory '{args.directory}' does not exist.")
         return
 
-    config = load_config_from_pyproject(directory_path)
+    config: dict[str, Any] = load_config_from_pyproject(directory_path)
 
     # Initialize parameters with config values, then override with command-line arguments
-    default_extensions = [
+    default_extensions: list[str] = [
         ".py",
         ".js",
         ".java",
@@ -349,18 +411,18 @@ def main():
         ".txt",
     ]
 
-    final_extensions = config.get("extensions", default_extensions)
+    final_extensions: list[str] = config.get("extensions", default_extensions)
     if args.extensions is not None:
         final_extensions = args.extensions
 
-    final_exclude_extensions = config.get("exclude_extensions", [])
+    final_exclude_extensions: list[str] = config.get("exclude_extensions", [])
     if args.exclude is not None:
         final_exclude_extensions = args.exclude
 
-    final_use_gitignore = config.get("use_gitignore", True)
-    final_include_hidden = config.get("include_hidden", False)
-    final_count_tokens = config.get("count_tokens", True)
-    final_header_width = config.get("header_width", 80)
+    final_use_gitignore: bool = config.get("use_gitignore", True)
+    final_include_hidden: bool = config.get("include_hidden", False)
+    final_count_tokens: bool = config.get("count_tokens", True)
+    final_header_width: int = config.get("header_width", 80)
 
     # Boolean flags: if present on command line, they override config
     if args.no_gitignore:
@@ -385,9 +447,11 @@ def main():
     elif "header_width" in config:
         final_header_width = config["header_width"]
 
-    final_format = config.get("format", "text")
+    final_format: str = config.get("format", "text")
     if args.format != "text":
         final_format = args.format
+
+    final_convert_to: str = args.convert_to if args.convert_to is not None else final_format
 
     scan_and_combine_code_files(
         directory_path,
@@ -399,8 +463,5 @@ def main():
         final_count_tokens,
         final_header_width,
         final_format,
+        final_convert_to,
     )
-
-
-if __name__ == "__main__":
-    main()
