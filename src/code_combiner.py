@@ -2,14 +2,65 @@ from pathlib import Path
 import argparse
 import tiktoken
 import pathspec
+import os
+
+try:
+    import tiktoken
+except ImportError:
+    tiktoken = None
+    print("Warning: tiktoken not found. Token counting will be skipped.")
 
 
-def is_code_file(filename, extensions):
+def is_code_file(filename: str, extensions: list[str], exclude_extensions: list[str]) -> bool:
     """Check if file has a code extension"""
-    return Path(filename).suffix.lower() in extensions
+    suffix = Path(filename).suffix.lower()
+    if suffix in exclude_extensions:
+        return False
+    return suffix in extensions
 
 
-def get_gitignore_spec(root_path):
+def should_process_file(
+    file_path: Path,
+    root_path: Path,
+    output_path: Path,
+    spec: pathspec.PathSpec | None,
+    extensions: list[str],
+    exclude_extensions: list[str],
+    use_gitignore: bool,
+    include_hidden: bool,
+) -> bool:
+    """Determine if a file should be processed based on filtering rules."""
+    if file_path.resolve() == output_path.resolve():
+        return False
+
+    if not file_path.is_file():
+        return False
+
+    if not is_code_file(file_path.name, extensions, exclude_extensions):
+        return False
+
+    relative_path = file_path.relative_to(root_path)
+    is_hidden = any(part.startswith(".") for part in relative_path.parts)
+
+    # If --no-gitignore is present, we skip all gitignore and hidden file filtering
+    if not use_gitignore:
+        return True
+
+    # If --no-gitignore is NOT present, apply filtering rules
+    # Rule 1: Skip if not including hidden files and it is hidden
+    if not include_hidden and is_hidden:
+        return False
+
+    # Rule 2: Skip if respecting gitignore and file is matched by gitignore
+    # This rule is overridden for hidden files if include_hidden is True
+    if spec and spec.match_file(str(relative_path)):
+        if not (include_hidden and is_hidden):
+            return False
+
+    return True
+
+
+def get_gitignore_spec(root_path: Path) -> pathspec.PathSpec | None:
     """Get the pathspec from the .gitignore file"""
     current_path = root_path.resolve()
     while current_path != current_path.parent:
@@ -22,12 +73,31 @@ def get_gitignore_spec(root_path):
 
 
 def scan_and_combine_code_files(
-    root_dir, output_file, extensions=None, use_gitignore=True, include_hidden=False
+    root_dir: Path,
+    output_file: str,
+    extensions: list[str] | None = None,
+    exclude_extensions: list[str] | None = None,
+    use_gitignore: bool = True,
+    include_hidden: bool = False,
+    count_tokens: bool = True,
 ):
     """Scan directory and combine code files into one output file"""
 
     root_path = Path(root_dir)
     output_path = Path(output_file)
+
+    if not root_path.is_dir():
+        print(f"Error: Directory '{root_path}' does not exist.")
+        return
+
+    output_dir = output_path.parent
+    if not output_dir.is_dir():
+        print(f"Error: Output directory '{output_dir}' does not exist.")
+        return
+    if not os.access(output_dir, os.W_OK):
+        print(f"Error: No write permissions for output directory '{output_dir}'.")
+        return
+
     spec = None
     if use_gitignore:
         spec = get_gitignore_spec(root_path)
@@ -61,82 +131,88 @@ def scan_and_combine_code_files(
             ".md",
             ".txt",
         ]
+    else:
+        validated_extensions = []
+        for ext in extensions:
+            if not ext.startswith("."):
+                print(f"Error: Custom extension '{ext}' must start with a dot (e.g., '.{ext}').")
+                return
+            validated_extensions.append(ext.lower())
+        extensions = validated_extensions
+
+    # Normalize exclude extensions
+    if exclude_extensions is None:
+        exclude_extensions = []
+    else:
+        normalized_exclude_extensions = []
+        for ext in exclude_extensions:
+            if not ext.startswith("."):
+                print(f"Error: Exclude extension '{ext}' must start with a dot (e.g., '.{ext}').")
+                return
+            normalized_exclude_extensions.append(ext.lower())
+        exclude_extensions = normalized_exclude_extensions
 
     try:
-        with open(output_path, "w", encoding="utf-8") as outfile:
-            all_files = root_path.rglob("*")
-            files_to_process = []
+        combined_content = ""
+        all_files = root_path.rglob("*")
+        files_to_process = []
 
-            for file_path in all_files:
-                if file_path.resolve() == output_path.resolve():
-                    continue
-
-                if not file_path.is_file():
-                    continue
-
-                if not is_code_file(file_path.name, extensions):
-                    continue
-
-                relative_path = file_path.relative_to(root_path)
-                is_hidden = any(part.startswith(".") for part in relative_path.parts)
-
-                # If --no-gitignore is present, we skip all gitignore and hidden file filtering
-                if not use_gitignore:
-                    files_to_process.append(file_path)
-                    continue
-
-                # If --no-gitignore is NOT present, apply filtering rules
-                # Rule 1: Skip if not including hidden files and it is hidden
-                if not include_hidden and is_hidden:
-                    continue
-
-                # Rule 2: Skip if respecting gitignore and file is matched by gitignore
-                # This rule is overridden for hidden files if include_hidden is True
-                if spec and spec.match_file(str(relative_path)):
-                    if not (include_hidden and is_hidden):
-                        continue
-
+        for file_path in all_files:
+            if should_process_file(
+                file_path,
+                root_path,
+                output_path,
+                spec,
+                extensions,
+                exclude_extensions,
+                use_gitignore,
+                include_hidden,
+            ):
                 files_to_process.append(file_path)
 
-            for file_path in files_to_process:
-                relative_path = file_path.relative_to(root_path)
+        for file_path in files_to_process:
+            relative_path = file_path.relative_to(root_path)
 
-                try:
-                    with open(file_path, "r", encoding="utf-8") as infile:
-                        content = infile.read()
+            try:
+                with open(file_path, "r", encoding="utf-8") as infile:
+                    content = infile.read()
 
-                    # Write file header
-                    outfile.write(f"\n{'='*80}\n")
-                    outfile.write(f"FILE: {relative_path}\n")
-                    outfile.write(f"{'='*80}\n\n")
+                # Write file header
+                combined_content += f"\n{'='*80}\n"
+                combined_content += f"FILE: {relative_path}\n"
+                combined_content += f"{'='*80}\n\n"
 
-                    # Write file content
-                    outfile.write(content)
+                # Write file content
+                combined_content += content
 
-                    # Add some spacing between files
-                    outfile.write("\n\n")
+                # Add some spacing between files
+                combined_content += "\n\n"
 
-                    print(f"Processed: {relative_path}")
+                print(f"Processed: {relative_path}")
 
-                except UnicodeDecodeError:
-                    print(f"Skipping binary file: {relative_path}")
-                except Exception as e:
-                    print(f"Error reading {relative_path}: {e}")
+            except UnicodeDecodeError:
+                print(f"Skipping binary file: {relative_path}")
+            except Exception as e:
+                print(f"Error reading file {relative_path}: {e}")
+
+        with open(output_path, "w", encoding="utf-8") as outfile:
+            outfile.write(combined_content)
 
         print(f"\nAll code files have been combined into: {output_path}")
 
         # Count tokens in the output file
-        try:
-            with open(output_path, "r", encoding="utf-8") as f:
-                content = f.read()
+        if count_tokens and tiktoken:
+            try:
                 encoding = tiktoken.get_encoding("cl100k_base")
-                tokens = encoding.encode(content)
+                tokens = encoding.encode(combined_content)
                 print(f"Total tokens in combined file: {len(tokens)}")
-        except ValueError as e:
-            print(f"Error counting tokens: {e}")
+            except ValueError as e:
+                print(f"Error counting tokens in combined file: {e}")
+        elif count_tokens and not tiktoken:
+            print("Token counting skipped: 'tiktoken' library not installed.")
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error creating or writing to output file {output_path}: {e}")
 
 
 def main():
@@ -166,6 +242,16 @@ def main():
         action="store_true",
         help="Include hidden files and folders (those starting with a dot).",
     )
+    parser.add_argument(
+        "--exclude",
+        nargs="+",
+        help="Custom file extensions to exclude (space separated, e.g., .txt .md). Exclusions take precedence over inclusions.",
+    )
+    parser.add_argument(
+        "--no-tokens",
+        action="store_true",
+        help="Do not count tokens in the combined output file.",
+    )
 
     args = parser.parse_args()
     directory_path = Path(args.directory)
@@ -178,8 +264,10 @@ def main():
         directory_path,
         args.output,
         args.extensions,
+        args.exclude,
         not args.no_gitignore,
         args.include_hidden,
+        not args.no_tokens,
     )
 
 
