@@ -1,6 +1,7 @@
 from pathlib import Path
 import argparse
 import tiktoken
+import pathspec
 
 
 def is_code_file(filename, extensions):
@@ -8,11 +9,26 @@ def is_code_file(filename, extensions):
     return Path(filename).suffix.lower() in extensions
 
 
-def scan_and_combine_code_files(root_dir, output_file, extensions=None):
+def get_gitignore_spec(root_path):
+    """Get the pathspec from the .gitignore file"""
+    current_path = root_path.resolve()
+    while current_path != current_path.parent:
+        gitignore_path = current_path / ".gitignore"
+        if gitignore_path.is_file():
+            with open(gitignore_path, "r", encoding="utf-8") as f:
+                return pathspec.PathSpec.from_lines("gitwildmatch", f)
+        current_path = current_path.parent
+    return None
+
+
+def scan_and_combine_code_files(
+    root_dir, output_file, extensions=None, use_gitignore=True
+):
     """Scan directory and combine code files into one output file"""
 
     root_path = Path(root_dir)
     output_path = Path(output_file)
+    spec = get_gitignore_spec(root_path) if use_gitignore else None
 
     # Default code file extensions
     if extensions is None:
@@ -47,6 +63,12 @@ def scan_and_combine_code_files(root_dir, output_file, extensions=None):
     try:
         with open(output_path, "w", encoding="utf-8") as outfile:
             for file_path in root_path.rglob("*"):
+                if file_path.resolve() == output_path.resolve():
+                    continue
+
+                if spec and spec.match_file(file_path.relative_to(root_path)):
+                    continue
+
                 if file_path.is_file() and is_code_file(file_path.name, extensions):
                     relative_path = file_path.relative_to(root_path)
 
@@ -75,11 +97,14 @@ def scan_and_combine_code_files(root_dir, output_file, extensions=None):
         print(f"\nAll code files have been combined into: {output_path}")
 
         # Count tokens in the output file
-        with open(output_path, "r", encoding="utf-8") as f:
-            content = f.read()
-            encoding = tiktoken.get_encoding("cl100k_base")
-            tokens = encoding.encode(content)
-            print(f"Total tokens in combined file: {len(tokens)}")
+        try:
+            with open(output_path, "r", encoding="utf-8") as f:
+                content = f.read()
+                encoding = tiktoken.get_encoding("cl100k_base")
+                tokens = encoding.encode(content)
+                print(f"Total tokens in combined file: {len(tokens)}")
+        except ValueError as e:
+            print(f"Error counting tokens: {e}")
 
     except Exception as e:
         print(f"Error: {e}")
@@ -102,6 +127,11 @@ def main():
         nargs="+",
         help="Custom file extensions to include (e.g., .py .js .ts).",
     )
+    parser.add_argument(
+        "--no-gitignore",
+        action="store_true",
+        help="Do not respect the .gitignore file.",
+    )
 
     args = parser.parse_args()
     directory_path = Path(args.directory)
@@ -110,7 +140,9 @@ def main():
         print(f"Error: Directory '{args.directory}' does not exist.")
         return
 
-    scan_and_combine_code_files(directory_path, args.output, args.extensions)
+    scan_and_combine_code_files(
+        directory_path, args.output, args.extensions, not args.no_gitignore
+    )
 
 
 if __name__ == "__main__":

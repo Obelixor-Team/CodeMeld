@@ -125,3 +125,4 @@ cython_debug/
 
 # Output files
 combined_code.txt
+combined.txt
