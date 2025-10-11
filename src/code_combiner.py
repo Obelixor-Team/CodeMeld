@@ -22,13 +22,15 @@ def get_gitignore_spec(root_path):
 
 
 def scan_and_combine_code_files(
-    root_dir, output_file, extensions=None, use_gitignore=True
+    root_dir, output_file, extensions=None, use_gitignore=True, include_hidden=False
 ):
     """Scan directory and combine code files into one output file"""
 
     root_path = Path(root_dir)
     output_path = Path(output_file)
-    spec = get_gitignore_spec(root_path) if use_gitignore else None
+    spec = None
+    if use_gitignore:
+        spec = get_gitignore_spec(root_path)
 
     # Default code file extensions
     if extensions is None:
@@ -62,37 +64,64 @@ def scan_and_combine_code_files(
 
     try:
         with open(output_path, "w", encoding="utf-8") as outfile:
-            for file_path in root_path.rglob("*"):
+            all_files = root_path.rglob("*")
+            files_to_process = []
+
+            for file_path in all_files:
                 if file_path.resolve() == output_path.resolve():
                     continue
 
-                if spec and spec.match_file(file_path.relative_to(root_path)):
+                if not file_path.is_file():
                     continue
 
-                if file_path.is_file() and is_code_file(file_path.name, extensions):
-                    relative_path = file_path.relative_to(root_path)
+                if not is_code_file(file_path.name, extensions):
+                    continue
 
-                    try:
-                        with open(file_path, "r", encoding="utf-8") as infile:
-                            content = infile.read()
+                relative_path = file_path.relative_to(root_path)
+                is_hidden = any(part.startswith(".") for part in relative_path.parts)
 
-                        # Write file header
-                        outfile.write(f"\n{'='*80}\n")
-                        outfile.write(f"FILE: {relative_path}\n")
-                        outfile.write(f"{'='*80}\n\n")
+                # If --no-gitignore is present, we skip all gitignore and hidden file filtering
+                if not use_gitignore:
+                    files_to_process.append(file_path)
+                    continue
 
-                        # Write file content
-                        outfile.write(content)
+                # If --no-gitignore is NOT present, apply filtering rules
+                # Rule 1: Skip if not including hidden files and it is hidden
+                if not include_hidden and is_hidden:
+                    continue
 
-                        # Add some spacing between files
-                        outfile.write("\n\n")
+                # Rule 2: Skip if respecting gitignore and file is matched by gitignore
+                # This rule is overridden for hidden files if include_hidden is True
+                if spec and spec.match_file(str(relative_path)):
+                    if not (include_hidden and is_hidden):
+                        continue
 
-                        print(f"Processed: {relative_path}")
+                files_to_process.append(file_path)
 
-                    except UnicodeDecodeError:
-                        print(f"Skipping binary file: {relative_path}")
-                    except Exception as e:
-                        print(f"Error reading {relative_path}: {e}")
+            for file_path in files_to_process:
+                relative_path = file_path.relative_to(root_path)
+
+                try:
+                    with open(file_path, "r", encoding="utf-8") as infile:
+                        content = infile.read()
+
+                    # Write file header
+                    outfile.write(f"\n{'='*80}\n")
+                    outfile.write(f"FILE: {relative_path}\n")
+                    outfile.write(f"{'='*80}\n\n")
+
+                    # Write file content
+                    outfile.write(content)
+
+                    # Add some spacing between files
+                    outfile.write("\n\n")
+
+                    print(f"Processed: {relative_path}")
+
+                except UnicodeDecodeError:
+                    print(f"Skipping binary file: {relative_path}")
+                except Exception as e:
+                    print(f"Error reading {relative_path}: {e}")
 
         print(f"\nAll code files have been combined into: {output_path}")
 
@@ -132,6 +161,11 @@ def main():
         action="store_true",
         help="Do not respect the .gitignore file.",
     )
+    parser.add_argument(
+        "--include-hidden",
+        action="store_true",
+        help="Include hidden files and folders (those starting with a dot).",
+    )
 
     args = parser.parse_args()
     directory_path = Path(args.directory)
@@ -141,7 +175,11 @@ def main():
         return
 
     scan_and_combine_code_files(
-        directory_path, args.output, args.extensions, not args.no_gitignore
+        directory_path,
+        args.output,
+        args.extensions,
+        not args.no_gitignore,
+        args.include_hidden,
     )
 
 
