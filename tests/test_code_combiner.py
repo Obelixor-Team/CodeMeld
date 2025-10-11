@@ -95,6 +95,7 @@ def test_scan_and_combine_code_files_no_gitignore(temp_project_dir):
         extensions=[ ".py", ".js", ".txt"],
         exclude_extensions=[],
         use_gitignore=False,
+        include_hidden=True,
     )
 
     assert output_file.is_file()
@@ -134,7 +135,7 @@ def test_scan_and_combine_code_files_include_hidden(temp_project_dir):
 
     content = output_file.read_text()
 
-    # Should include hidden files, but still respect .gitignore for non-hidden files
+    # Should not include hidden files that are in .gitignore
 
     assert "print('hello')" in content
 
@@ -142,11 +143,11 @@ def test_scan_and_combine_code_files_include_hidden(temp_project_dir):
 
     assert "ignored content" not in content  # Still ignored by .gitignore
 
-    assert "hidden content" in content  # .hidden_file.txt
+    assert "hidden content" not in content  # .hidden_file.txt
 
     assert "x = 1" in content
 
-    assert "import os" in content  # hidden_file_in_dir.py
+    assert "import os" not in content  # .hidden_dir is ignored by .gitignore
 
     assert "node module" not in content  # Still ignored by .gitignore
 

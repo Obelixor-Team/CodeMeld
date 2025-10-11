@@ -67,22 +67,13 @@ def should_process_file(
         return False
 
     relative_path: Path = file_path.relative_to(root_path)
-    is_hidden: bool = any(part.startswith(".") for part in relative_path.parts)
 
-    # If --no-gitignore is present, we skip all gitignore and hidden file filtering
-    if not use_gitignore:
-        return True
-
-    # If --no-gitignore is NOT present, apply filtering rules
-    # Rule 1: Skip if not including hidden files and it is hidden
-    if not include_hidden and is_hidden:
+    if use_gitignore and spec and spec.match_file(str(relative_path)):
         return False
 
-    # Rule 2: Skip if respecting gitignore and file is matched by gitignore
-    # This rule is overridden for hidden files if include_hidden is True
-    if spec and spec.match_file(str(relative_path)):
-        if not (include_hidden and is_hidden):
-            return False
+    is_hidden: bool = any(part.startswith(".") for part in relative_path.parts)
+    if not include_hidden and is_hidden:
+        return False
 
     return True
 
