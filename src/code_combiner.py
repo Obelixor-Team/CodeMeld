@@ -56,7 +56,7 @@ def scan_and_combine_code_files(root_dir, output_file, extensions=None):
                         # Write file header
                         outfile.write(f"\n{'='*80}\n")
                         outfile.write(f"FILE: {relative_path}\n")
-                        outfile.write(f"{'='*80}\n\n")
+                        outfile.write(f"{ '='*80}\n\n")
 
                         # Write file content
                         outfile.write(content)
