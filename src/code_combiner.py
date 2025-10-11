@@ -35,7 +35,9 @@ def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
 
 
 def is_code_file(
-    filename: str, extensions: list[str], exclude_extensions: list[str]
+    filename: str,
+    extensions: list[str],
+    exclude_extensions: list[str],
 ) -> bool:
     """Check if file has a code extension"""
     suffix: str = Path(filename).suffix.lower()
@@ -165,7 +167,7 @@ def generate_output(
                 else:  # text
                     formatted_content_parts.append(f"\n{'='*header_width}\n")
                     formatted_content_parts.append(f"FILE: {relative_path}\n")
-                    formatted_content_parts.append(f"{'='*header_width}\n\n")
+                    formatted_content_parts.append(f"{ '='*header_width}\n\n")
                     formatted_content_parts.append(content)
                     formatted_content_parts.append("\n\n")
 
@@ -203,9 +205,9 @@ def convert_to_text(content: str, input_format: str, header_width: int) -> str:
                     file_content: str = (
                         content_element.text if content_element.text else ""
                     )
-                    text_output.append(f"{'=' * header_width}")
+                    text_output.append(f"{ '=' * header_width}")
                     text_output.append(f"FILE: {file_path}")
-                    text_output.append(f"{'=' * header_width}\n")
+                    text_output.append(f"{ '=' * header_width}\n")
                     text_output.append(file_content)
                     text_output.append("\n\n")
             return "".join(text_output)
@@ -216,9 +218,9 @@ def convert_to_text(content: str, input_format: str, header_width: int) -> str:
             json_data: dict[str, str] = json.loads(content)
             text_output = []
             for file_path, file_content in json_data.items():
-                text_output.append(f"{'=' * header_width}")
+                text_output.append(f"{ '=' * header_width}")
                 text_output.append(f"FILE: {file_path}")
-                text_output.append(f"{'=' * header_width}\n")
+                text_output.append(f"{ '=' * header_width}\n")
                 text_output.append(file_content)
                 text_output.append("\n\n")
             return "".join(text_output)
@@ -479,3 +481,7 @@ def main() -> None:
         final_format,
         final_convert_to,
     )
+
+
+if __name__ == "__main__":
+    main()
