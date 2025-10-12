@@ -329,6 +329,35 @@ def convert_to_text(
     return content  # Return original content if not XML or JSON
 
 
+def _collect_files(
+    root_path: Path,
+    output_path: Path,
+    spec: pathspec.PathSpec | None,
+    processed_extensions: list[str],
+    processed_exclude_extensions: list[str],
+    use_gitignore: bool,
+    include_hidden: bool,
+) -> list[Path]:
+    """Collect files to be processed based on filtering rules."""
+    all_files: list[Path] = list(root_path.rglob("*"))
+    files_to_process: list[Path] = []
+
+    for file_path in tqdm(all_files, desc="Scanning files"):
+        if should_process_file(
+            file_path,
+            root_path,
+            output_path,
+            spec,
+            processed_extensions,
+            processed_exclude_extensions,
+            use_gitignore,
+            include_hidden,
+        ):
+            files_to_process.append(file_path)
+            tqdm.write(f"Selected: {file_path.relative_to(root_path)}")
+    return files_to_process
+
+
 def scan_and_combine_code_files(
     root_dir: Path,
     output_file: str,
@@ -387,21 +416,15 @@ def scan_and_combine_code_files(
     if use_gitignore:
         spec = get_gitignore_spec(root_path)
 
-    all_files: list[Path] = list(root_path.rglob("*"))
-    files_to_process: list[Path] = []
-
-    for file_path in all_files:
-        if should_process_file(
-            file_path,
-            root_path,
-            output_path,
-            spec,
-            processed_extensions,
-            processed_exclude_extensions,
-            use_gitignore,
-            include_hidden,
-        ):
-            files_to_process.append(file_path)
+    files_to_process = _collect_files(
+        root_path,
+        output_path,
+        spec,
+        processed_extensions,
+        processed_exclude_extensions,
+        use_gitignore,
+        include_hidden,
+    )
 
     formatted_output_content, raw_combined_content = generate_output(
         files_to_process, root_path, format, header_width
