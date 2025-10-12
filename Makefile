@@ -8,7 +8,8 @@ help:
 	@echo "  format     Format the code using black."
 	@echo "  lint       Lint the code using ruff."
 	@echo "  check      Run static type checking with mypy."
-	@echo "  all        Run format, lint, and check."
+	@echo "  test       Run tests using pytest."
+	@echo "  all        Run format, lint, check, and test."
 
 install:
 	.venv/bin/pip install -r requirements.txt
