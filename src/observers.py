@@ -43,7 +43,17 @@ class Publisher:
             pass
 
     def notify(self, event: str, data: Any) -> None:
-        """Notify all subscribed observers of an event."""
+        """
+        Notify all subscribed observers of an event.
+
+        Args:
+            event: The event type (e.g., 'file_processed', 'processing_complete')
+            data: Event-specific data to pass to observers
+
+        Note:
+            Failed observers are logged but don't stop other observers.
+
+        """
         for observer in self.observers[:]:  # Copy list to allow modifications
             try:
                 observer.update(event, data)

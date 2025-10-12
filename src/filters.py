@@ -122,11 +122,21 @@ class SymlinkFilter(FileFilter):
 
 
 class FilterChainBuilder:
-    """Build the filter chain."""
+    """Builder for constructing file filter chains."""
 
     @staticmethod
     def build(config: CombinerConfig, spec: pathspec.PathSpec | None) -> FileFilter:
-        """Build the filter chain based on the configuration."""
+        """
+        Build a filter chain based on configuration.
+
+        Args:
+            config: The combiner configuration
+            spec: Optional gitignore PathSpec for filtering
+
+        Returns:
+            The head of the filter chain
+
+        """
         output_path = Path(config.output)
         if not output_path.is_absolute():
             output_path = (config.directory_path / output_path).resolve()

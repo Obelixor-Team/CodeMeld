@@ -154,6 +154,39 @@ The primary goal of this script is to generate a single file that can be easily 
 -   **Markdown Format (`--format markdown`)**: This format is useful when you want to preserve the file structure and code formatting in a more structured way. Most LLMs render Markdown correctly. When converting from `json` or `xml` format, using `--convert-to markdown` will also generate a structured Markdown output suitable for LLMs.
 -   **JSON and XML Formats (`--format json` or `--format xml`)**: These formats are less common for direct use with LLMs but can be useful for programmatic analysis or if the LLM has specific input requirements.
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     CodeCombiner                         │
+│  (Orchestrates the entire process)                       │
+└─────────────────────┬───────────────────────────────────┘
+                      │
+        ┌─────────────┼─────────────┐
+        │             │             │
+        ▼             ▼             ▼
+  ┌──────────┐  ┌──────────┐  ┌──────────┐
+  │ Filters  │  │Formatters│  │Generators│
+  │ (Chain)  │  │(Strategy)│  │(Template)│
+  └──────────┘  └──────────┘  └──────────┘
+        │             │             │
+        └─────────────┴─────────────┘
+                      │
+                      ▼
+              ┌───────────────┐
+              │   Observers   │
+              │  (Publisher)  │
+              └───────────────┘
+```
+
+**Design Patterns Used:**
+- **Strategy Pattern**: OutputFormatter (text/markdown/json/xml)
+- **Chain of Responsibility**: FileFilter chain
+- **Template Method**: OutputGenerator
+- **Observer Pattern**: Progress/metrics reporting
+- **Builder Pattern**: Configuration assembly
+- **Factory Pattern**: Formatter creation
+
 ## Troubleshooting
 
 ### `ModuleNotFoundError: No module named 'src'` when running tests
