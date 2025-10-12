@@ -217,7 +217,17 @@ class CodeCombiner:
         files = []
         context = {"root_path": self.config.directory_path}
 
+        always_include_paths = [
+            (self.config.directory_path / Path(p)).resolve()
+            for p in self.config.always_include
+        ]
+
         for file_path in self.config.directory_path.rglob("*"):
+            resolved_file_path = file_path.resolve()
+            if resolved_file_path in always_include_paths:
+                files.append(file_path)
+                continue
+
             if file_path.is_file() and self.filter_chain.should_process(
                 file_path, context
             ):
@@ -262,18 +272,3 @@ class CodeCombiner:
             write_output(Path(self.config.output), output, self.config.force)
             if self.config.count_tokens:
                 generator.notify("output_generated", output)
-
-
-def main() -> None:
-    """Parse arguments, load config, and run the code combiner."""
-    try:
-        args = parse_arguments()
-        config = load_and_merge_config(args)
-        run_code_combiner(config)
-    except CodeCombinerError as e:
-        logging.error(f"{e}")
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
