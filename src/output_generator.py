@@ -1,10 +1,13 @@
 """Provides abstract and concrete classes for generating combined code output."""
 
 import json
+import logging
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
+
+import psutil
 
 from .formatters import JSONFormatter, OutputFormatter, XMLFormatter
 from .observers import Publisher
@@ -20,7 +23,7 @@ def read_file_content(file_path: Path) -> str | None:
             return f.read()
     except UnicodeDecodeError:
         return None
-    except (FileNotFoundError, PermissionError):
+    except (FileNotFoundError, PermissionError, IsADirectoryError):
         return None
 
 
@@ -74,7 +77,17 @@ class InMemoryOutputGenerator(OutputGenerator):
 
         self._begin_output()
 
+        process = psutil.Process()
+        memory_threshold_mb = 500  # 500 MB
+
         for file_path in self.files_to_process:
+            # Check memory usage before processing each file
+            current_memory_rss_mb = process.memory_info().rss / (1024 * 1024)
+            if current_memory_rss_mb > memory_threshold_mb:
+                logging.warning(
+                    f"High memory usage detected (RSS: {current_memory_rss_mb:.1f}MB)"
+                )
+
             relative_path = file_path.relative_to(self.root_path)
             content = read_file_content(file_path)
             if content is None:

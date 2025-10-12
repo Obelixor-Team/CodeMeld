@@ -3,12 +3,13 @@
 import argparse
 import json
 import logging
+import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pathspec
 
-from .config import CombinerConfig, ConvertType
+from .config import CodeCombinerError, CombinerConfig, ConvertType
 from .filters import FileFilter, FilterChainBuilder
 from .formatters import (
     FormatterFactory,
@@ -235,22 +236,39 @@ class CodeCombiner:
                 )
 
         # Second Pass: General scan, applying filters and avoiding duplicates
-        for file_path in self._iter_files():
-            resolved_file_path = self._resolve_path(file_path)
-            if resolved_file_path in resolved_always_include_paths:
-                # Already added in the first pass
-                continue
+        try:
+            for file_path in self._iter_files():
+                resolved_file_path = self._resolve_path(file_path)
+                if resolved_file_path in resolved_always_include_paths:
+                    # Already added in the first pass
+                    continue
 
-            if self.filter_chain.should_process(file_path, context):
-                files_to_process.append(file_path)
+                if self.filter_chain.should_process(file_path, context):
+                    files_to_process.append(file_path)
+        except PermissionError as e:
+            logging.error(f"Permission denied during file scan: {e}")
+            raise CodeCombinerError("Insufficient permissions to read files") from e
+        except OSError as e:
+            logging.error(f"OS error during file scan: {e}")
+            raise CodeCombinerError(f"File system error: {e}") from e
 
         return files_to_process
 
     def _iter_files(self):
-        """Iterate over files in the directory."""
-        for entry in self.config.directory_path.rglob("*"):
-            if entry.is_file():
-                yield entry
+        """Iterate over files in the directory using os.walk, respecting hidden."""
+        for root, dirs, files in os.walk(self.config.directory_path):
+            current_path = Path(root)
+
+            # Filter out hidden directories if include_hidden is False
+            if not self.config.include_hidden:
+                dirs[:] = [d for d in dirs if not d.startswith(".")]
+
+            for file_name in files:
+                file_path = current_path / file_name
+                # Filter out hidden files if include_hidden is False
+                if not self.config.include_hidden and file_name.startswith("."):
+                    continue
+                yield file_path
 
     def _resolve_path(self, path: Path) -> Path:
         """Resolve a path to its absolute form."""

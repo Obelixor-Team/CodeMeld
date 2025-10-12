@@ -88,6 +88,14 @@ class CombinerConfigBuilder:
         if not self._config["extensions"]:
             raise CodeCombinerError("Error: Extension list cannot be empty.")
 
+        if self._config["header_width"] <= 0:
+            raise CodeCombinerError("Header width must be positive")
+
+        if not Path(output).parent.exists():
+            raise CodeCombinerError(
+                f"Output directory doesn't exist: {Path(output).parent}"
+            )
+
         # Check extensions start with dot
         for ext in self._config["extensions"]:
             if not ext.startswith("."):

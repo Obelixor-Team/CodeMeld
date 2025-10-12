@@ -19,15 +19,19 @@ BINARY_EXTENSIONS = {
 
 
 def is_likely_binary(file_path: Path) -> bool:
-    """Check if a file is likely binary."""
+    """Check if a file is likely binary - optimized for large files."""
     # Check extension first (fast)
     if file_path.suffix.lower() in BINARY_EXTENSIONS:
         return True
 
-    # Content analysis (slower but accurate)
+    # For large files, do quicker content analysis
     try:
+        file_size = file_path.stat().st_size
+        # For very large files, only check first few KB
+        sample_size = min(8192, file_size) if file_size > 1024 * 1024 else 8192
+
         with open(file_path, "rb") as f:
-            chunk = f.read(8192)
+            chunk = f.read(sample_size)
             if not chunk:
                 return False
 

@@ -1,5 +1,3 @@
-"""Unit tests for the file filters."""
-
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -14,6 +12,7 @@ from src.filters import (
     HiddenFileFilter,
     OutputFilePathFilter,
     SymlinkFilter,
+    SecurityFilter, # Added for new test
 )
 
 
@@ -104,6 +103,26 @@ class TestSymlinkFilter:
     def test_should_not_process_symlink(self, temp_dir: Path):
         filter = SymlinkFilter()
         assert not filter.should_process(temp_dir / "symlink.py", {})
+
+
+class TestSecurityFilter:
+    def test_should_process_path_inside_root(self, temp_dir: Path):
+        filter = SecurityFilter()
+        assert filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
+
+    def test_should_not_process_path_outside_root(self, temp_dir: Path):
+        filter = SecurityFilter()
+        # Create a file outside the temp_dir to simulate path traversal
+        outside_dir = temp_dir.parent / "outside_file.txt"
+        outside_dir.touch()
+        assert not filter.should_process(outside_dir, {"root_path": temp_dir})
+
+    def test_should_not_process_path_traversal_attempt(self, temp_dir: Path):
+        filter = SecurityFilter()
+        # Simulate a path traversal attempt using '..'
+        traversal_path = temp_dir / ".." / "outside_file.txt"
+        traversal_path.touch()
+        assert not filter.should_process(traversal_path, {"root_path": temp_dir})
 
 
 class TestFilterChainBuilder:

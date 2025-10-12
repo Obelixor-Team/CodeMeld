@@ -121,6 +121,23 @@ class SymlinkFilter(FileFilter):
         return not file_path.is_symlink()
 
 
+class SecurityFilter(FileFilter):
+    """Filter to prevent path traversal by ensuring files are within the root path."""
+
+    def _check(self, file_path: Path, context: dict) -> bool:
+        root_path = context.get("root_path")
+        if not root_path:
+            # If root_path is not provided, we cannot perform the check, so allow.
+            return True
+        try:
+            # Resolve both paths to handle symlinks and '..' correctly
+            file_path.resolve().relative_to(root_path.resolve())
+            return True
+        except ValueError:
+            # file_path is not a subpath of root_path
+            return False
+
+
 class FilterChainBuilder:
     """Builder for constructing file filter chains."""
 
@@ -143,6 +160,7 @@ class FilterChainBuilder:
 
         chain = OutputFilePathFilter(output_path)
         current: FileFilter = chain
+        current = current.set_next(SecurityFilter())
         current = current.set_next(SymlinkFilter())
         current = current.set_next(BinaryFileFilter())
         current = current.set_next(
