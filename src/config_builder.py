@@ -4,9 +4,21 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-import toml
-
 from .config import DEFAULT_EXTENSIONS, CodeCombinerError, CombinerConfig
+
+_tomllib: Any
+
+try:
+
+    import tomllib as _tomllib_impl  # stdlib in 3.11+
+
+    _tomllib = _tomllib_impl
+
+except ImportError:
+
+    import toml as _toml_impl
+
+    _tomllib = _toml_impl
 
 
 def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
@@ -15,7 +27,7 @@ def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
     pyproject_path = root_path / "pyproject.toml"
     if pyproject_path.is_file():
         try:
-            pyproject_data: dict[str, Any] = toml.load(pyproject_path)
+            pyproject_data: dict[str, Any] = _tomllib.load(pyproject_path.open("rb"))
             if "tool" in pyproject_data and "code_combiner" in pyproject_data["tool"]:
                 config = pyproject_data["tool"]["code_combiner"]
         except Exception:
@@ -110,7 +122,9 @@ class CombinerConfigBuilder:
         # Check conversion makes sense
         if self._config["final_output_format"]:
             if self._config["format"] not in ["json", "xml"]:
-                raise CodeCombinerError("--convert-to only works with json/xml formats")
+                raise CodeCombinerError(
+                    "--convert-to can only be used when --format is 'json' or 'xml'"
+                )
             if self._config["format"] == self._config["final_output_format"]:
                 raise CodeCombinerError(
                     f"Error: Cannot convert format '{self._config['format']}' "

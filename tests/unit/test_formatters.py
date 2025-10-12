@@ -98,11 +98,11 @@ def test_text_formatter_with_custom_header():
     assert formatter.format_file(relative_path, content) == expected_output
 
 def test_markdown_formatter_with_custom_header():
-    custom_headers = {"js": "```javascript\n// JavaScript File: {path}"}
+    custom_headers = {"js": "// JavaScript File: {path}"} # Custom header no longer includes ```lang
     formatter = FormatterFactory.create("markdown", custom_file_headers=custom_headers)
     relative_path = Path("my_script.js")
     content = "console.log('Hello');"
-    expected_output = "```javascript\n// JavaScript File: my_script.js\nconsole.log('Hello');\n```\n\n"
+    expected_output = "// JavaScript File: my_script.js\n```js\nconsole.log('Hello');\n```\n\n" # Formatter adds ```js
     assert formatter.format_file(relative_path, content) == expected_output
 
 def test_text_formatter_with_no_matching_custom_header():
@@ -127,3 +127,21 @@ def test_markdown_formatter_with_no_matching_custom_header():
     # Should fall back to default markdown header
     expected_output = "## FILE: my_script.py\n\n```py\nprint('Hello')\n```\n\n"
     assert formatter.format_file(relative_path, content) == expected_output
+
+def test_custom_header_missing_path_placeholder_is_formatted():
+    custom_headers = {"py": "# Custom Header Without Path {path}"}
+    formatter = FormatterFactory.create("text", custom_file_headers=custom_headers)
+    relative_path = Path("my_script.py")
+    content = "print('Hello')"
+    output = formatter.format_file(relative_path, content)
+    assert "# Custom Header Without Path my_script.py" in output
+    assert "print('Hello')" in output
+
+def test_custom_header_missing_lang_placeholder_is_formatted_markdown():
+    custom_headers = {"py": "## Custom Header Without Lang {lang} {path}"}
+    formatter = FormatterFactory.create("markdown", custom_file_headers=custom_headers)
+    relative_path = Path("my_script.py")
+    content = "print('Hello')"
+    output = formatter.format_file(relative_path, content)
+    assert "## Custom Header Without Lang py my_script.py" in output
+    assert "```py\nprint('Hello')\n```" in output

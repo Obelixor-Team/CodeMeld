@@ -106,12 +106,11 @@ class MarkdownFormatter(OutputFormatter):
         ext = relative_path.suffix.lstrip(".").lower()
         custom_header_format = self.custom_file_headers.get(ext)
 
+        lang = relative_path.suffix.lstrip(".")
         if custom_header_format:
-            header = custom_header_format.format(path=relative_path, lang=ext)
-            # Custom header provides opening ```lang
-            return f"{header}\n{content}\n```\n\n"
+            header = custom_header_format.format(path=relative_path, lang=lang)
+            return f"{header}\n```{lang}\n{content}\n```\n\n"
         else:
-            lang = relative_path.suffix.lstrip(".")
             return f"## FILE: {relative_path}\n\n```{lang}\n{content}\n```\n\n"
 
     def begin_output(self) -> str:

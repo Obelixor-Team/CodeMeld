@@ -134,3 +134,39 @@ def test_multiple_extensions_with_one_invalid():
     )
     with pytest.raises(CodeCombinerError, match="Error: Extension 'py' must start with '.'. Did you mean '.py'?"):
         load_and_merge_config(args)
+
+def test_convert_to_with_invalid_format_raises_error():
+    args = Namespace(
+        directory=".",
+        output="output.txt",
+        extensions=[".py"],
+        exclude=None,
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False,
+        header_width=80,
+        format="text",  # Invalid format for --convert-to
+        convert_to="markdown",
+        force=False,
+        always_include=None,
+    )
+    with pytest.raises(CodeCombinerError, match="--convert-to can only be used when --format is 'json' or 'xml'"):
+        load_and_merge_config(args)
+
+def test_convert_to_same_format_raises_error():
+    args = Namespace(
+        directory=".",
+        output="output.txt",
+        extensions=[".py"],
+        exclude=None,
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False,
+        header_width=80,
+        format="json",
+        convert_to="json",  # Converting to the same format
+        force=False,
+        always_include=None,
+    )
+    with pytest.raises(CodeCombinerError, match="Error: Cannot convert format 'json' to itself."):
+        load_and_merge_config(args)

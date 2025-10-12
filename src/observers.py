@@ -7,13 +7,6 @@ from typing import Any
 
 from tqdm import tqdm
 
-tiktoken: ModuleType | None
-try:
-    import tiktoken
-except ImportError:
-    tiktoken = None
-    logging.warning("tiktoken not found. Token counting will be skipped.")
-
 
 class Observer(ABC):
     """Abstract base class for observers."""
@@ -111,8 +104,14 @@ class TokenCounterObserver(Observer):
     def __init__(self, token_encoding_model: str = "cl100k_base"):
         """Initialize the TokenCounterObserver."""
         self.total_tokens = 0
-        self.tiktoken_module: ModuleType | None = tiktoken
         self.token_encoding_model = token_encoding_model
+        try:
+            import tiktoken
+
+            self.tiktoken_module: ModuleType | None = tiktoken
+        except ImportError:
+            self.tiktoken_module = None
+            logging.warning("tiktoken not found. Token counting will be skipped.")
 
     def update(self, event: str, data: Any):
         """Count tokens based on the event."""

@@ -122,3 +122,16 @@ def test_iter_files_rglob_include_hidden(mock_config):
     assert mock_file2 in files
     assert mock_hidden_file in files
     assert mock_hidden_dir_file in files
+
+def test_execute_empty_directory_no_files_processed(mock_config, caplog):
+    mock_config.directory_path.rglob.return_value = []  # Simulate empty directory
+    mock_config.output = "non_existent_output.txt" # Ensure output file doesn't exist
+
+    combiner = CodeCombiner(mock_config)
+
+    with caplog.at_level(logging.INFO):
+        combiner.execute()
+
+    assert "No files to process after filtering. Output file will not be created." in caplog.text
+    # Ensure write_output was not called
+    assert not Path(mock_config.output).exists()
