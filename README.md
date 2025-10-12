@@ -49,14 +49,13 @@ A Python script to scan a specified directory, identify code files based on thei
 3.  **Install dependencies**:
 
     ```bash
-    pip install -r requirements.txt
-    pip install -r requirements-dev.txt
+    make install
     ```
 
 ## Usage
 
 ```bash
-.venv/bin/python src/code_combiner.py <directory> [options]
+.venv/bin/python main.py <directory> [options]
 ```
 
 ### Arguments
@@ -97,25 +96,25 @@ format = "markdown"
 1.  **Combine all Python and JavaScript files in the current directory, ignoring hidden files and `.gitignore` entries (default behavior)**:
 
     ```bash
-    .venv/bin/python src/code_combiner.py . -o combined_project.txt -e .py .js
+    .venv/bin/python main.py . -o combined_project.txt -e .py .js
     ```
 
 2.  **Combine all files in a specific directory, including hidden files, and ignoring `.gitignore`**: 
 
     ```bash
-    .venv/bin/python src/code_combiner.py /path/to/your/project --include-hidden --no-gitignore -o all_project_files.txt
+    .venv/bin/python main.py /path/to/your/project --include-hidden --no-gitignore -o all_project_files.txt
     ```
 
 3.  **Combine files in a directory and output as Markdown**:
 
     ```bash
-    .venv/bin/python src/code_combiner.py . -e .py .md -o documentation.md --format markdown
+    .venv/bin/python main.py . -e .py .md -o documentation.md --format markdown
     ```
 
 4.  **Combine files using settings from `pyproject.toml` and output as JSON**:
 
     ```bash
-    .venv/bin/python src/code_combiner.py . -o combined.json --format json
+    .venv/bin/python main.py . -o combined.json --format json
     ```
 
 5.  **Sample JSON Output**:
@@ -159,19 +158,7 @@ The primary goal of this script is to generate a single file that can be easily 
 
 ### `ModuleNotFoundError: No module named 'src'` when running tests
 
-If you encounter this error when running `pytest`, it means Python cannot find the `src` module. To fix this, you need to add the project's root directory to your `PYTHONPATH` environment variable.
-
-You can do this by running `pytest` with the following command:
-
-```bash
-PYTHONPATH=$(pwd) pytest
-```
-
-Or, if you are using the virtual environment directly:
-
-```bash
-PYTHONPATH=$(pwd) .venv/bin/pytest
-```
+If you encounter this error when running `pytest`, it means Python cannot find the `src` module. The `pytest.ini` file is configured to automatically set the `PYTHONPATH`, so this error should not occur if you are running `pytest` from the project root.
 
 ### `Warning: tiktoken not found. Token counting will be skipped.`
 
