@@ -1,3 +1,5 @@
+"""A script to combine code files from a directory into a single output file."""
+
 import argparse
 import json
 import os
@@ -39,7 +41,7 @@ def is_code_file(
     extensions: list[str],
     exclude_extensions: list[str],
 ) -> bool:
-    """Check if file has a code extension"""
+    """Check if a file has a code extension."""
     suffix: str = Path(filename).suffix.lower()
     if suffix in exclude_extensions:
         return False
@@ -79,12 +81,12 @@ def should_process_file(
 
 
 def get_gitignore_spec(root_path: Path) -> pathspec.PathSpec | None:
-    """Get the pathspec from the .gitignore file"""
+    """Retrieve the pathspec from the .gitignore file."""
     current_path: Path = root_path.resolve()
     while current_path != current_path.parent:
         gitignore_path: Path = current_path / ".gitignore"
         if gitignore_path.is_file():
-            with open(gitignore_path, "r", encoding="utf-8") as f:
+            with open(gitignore_path, encoding="utf-8") as f:
                 return pathspec.PathSpec.from_lines("gitwildmatch", f)
         current_path = current_path.parent
     return None
@@ -96,6 +98,7 @@ def generate_output(
     format: str,
     header_width: int,
 ) -> tuple[str, str]:  # Returns formatted_content, raw_content
+    """Generate the combined output content based on the specified format."""
     output_content: str = ""
     relative_path: Path  # Declare relative_path here
     raw_combined_content: str = ""
@@ -105,7 +108,7 @@ def generate_output(
         for file_path in files_to_process:
             relative_path = file_path.relative_to(root_path)
             try:
-                with open(file_path, "r", encoding="utf-8") as infile:
+                with open(file_path, encoding="utf-8") as infile:
                     content: str = infile.read()
                 json_data[str(relative_path)] = content
                 raw_content_parts.append(content)
@@ -122,7 +125,7 @@ def generate_output(
         for file_path in files_to_process:
             relative_path = file_path.relative_to(root_path)
             try:
-                with open(file_path, "r", encoding="utf-8") as infile:
+                with open(file_path, encoding="utf-8") as infile:
                     content = infile.read()
                 file_element: ET.Element = ET.SubElement(root_element, "file")
                 path_element: ET.Element = ET.SubElement(file_element, "path")
@@ -146,7 +149,7 @@ def generate_output(
         for file_path in files_to_process:
             relative_path = file_path.relative_to(root_path)
             try:
-                with open(file_path, "r", encoding="utf-8") as infile:
+                with open(file_path, encoding="utf-8") as infile:
                     content = infile.read()
                 raw_content_parts.append(content)  # Append raw content
 
@@ -174,6 +177,7 @@ def generate_output(
 
 
 def write_output(output_path: Path, output_content: str):
+    """Write the combined output content to the specified file."""
     try:
         with open(output_path, "w", encoding="utf-8") as outfile:
             outfile.write(output_content)
@@ -185,7 +189,7 @@ def write_output(output_path: Path, output_content: str):
 def convert_to_text(
     content: str, input_format: str, header_width: int, output_format: str
 ) -> str:
-    """Converts XML or JSON content to a human-readable text/markdown format."""
+    """Convert XML or JSON content to a human-readable text/markdown format."""
     if input_format == "xml":
         try:
             root: ET.Element = ET.fromstring(content)
@@ -252,8 +256,7 @@ def scan_and_combine_code_files(
     format: str = "text",
     final_output_format: str = "text",
 ):
-    """Scan directory and combine code files into one output file"""
-
+    """Scan a directory and combine code files into a single output file."""
     root_path: Path = Path(root_dir)
     output_path: Path = Path(output_file)
 
@@ -342,6 +345,7 @@ def scan_and_combine_code_files(
 
 
 def main() -> None:
+    """Parse arguments and run the code combiner."""
     parser = argparse.ArgumentParser(
         description="Combine code files from a directory into a single file."
     )

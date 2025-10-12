@@ -170,6 +170,9 @@ Use the provided `Makefile` for code quality checks:
 make all
 ```
 
+### Linting with Ruff
+Run `ruff check .` to lint the codebase, or `ruff check --fix .` to auto-fix issues. Configuration is defined in `pyproject.toml` under `[tool.ruff]`. To check formatting, run `ruff format --check .`.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

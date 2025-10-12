@@ -4,13 +4,24 @@ line-length = 88
 [tool.ruff]
 line-length = 88
 target-version = "py311"
+cache-dir = ".ruff_cache"
+extend-exclude = ["node_modules", ".git", ".venv", "dist", "build"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "C90", "I"]
-ignore = ["C901"]
-
-# Allow unused variables when underscore-prefixed.
+select = ["E", "F", "W", "C90", "I", "B", "UP", "N", "D"]
+ignore = ["C901", "ANN"]  # C901 for complex functions, ANN for mypy
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10  # Matches radon's default
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]  # Skip docstring checks in tests
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
 
 [tool.mypy]
 python_version = "3.11"
