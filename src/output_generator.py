@@ -9,6 +9,7 @@ from typing import Any
 
 import psutil
 
+from .config import MemoryThresholdExceededError
 from .formatters import JSONFormatter, OutputFormatter, XMLFormatter
 from .observers import Publisher
 from .utils import is_likely_binary
@@ -65,7 +66,12 @@ class InMemoryOutputGenerator(OutputGenerator):
     """Generates the combined output content in memory."""
 
     def __init__(
-        self, files_to_process: list[Path], root_path: Path, formatter: OutputFormatter
+        self,
+        files_to_process: list[Path],
+        root_path: Path,
+        formatter: OutputFormatter,
+        max_memory_mb: int | None = None,
+        count_tokens: bool = True,
     ):
         """Initialize the InMemoryOutputGenerator."""
         super().__init__(files_to_process, root_path, formatter)
@@ -75,6 +81,8 @@ class InMemoryOutputGenerator(OutputGenerator):
         self.formatted_content_parts: list[str] = []
         self.json_data: dict[str, str] = {}
         self.xml_root_element: ET.Element | None = None
+        self.max_memory_mb = max_memory_mb
+        self.count_tokens = count_tokens
 
     def generate(self) -> tuple[str, str]:
         """Generate output in memory."""
@@ -89,20 +97,33 @@ class InMemoryOutputGenerator(OutputGenerator):
         self._begin_output()
 
         process = psutil.Process()
-        memory_threshold_mb = 500  # 500 MB
+        # Use self.max_memory_mb if set, otherwise default to 500 MB
+        memory_threshold_mb = (
+            self.max_memory_mb if self.max_memory_mb is not None else 500
+        )
         check_interval = max(
             1, len(self.files_to_process) // 10
         )  # Check 10 times total
 
         for i, file_path in enumerate(self.files_to_process):
             # Sample memory usage instead of checking every file
-            if i % check_interval == 0:
+            if (
+                i % check_interval == 0 and memory_threshold_mb > 0
+            ):  # Only check if threshold is positive
                 current_memory_rss_mb = process.memory_info().rss / (1024 * 1024)
                 if current_memory_rss_mb > memory_threshold_mb:
                     logging.warning(
                         f"High memory usage detected (RSS: "
-                        f"{current_memory_rss_mb:.1f}MB)"
+                        f"{current_memory_rss_mb:.1f}MB). "
+                        f"Threshold: {memory_threshold_mb}MB."
                     )
+                    if (
+                        not self.count_tokens
+                    ):  # Only fallback if token counting is not needed
+                        raise MemoryThresholdExceededError(
+                            f"Memory usage exceeded {memory_threshold_mb}MB. "
+                            "Falling back to streaming output."
+                        )
             relative_path = file_path.relative_to(self.root_path)
             content = read_file_content(file_path)
             if content is None:

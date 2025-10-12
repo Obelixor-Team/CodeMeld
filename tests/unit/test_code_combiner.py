@@ -39,6 +39,10 @@ def mock_config():
     config.force = False
     config.always_include = []
     config.output = "output.txt"
+    config.token_encoding_model = "cl100k_base"
+    config.max_memory_mb = 500
+    config.custom_file_headers = {}
+    config.max_file_size_kb = None # Added
     return config
 
 def test_scan_files_permission_error(mock_config):

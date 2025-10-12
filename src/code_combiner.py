@@ -3,16 +3,14 @@
 import argparse
 import json
 import logging
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pathspec
 
-from .config import CodeCombinerError, CombinerConfig, ConvertType
+from .config import CodeCombinerError, CombinerConfig, MemoryThresholdExceededError
 from .filters import FileFilter, FilterChainBuilder
 from .formatters import (
     FormatterFactory,
-    FormatType,
 )
 from .observers import LineCounterObserver, ProgressBarObserver, TokenCounterObserver
 from .output_generator import (
@@ -21,15 +19,15 @@ from .output_generator import (
 )
 
 
-def write_output(output_path: Path, output_content: str, force: bool):
+def write_output(
+    output_path: Path, output_content: str, force: bool, dry_run: bool = False
+):
     """Write the combined output content to the specified file."""
-    if output_path.exists() and not force:
-        response = input(
-            f"Output file '{output_path}' already exists. Overwrite? (y/N): "
-        )
-        if response.lower() != "y":
-            logging.info("Operation cancelled by user.")
-            return
+    if dry_run:
+        logging.info("\n--- Dry Run Output ---")
+        print(output_content)
+        logging.info("--- End Dry Run Output ---")
+        return
 
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -39,71 +37,6 @@ def write_output(output_path: Path, output_content: str, force: bool):
     except Exception as e:
         logging.error(f"Error writing to output file {output_path}: {e}")
         raise
-
-
-def convert_to_text(
-    content: str,
-    input_format: FormatType,
-    header_width: int,
-    output_format: ConvertType,
-) -> str:
-    """Convert XML or JSON content to a human-readable text/markdown format."""
-    if input_format == "xml":
-        try:
-            root: ET.Element = ET.fromstring(content)
-            text_output: list[str] = []
-            for file_element in root.findall("file"):
-                path_element: ET.Element | None = file_element.find("path")
-                content_element: ET.Element | None = file_element.find("content")
-                if path_element is not None and content_element is not None:
-                    file_path_text = path_element.text
-                    if file_path_text is None:
-                        continue
-                    file_path_display: str = file_path_text
-                    file_content: str = (
-                        content_element.text if content_element.text else ""
-                    )
-                    if output_format == "markdown":
-                        lang = Path(file_path_display).suffix.lstrip(".")
-                        text_output.append(
-                            f"## FILE: {file_path_display}\n\n"
-                            f"```{lang}\n"
-                            f"{file_content}\n"
-                            f"```\n\n"
-                        )
-                    else:
-                        text_output.append(f"{ '=' * header_width}")
-                        text_output.append(f"FILE: {file_path_display}")
-                        text_output.append(f"{ '=' * header_width}\n")
-                        text_output.append(file_content)
-                        text_output.append("\n\n")
-            return "".join(text_output)
-        except ET.ParseError:
-            return f"Error: Could not parse XML content.\n{content}"
-    elif input_format == "json":
-        try:
-            json_data: dict[str, str] = json.loads(content)
-            text_output = []
-            for original_file_path, file_content in json_data.items():
-                file_path_display = original_file_path
-                if output_format == "markdown":
-                    lang = Path(file_path_display).suffix.lstrip(".")
-                    text_output.append(
-                        f"## FILE: {file_path_display}\n\n"
-                        f"```{lang}\n"
-                        f"{file_content}\n"
-                        f"```\n\n"
-                    )
-                else:
-                    text_output.append(f"{ '=' * header_width}")
-                    text_output.append(f"FILE: {file_path_display}")
-                    text_output.append(f"{ '=' * header_width}\n")
-                    text_output.append(file_content)
-                    text_output.append("\n\n")
-            return "".join(text_output)
-        except json.JSONDecodeError:
-            return f"Error: Could not parse JSON content.\n{content}"
-    return content
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -177,6 +110,41 @@ def parse_arguments() -> argparse.Namespace:
             "(space-separated paths)."
         ),
     )
+    parser.add_argument(
+        "--token-encoding",
+        default="cl100k_base",
+        help="The token encoding model to use for token counting "
+        "(default: cl100k_base).",
+    )
+    parser.add_argument(
+        "--max-memory-mb",
+        type=int,
+        default=500,
+        help="Maximum memory in MB to use before falling back to streaming "
+        "(default: 500). Set to 0 for no limit.",
+    )
+    parser.add_argument(
+        "--custom-file-headers",
+        type=json.loads,
+        default="{}",
+        help=(
+            """JSON string of custom file headers per extension (e.g., """
+            """'{"py": "# FILE: {path}", "js": "// FILE: {path}"}')."""
+        ),
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Perform a dry run without writing any output files.",
+    )
+    parser.add_argument(
+        "--max-file-size-kb",
+        type=int,
+        help=(
+            "Maximum file size in KB to include (e.g., 1024 for 1MB). "
+            "Files larger than this will be skipped."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -193,8 +161,19 @@ class CodeCombiner:
     def __init__(self, config: CombinerConfig):
         """Initialize the CodeCombiner."""
         self.config = config
+        # Determine the effective format based on --convert-to
+        effective_format = (
+            config.final_output_format if config.final_output_format else config.format
+        )
+
+        formatter_kwargs = {}
+        if effective_format == "text":
+            formatter_kwargs["header_width"] = config.header_width
+
         self.formatter = FormatterFactory.create(
-            config.format, header_width=config.header_width
+            effective_format,
+            custom_file_headers=self.config.custom_file_headers,
+            **formatter_kwargs,
         )
         self.filter_chain = self._build_filter_chain()
 
@@ -217,7 +196,7 @@ class CodeCombiner:
         all_files: set[Path] = set()
         context = {"root_path": self.config.directory_path}
 
-        # Add always_include files first
+        # Process always_include files, applying safety filters
         for p in self.config.always_include:
             path = Path(p)
             full_path: Path
@@ -227,7 +206,15 @@ class CodeCombiner:
                 full_path = self._resolve_path(self.config.directory_path / path)
 
             if full_path.is_file():
-                all_files.add(full_path)
+                # Apply the full filter chain to always_include files
+                # This ensures safety filters are applied
+                if self.filter_chain.should_process(full_path, context):
+                    all_files.add(full_path)
+                else:
+                    logging.warning(
+                        f"Warning: --always-include path '{p}' was filtered out "
+                        "by safety checks."
+                    )
             else:
                 logging.warning(
                     f"Warning: --always-include path not found or not a file: {p}"
@@ -271,31 +258,66 @@ class CodeCombiner:
         """Execute the combining process."""
         files = self._scan_files()
 
-        if self.config.count_tokens or self.config.final_output_format:
-            in_memory_generator = InMemoryOutputGenerator(
-                files, self.config.directory_path, self.formatter
+        if not files:
+            logging.info(
+                "No files to process after filtering. Output file will not be created."
             )
-            with ProgressBarObserver(len(files), "Processing files") as progress_bar:
-                in_memory_generator.subscribe(progress_bar)
-                if self.config.count_tokens:
-                    token_counter = TokenCounterObserver()
-                    in_memory_generator.subscribe(token_counter)
-                    line_counter = LineCounterObserver()
-                    in_memory_generator.subscribe(line_counter)
+            return
 
-                result = in_memory_generator.generate()
-                output, raw_content = result
+        # Use InMemoryOutputGenerator for token counting or JSON/XML output
+        # (streaming for JSON/XML requires in-memory aggregation)
+        use_in_memory = self.config.count_tokens or (
+            (self.config.format == "json" or self.config.format == "xml")
+            and not self.config.final_output_format
+        )
 
-                if self.config.final_output_format:
-                    output = convert_to_text(
+        if use_in_memory:
+            try:
+                in_memory_generator = InMemoryOutputGenerator(
+                    files,
+                    self.config.directory_path,
+                    self.formatter,
+                    max_memory_mb=self.config.max_memory_mb,
+                    count_tokens=self.config.count_tokens,
+                )
+                with ProgressBarObserver(
+                    len(files), "Processing files"
+                ) as progress_bar:
+                    in_memory_generator.subscribe(progress_bar)
+                    if self.config.count_tokens:
+                        token_counter = TokenCounterObserver(
+                            self.config.token_encoding_model
+                        )
+                        in_memory_generator.subscribe(token_counter)
+                        line_counter = LineCounterObserver()
+                        in_memory_generator.subscribe(line_counter)
+
+                    output, raw_content = in_memory_generator.generate()
+
+                    if self.config.count_tokens:
+                        in_memory_generator.notify("output_generated", output)
+                    write_output(
+                        Path(self.config.output),
                         output,
-                        self.config.format,
-                        self.config.header_width,
-                        self.config.final_output_format,
+                        self.config.force,
+                        dry_run=self.config.dry_run,
                     )
-                if self.config.count_tokens:
-                    in_memory_generator.notify("output_generated", output)
-                write_output(Path(self.config.output), output, self.config.force)
+            except MemoryThresholdExceededError as e:
+                logging.warning(
+                    f"Memory threshold exceeded, falling back to streaming: {e}"
+                )
+                # Fallback to streaming output
+                streaming_generator = StreamingOutputGenerator(
+                    files,
+                    self.config.directory_path,
+                    self.formatter,
+                    Path(self.config.output),
+                )
+                with ProgressBarObserver(
+                    len(files), "Processing files"
+                ) as progress_bar:
+                    streaming_generator.subscribe(progress_bar)
+                    streaming_generator.generate()
         else:
             streaming_generator = StreamingOutputGenerator(
                 files,

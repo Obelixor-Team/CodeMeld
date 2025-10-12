@@ -108,16 +108,17 @@ class LineCounterObserver(Observer):
 class TokenCounterObserver(Observer):
     """Observer for counting tokens."""
 
-    def __init__(self):
+    def __init__(self, token_encoding_model: str = "cl100k_base"):
         """Initialize the TokenCounterObserver."""
         self.total_tokens = 0
         self.tiktoken_module: ModuleType | None = tiktoken
+        self.token_encoding_model = token_encoding_model
 
     def update(self, event: str, data: Any):
         """Count tokens based on the event."""
         if event == "output_generated" and self.tiktoken_module is not None:
             try:
-                encoding = self.tiktoken_module.get_encoding("cl100k_base")
+                encoding = self.tiktoken_module.get_encoding(self.token_encoding_model)
                 tokens: list[int] = encoding.encode(data)
                 self.total_tokens = len(tokens)
                 print(f"Total tokens in formatted output: {self.total_tokens}")

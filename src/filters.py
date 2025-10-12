@@ -138,6 +138,28 @@ class SecurityFilter(FileFilter):
             return False
 
 
+class FileSizeFilter(FileFilter):
+    """Filter files based on their size."""
+
+    def __init__(self, max_file_size_kb: int):
+        """Initialize the FileSizeFilter."""
+        super().__init__()
+        self.max_file_size_bytes = max_file_size_kb * 1024
+
+    def _check(self, file_path: Path, context: dict) -> bool:
+        try:
+            return file_path.stat().st_size <= self.max_file_size_bytes
+        except FileNotFoundError:
+            # If file is not found, it cannot be processed, so filter it out.
+            return False
+        except Exception as e:
+            # Log other potential errors (e.g., permission issues) and filter out.
+            import logging
+
+            logging.warning(f"Error checking file size for {file_path}: {e}")
+            return False
+
+
 class FilterChainBuilder:
     """Builder for constructing file filter chains."""
 
@@ -163,6 +185,10 @@ class FilterChainBuilder:
         current = current.set_next(SecurityFilter())
         current = current.set_next(SymlinkFilter())
         current = current.set_next(BinaryFileFilter())
+
+        if config.max_file_size_kb is not None and config.max_file_size_kb > 0:
+            current = current.set_next(FileSizeFilter(config.max_file_size_kb))
+
         current = current.set_next(
             ExtensionFilter(config.extensions, config.exclude_extensions)
         )

@@ -95,10 +95,17 @@ class CombinerConfigBuilder:
                 f"Output directory doesn't exist: {Path(output).parent}"
             )
 
-        # Check extensions start with dot
-        for ext in self._config["extensions"]:
+        # Check extensions start with dot and provide suggestions
+        for i, ext in enumerate(self._config["extensions"]):
             if not ext.startswith("."):
-                raise CodeCombinerError(f"Extension must start with '.': {ext}")
+                # If it doesn't start with a dot, suggest with a lowercase dot-prefix
+                suggested_ext = f".{ext.lower()}"
+                raise CodeCombinerError(
+                    f"Error: Extension '{ext}' must start with '.'. "
+                    f"Did you mean '{suggested_ext}'?"
+                )
+            # If it already starts with a dot, just ensure it's lowercase
+            self._config["extensions"][i] = ext.lower()
 
         # Check conversion makes sense
         if self._config["final_output_format"]:

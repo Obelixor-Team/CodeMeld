@@ -1,4 +1,3 @@
-
 import logging
 import importlib
 from unittest.mock import MagicMock, patch
@@ -58,8 +57,6 @@ def test_publisher_notify_multiple_observers():
 
 
 
-
-
 def test_line_counter_observer():
 
 
@@ -75,11 +72,7 @@ def test_line_counter_observer():
 
 
 
-
-
-
 @patch("src.observers.tqdm")
-
 
 def test_progress_bar_observer(mock_tqdm):
 
@@ -110,10 +103,6 @@ def test_progress_bar_observer(mock_tqdm):
 
 
 
-
-
-
-
 def test_token_counter_observer():
     # Mock tiktoken.get_encoding to return a mock encoder
     with patch("src.observers.tiktoken.get_encoding") as mock_get_encoding:
@@ -132,16 +121,7 @@ def test_token_counter_observer():
 
 
 
-
-
-
-
-
 def test_token_counter_observer_no_tiktoken(caplog):
-
-
-
-
 
 
 
@@ -150,17 +130,7 @@ def test_token_counter_observer_no_tiktoken(caplog):
 
 
 
-
-
-
-
-
         with caplog.at_level(logging.WARNING):
-
-
-
-
-
 
 
 
@@ -168,18 +138,7 @@ def test_token_counter_observer_no_tiktoken(caplog):
 
 
 
-
-
-
-
-
-            assert "tiktoken not found" in caplog.text
-
-
-
-
-
-
+        assert "tiktoken not found" in caplog.text
 
 
 def test_publisher_unsubscribe_not_subscribed():
@@ -193,12 +152,7 @@ def test_publisher_unsubscribe_not_subscribed():
 
     # Should not raise an error
 
-
     publisher.unsubscribe(observer)
-
-
-
-
 
 
 
@@ -220,12 +174,10 @@ def test_observer_failure_does_not_stop_others(caplog):
 
 
 
-
     publisher.subscribe(failing_observer)
 
 
     publisher.subscribe(working_observer)
-
 
 
 
@@ -241,8 +193,20 @@ def test_observer_failure_does_not_stop_others(caplog):
 
 
 
-
     assert working_observer.update_called
+def test_token_counter_observer_with_custom_encoding():
+    # Mock tiktoken module itself
+    with patch("src.observers.tiktoken") as mock_tiktoken:
+        mock_encoding = MagicMock()
+        mock_encoding.encode.return_value = [1, 2, 3]  # Simulate 3 tokens
+        mock_tiktoken.get_encoding.return_value = mock_encoding
 
+        custom_encoding_model = "gpt2"
+        observer = TokenCounterObserver(token_encoding_model=custom_encoding_model)
+        observer.update("output_generated", "some custom text")
 
-
+        # Assert that get_encoding was called with the custom encoding type
+        mock_tiktoken.get_encoding.assert_called_once_with(custom_encoding_model)
+        # Assert that encode was called with the correct text
+        mock_encoding.encode.assert_called_once_with("some custom text")
+        assert observer.total_tokens == 3

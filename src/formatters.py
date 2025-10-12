@@ -12,6 +12,17 @@ from src.types import FormatType
 class OutputFormatter(ABC):
     """Strategy interface for different output formats."""
 
+    def __init__(self, custom_file_headers: dict[str, str] | None = None, **kwargs):
+        """Initialize the OutputFormatter and validate kwargs."""
+        if kwargs:
+            raise TypeError(
+                f"Unknown arguments for {self.format_name} formatter: "
+                f"{', '.join(kwargs.keys())}"
+            )
+        self.custom_file_headers = (
+            custom_file_headers if custom_file_headers is not None else {}
+        )
+
     @property
     @abstractmethod
     def format_name(self) -> str:
@@ -46,16 +57,25 @@ class TextFormatter(OutputFormatter):
 
     def __init__(self, header_width: int = 80, **kwargs):
         """Initialize the TextFormatter."""
+        super().__init__(**kwargs)
         self.header_width = header_width
 
     def format_file(self, relative_path: Path, content: str) -> str:
         """Format a single file's content for text output."""
-        return (
-            f"\n{'=' * self.header_width}\n"
-            f"FILE: {relative_path}\n"
-            f"{'=' * self.header_width}\n\n"
-            f"{content}\n\n"
-        )
+        # Check for custom header
+        ext = relative_path.suffix.lstrip(".").lower()
+        custom_header_format = self.custom_file_headers.get(ext)
+
+        if custom_header_format:
+            header = custom_header_format.format(path=relative_path)
+            return f"{header}\n{content}\n\n"
+        else:
+            return (
+                f"\n{'=' * self.header_width}\n"
+                f"FILE: {relative_path}\n"
+                f"{'=' * self.header_width}\n\n"
+                f"{content}\n\n"
+            )
 
     def begin_output(self) -> str:
         """Return any header/opening content for text output."""
@@ -77,12 +97,22 @@ class MarkdownFormatter(OutputFormatter):
 
     def __init__(self, **kwargs):
         """Initialize the MarkdownFormatter."""
+        super().__init__(**kwargs)
         pass
 
     def format_file(self, relative_path: Path, content: str) -> str:
         """Format a single file's content for Markdown output."""
-        lang = relative_path.suffix.lstrip(".")
-        return f"## FILE: {relative_path}\n\n```{lang}\n{content}\n```\n\n"
+        # Check for custom header
+        ext = relative_path.suffix.lstrip(".").lower()
+        custom_header_format = self.custom_file_headers.get(ext)
+
+        if custom_header_format:
+            header = custom_header_format.format(path=relative_path, lang=ext)
+            # Custom header provides opening ```lang
+            return f"{header}\n{content}\n```\n\n"
+        else:
+            lang = relative_path.suffix.lstrip(".")
+            return f"## FILE: {relative_path}\n\n```{lang}\n{content}\n```\n\n"
 
     def begin_output(self) -> str:
         """Return any header/opening content for Markdown output."""
@@ -104,6 +134,7 @@ class JSONFormatter(OutputFormatter):
 
     def __init__(self, **kwargs):
         """Initialize the JSONFormatter."""
+        super().__init__(**kwargs)
         self.is_first = True
 
     def format_file(self, relative_path: Path, content: str) -> str:
@@ -134,6 +165,7 @@ class XMLFormatter(OutputFormatter):
 
     def __init__(self, **kwargs):
         """Initialize the XMLFormatter."""
+        super().__init__(**kwargs)
         pass
 
     def format_file(self, relative_path: Path, content: str) -> str:
@@ -170,7 +202,12 @@ class FormatterFactory:
         cls._formatters[format_type] = formatter_class
 
     @classmethod
-    def create(cls, format_type: FormatType, **kwargs) -> OutputFormatter:
+    def create(
+        cls,
+        format_type: FormatType,
+        custom_file_headers: dict[str, str] | None = None,
+        **kwargs,
+    ) -> OutputFormatter:
         """Create an OutputFormatter instance based on the format type."""
         formatter_class = cls._formatters.get(format_type)
         if not formatter_class:
@@ -178,7 +215,10 @@ class FormatterFactory:
 
         # Let formatters handle their own parameter validation
         try:
-            return cast(OutputFormatter, formatter_class(**kwargs))
+            return cast(
+                OutputFormatter,
+                formatter_class(custom_file_headers=custom_file_headers, **kwargs),
+            )
         except TypeError as e:
             raise TypeError(
                 f"Formatter '{format_type}' initialization failed: {e}"

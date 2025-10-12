@@ -10,6 +10,10 @@ class CodeCombinerError(Exception):
     """Custom exception for CodeCombiner errors."""
 
 
+class MemoryThresholdExceededError(CodeCombinerError):
+    """Custom exception for when memory threshold is exceeded."""
+
+
 DEFAULT_EXTENSIONS: list[str] = [
     ".py",
     ".js",
@@ -55,3 +59,8 @@ class CombinerConfig:
     final_output_format: ConvertType | None = None
     force: bool = False
     always_include: list[str] = field(default_factory=list)
+    token_encoding_model: str = "cl100k_base"
+    max_memory_mb: int | None = 500
+    custom_file_headers: dict[str, str] = field(default_factory=dict)
+    dry_run: bool = False
+    max_file_size_kb: int | None = None

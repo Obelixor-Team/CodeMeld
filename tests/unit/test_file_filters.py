@@ -12,7 +12,8 @@ from src.filters import (
     HiddenFileFilter,
     OutputFilePathFilter,
     SymlinkFilter,
-    SecurityFilter, # Added for new test
+    SecurityFilter,
+    FileSizeFilter, # Added for new test
 )
 
 
@@ -125,6 +126,31 @@ class TestSecurityFilter:
         assert not filter.should_process(traversal_path, {"root_path": temp_dir})
 
 
+class TestFileSizeFilter:
+    def test_should_process_small_file(self, temp_dir: Path):
+        small_file = temp_dir / "small.txt"
+        small_file.write_text("a" * 100) # 100 bytes
+        filter = FileSizeFilter(max_file_size_kb=1) # 1 KB limit
+        assert filter.should_process(small_file, {})
+
+    def test_should_not_process_large_file(self, temp_dir: Path):
+        large_file = temp_dir / "large.txt"
+        large_file.write_text("a" * 2000) # 2000 bytes
+        filter = FileSizeFilter(max_file_size_kb=1) # 1 KB limit
+        assert not filter.should_process(large_file, {})
+
+    def test_should_not_process_non_existent_file(self, temp_dir: Path):
+        non_existent_file = temp_dir / "non_existent.txt"
+        filter = FileSizeFilter(max_file_size_kb=1)
+        assert not filter.should_process(non_existent_file, {})
+
+    def test_should_process_file_at_exact_limit(self, temp_dir: Path):
+        exact_file = temp_dir / "exact.txt"
+        exact_file.write_text("a" * 1024) # 1 KB
+        filter = FileSizeFilter(max_file_size_kb=1) # 1 KB limit
+        assert filter.should_process(exact_file, {})
+
+
 class TestFilterChainBuilder:
     def test_build_default_chain(self, temp_dir: Path):
         config = Mock(spec=CombinerConfig)
@@ -133,6 +159,16 @@ class TestFilterChainBuilder:
         config.exclude_extensions = []
         config.include_hidden = False
         config.use_gitignore = False
+        config.count_tokens = False
+        config.header_width = 80
+        config.format = "text"
+        config.final_output_format = None
+        config.force = False
+        config.always_include = []
+        config.token_encoding_model = "cl100k_base"
+        config.max_memory_mb = 500
+        config.custom_file_headers = {}
+        config.max_file_size_kb = None
 
         chain = FilterChainBuilder.build(config, None)
 
@@ -153,14 +189,14 @@ class TestFilterChainBuilder:
 class TestPathResolution:
     def test_absolute_path_resolution(self, temp_dir: Path):
         from src.code_combiner import CodeCombiner
-        mock_config = Mock(spec=CombinerConfig, directory_path=temp_dir, format="text", header_width=80, output=str(temp_dir / "output.txt"), extensions=[], exclude_extensions=[])
+        mock_config = Mock(spec=CombinerConfig, directory_path=temp_dir, format="text", header_width=80, output=str(temp_dir / "output.txt"), extensions=[], exclude_extensions=[], final_output_format=None, token_encoding_model="cl100k_base", max_memory_mb=500, custom_file_headers={}, max_file_size_kb=None)
         combiner = CodeCombiner(mock_config)
         abs_path = temp_dir / "test.py"
         assert combiner._resolve_path(abs_path) == abs_path.resolve()
 
     def test_relative_path_resolution(self, temp_dir: Path):
         from src.code_combiner import CodeCombiner
-        mock_config = Mock(spec=CombinerConfig, directory_path=temp_dir, format="text", header_width=80, output=str(temp_dir / "output.txt"), extensions=[], exclude_extensions=[])
+        mock_config = Mock(spec=CombinerConfig, directory_path=temp_dir, format="text", header_width=80, output=str(temp_dir / "output.txt"), extensions=[], exclude_extensions=[], final_output_format=None, token_encoding_model="cl100k_base", max_memory_mb=500, custom_file_headers={}, max_file_size_kb=None)
         combiner = CodeCombiner(mock_config)
         rel_path = Path("test.py")
         expected_path = (temp_dir / rel_path).resolve()

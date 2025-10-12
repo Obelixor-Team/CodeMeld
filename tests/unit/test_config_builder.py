@@ -80,3 +80,57 @@ def test_output_directory_non_existent_raises_error(tmp_path):
     )
     with pytest.raises(CodeCombinerError, match=f"Output directory doesn't exist: {non_existent_dir.parent}"):
         load_and_merge_config(args)
+
+def test_extension_without_dot_raises_error_with_suggestion():
+    args = Namespace(
+        directory=".",
+        output="output.txt",
+        extensions=["py"],  # Invalid extension
+        exclude=None,
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False,
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
+        always_include=None,
+    )
+    with pytest.raises(CodeCombinerError, match="Error: Extension 'py' must start with '.'. Did you mean '.py'?"):
+        load_and_merge_config(args)
+
+def test_extension_with_dot_and_case_conversion(): # This test name is now misleading
+    args = Namespace(
+        directory=".",
+        output="output.txt",
+        extensions=["PY"],  # Invalid extension
+        exclude=None,
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False,
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
+        always_include=None,
+    )
+    with pytest.raises(CodeCombinerError, match="Error: Extension 'PY' must start with '.'. Did you mean '.py'?"):
+        load_and_merge_config(args)
+
+def test_multiple_extensions_with_one_invalid():
+    args = Namespace(
+        directory=".",
+        output="output.txt",
+        extensions=[".js", "py", ".ts"],  # One invalid
+        exclude=None,
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False,
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
+        always_include=None,
+    )
+    with pytest.raises(CodeCombinerError, match="Error: Extension 'py' must start with '.'. Did you mean '.py'?"):
+        load_and_merge_config(args)
