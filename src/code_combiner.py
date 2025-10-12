@@ -3,20 +3,18 @@
 import argparse
 import json
 import logging
-import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pathspec
 
-from .config import CodeCombinerError, CombinerConfig, ConvertType
-from .config_builder import load_and_merge_config
+from .config import CombinerConfig, ConvertType
 from .filters import FileFilter, FilterChainBuilder
 from .formatters import (
     FormatterFactory,
     FormatType,
 )
-from .observers import ProgressBarObserver, TokenCounterObserver
+from .observers import LineCounterObserver, ProgressBarObserver, TokenCounterObserver
 from .output_generator import (
     InMemoryOutputGenerator,
     StreamingOutputGenerator,
@@ -177,6 +175,14 @@ def parse_arguments() -> argparse.Namespace:
         action="store_true",
         help="Overwrite output file if it already exists without prompting.",
     )
+    parser.add_argument(
+        "--always-include",
+        nargs="+",
+        help=(
+            "Always include specified files, bypassing other filters "
+            "(space-separated paths)."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -213,27 +219,35 @@ class CodeCombiner:
         return None
 
     def _scan_files(self) -> list[Path]:
-        """Scan directory for matching files."""
-        files = []
+        """Scan directory for matching files, respecting always_include and filters."""
+        files_to_process: list[Path] = []
         context = {"root_path": self.config.directory_path}
 
-        always_include_paths = [
-            (self.config.directory_path / Path(p)).resolve()
-            for p in self.config.always_include
-        ]
+        # Resolve always_include paths once for efficient lookup
+        resolved_always_include_paths: set[Path] = set()
+        for p in self.config.always_include:
+            full_path = (self.config.directory_path / Path(p)).resolve()
+            if full_path.is_file():
+                files_to_process.append(full_path)
+                resolved_always_include_paths.add(full_path)
+            else:
+                logging.warning(
+                    f"Warning: --always-include path not found or not a file: {p}"
+                )
 
+        # Second Pass: General scan, applying filters and avoiding duplicates
         for file_path in self.config.directory_path.rglob("*"):
             resolved_file_path = file_path.resolve()
-            if resolved_file_path in always_include_paths:
-                files.append(file_path)
+            if resolved_file_path in resolved_always_include_paths:
+                # Already added in the first pass
                 continue
 
             if file_path.is_file() and self.filter_chain.should_process(
                 file_path, context
             ):
-                files.append(file_path)
+                files_to_process.append(file_path)
 
-        return files
+        return files_to_process
 
     def execute(self) -> None:
         """Execute the combining process."""
@@ -247,6 +261,8 @@ class CodeCombiner:
             if self.config.count_tokens:
                 token_counter = TokenCounterObserver()
                 generator.subscribe(token_counter)
+                line_counter = LineCounterObserver()
+                generator.subscribe(line_counter)
         else:
             generator = StreamingOutputGenerator(
                 files,

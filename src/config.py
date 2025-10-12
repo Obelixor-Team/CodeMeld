@@ -57,6 +57,7 @@ class CombinerConfig:
     format: FormatType = "text"
     final_output_format: ConvertType | None = None
     force: bool = False
+    always_include: list[str] = field(default_factory=list)
 
     def validate_config(self) -> None:
         """Validate the configuration settings."""

@@ -38,6 +38,7 @@ class CombinerConfigBuilder:
             "format": "text",
             "final_output_format": None,
             "force": False,
+            "always_include": [],
         }
 
     def with_defaults(self) -> "CombinerConfigBuilder":
@@ -72,6 +73,8 @@ class CombinerConfigBuilder:
             self._config["final_output_format"] = args.convert_to
         if args.force:
             self._config["force"] = True
+        if args.always_include is not None:
+            self._config["always_include"] = args.always_include
 
         return self
 

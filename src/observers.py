@@ -54,6 +54,20 @@ class ProgressBarObserver(Observer):
             self.progress_bar.close()
 
 
+class LineCounterObserver(Observer):
+    """Observer for counting lines."""
+
+    def __init__(self):
+        """Initialize the LineCounterObserver."""
+        self.total_lines = 0
+
+    def update(self, event: str, data: Any):
+        """Count lines based on the event."""
+        if event == "output_generated":
+            self.total_lines = data.count("\n") + 1 if data else 0
+            print(f"Total lines in formatted output: {self.total_lines}")
+
+
 class TokenCounterObserver(Observer):
     """Observer for counting tokens."""
 
