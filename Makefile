@@ -24,7 +24,7 @@ lint:
 	.venv/bin/ruff check src
 
 check:
-	.venv/bin/mypy src
+	.venv/bin/mypy --package src
 
 test:
 	PYTHONPATH=. .venv/bin/pytest tests/

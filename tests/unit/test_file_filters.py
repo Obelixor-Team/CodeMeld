@@ -1,19 +1,21 @@
 """Unit tests for the file filters."""
 
-import pytest
 from pathlib import Path
 from unittest.mock import Mock
 
-from src.filters import (
-    ExtensionFilter,
-    HiddenFileFilter,
-    GitignoreFilter,
-    OutputFileFilter,
-    BinaryFileFilter,
-    SymlinkFilter,
-    FilterChainBuilder,
-)
+import pytest
+
 from src.config import CombinerConfig
+from src.filters import (
+    BinaryFileFilter,
+    ExtensionFilter,
+    FilterChainBuilder,
+    GitignoreFilter,
+    HiddenFileFilter,
+    OutputFileFilter,
+    SymlinkFilter,
+)
+
 
 @pytest.fixture
 def temp_dir(tmp_path: Path) -> Path:
@@ -31,29 +33,33 @@ def temp_dir(tmp_path: Path) -> Path:
 class TestExtensionFilter:
     def test_should_process_included_extension(self, temp_dir: Path):
         filter = ExtensionFilter(extensions=[".py"], exclude=[])
-        assert filter.should_process(temp_dir / "test.py", {}) == True
+        assert filter.should_process(temp_dir / "test.py", {})
 
     def test_should_not_process_excluded_extension(self, temp_dir: Path):
         filter = ExtensionFilter(extensions=[".py", ".js"], exclude=[".js"])
-        assert filter.should_process(temp_dir / "test.js", {}) == False
+        assert not filter.should_process(temp_dir / "test.js", {})
 
     def test_should_not_process_other_extension(self, temp_dir: Path):
         filter = ExtensionFilter(extensions=[".py"], exclude=[])
-        assert filter.should_process(temp_dir / "test.js", {}) == False
+        assert not filter.should_process(temp_dir / "test.js", {})
 
 
 class TestHiddenFileFilter:
     def test_should_process_hidden_files_when_included(self, temp_dir: Path):
         filter = HiddenFileFilter(include_hidden=True)
-        assert filter.should_process(temp_dir / ".hidden", {"root_path": temp_dir}) == True
+        assert filter.should_process(temp_dir / ".hidden", {"root_path": temp_dir})
 
     def test_should_not_process_hidden_files_when_not_included(self, temp_dir: Path):
         filter = HiddenFileFilter(include_hidden=False)
-        assert filter.should_process(temp_dir / ".hidden", {"root_path": temp_dir}) == False
+        assert not filter.should_process(temp_dir / ".hidden", {"root_path": temp_dir})
 
-    def test_should_not_process_files_in_hidden_dirs_when_not_included(self, temp_dir: Path):
+    def test_should_not_process_files_in_hidden_dirs_when_not_included(
+        self, temp_dir: Path
+    ):
         filter = HiddenFileFilter(include_hidden=False)
-        assert filter.should_process(temp_dir / "sub" / ".subhidden" / "test.ts", {"root_path": temp_dir}) == False
+        assert not filter.should_process(
+            temp_dir / "sub" / ".subhidden" / "test.ts", {"root_path": temp_dir}
+        )
 
 
 class TestGitignoreFilter:
@@ -61,43 +67,43 @@ class TestGitignoreFilter:
         spec = Mock()
         spec.match_file.return_value = False
         filter = GitignoreFilter(spec=spec)
-        assert filter.should_process(temp_dir / "test.py", {"root_path": temp_dir}) == True
+        assert filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
 
     def test_should_not_process_file_in_gitignore(self, temp_dir: Path):
         spec = Mock()
         spec.match_file.return_value = True
         filter = GitignoreFilter(spec=spec)
-        assert filter.should_process(temp_dir / "test.py", {"root_path": temp_dir}) == False
+        assert not filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
 
 
 class TestOutputFileFilter:
     def test_should_process_other_files(self, temp_dir: Path):
         filter = OutputFileFilter(output_path=temp_dir / "output.txt")
-        assert filter.should_process(temp_dir / "test.py", {}) == True
+        assert filter.should_process(temp_dir / "test.py", {})
 
     def test_should_not_process_output_file(self, temp_dir: Path):
         filter = OutputFileFilter(output_path=temp_dir / "output.txt")
-        assert filter.should_process(temp_dir / "output.txt", {}) == False
+        assert not filter.should_process(temp_dir / "output.txt", {})
 
 
 class TestBinaryFileFilter:
     def test_should_process_text_file(self, temp_dir: Path):
         filter = BinaryFileFilter()
-        assert filter.should_process(temp_dir / "test.py", {}) == True
+        assert filter.should_process(temp_dir / "test.py", {})
 
     def test_should_not_process_binary_file(self, temp_dir: Path):
         filter = BinaryFileFilter()
-        assert filter.should_process(temp_dir / "binary.bin", {}) == False
+        assert not filter.should_process(temp_dir / "binary.bin", {})
 
 
 class TestSymlinkFilter:
     def test_should_process_regular_file(self, temp_dir: Path):
         filter = SymlinkFilter()
-        assert filter.should_process(temp_dir / "test.py", {}) == True
+        assert filter.should_process(temp_dir / "test.py", {})
 
     def test_should_not_process_symlink(self, temp_dir: Path):
         filter = SymlinkFilter()
-        assert filter.should_process(temp_dir / "symlink.py", {}) == False
+        assert not filter.should_process(temp_dir / "symlink.py", {})
 
 
 class TestFilterChainBuilder:
@@ -111,9 +117,15 @@ class TestFilterChainBuilder:
 
         chain = FilterChainBuilder.build(config, None)
 
-        assert chain.should_process(temp_dir / "test.py", {"root_path": temp_dir}) == True
-        assert chain.should_process(temp_dir / "test.js", {"root_path": temp_dir}) == False
-        assert chain.should_process(temp_dir / ".hidden", {"root_path": temp_dir}) == False
-        assert chain.should_process(temp_dir / "output.txt", {"root_path": temp_dir}) == False
-        assert chain.should_process(temp_dir / "binary.bin", {"root_path": temp_dir}) == False
-        assert chain.should_process(temp_dir / "symlink.py", {"root_path": temp_dir}) == False
+        assert chain.should_process(temp_dir / "test.py", {"root_path": temp_dir})
+        assert not chain.should_process(temp_dir / "test.js", {"root_path": temp_dir})
+        assert not chain.should_process(temp_dir / ".hidden", {"root_path": temp_dir})
+        assert not chain.should_process(
+            temp_dir / "output.txt", {"root_path": temp_dir}
+        )
+        assert not chain.should_process(
+            temp_dir / "binary.bin", {"root_path": temp_dir}
+        )
+        assert not chain.should_process(
+            temp_dir / "symlink.py", {"root_path": temp_dir}
+        )

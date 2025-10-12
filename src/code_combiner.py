@@ -3,38 +3,30 @@
 import argparse
 import json
 import logging
-import os
 import sys
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field
 from pathlib import Path
-from types import ModuleType
-from typing import Any, Literal
 
 import pathspec
-import toml
 
-from .formatters import (
-    FormatType,
-    FormatterFactory,
-    OutputFormatter,
-    JSONFormatter,
-    XMLFormatter,
-)
-from .filters import FilterChainBuilder, is_likely_binary, FileFilter
-from .config import CombinerConfig, DEFAULT_EXTENSIONS, ConvertType, CodeCombinerError
+from .config import CodeCombinerError, CombinerConfig, ConvertType
 from .config_builder import load_and_merge_config
-from .output_generator import InMemoryOutputGenerator, StreamingOutputGenerator
+from .filters import FileFilter, FilterChainBuilder
+from .formatters import (
+    FormatterFactory,
+    FormatType,
+)
 from .observers import ProgressBarObserver, TokenCounterObserver
+from .output_generator import (
+    InMemoryOutputGenerator,
+    StreamingOutputGenerator,
+)
+
 
 def write_output(output_path: Path, output_content: str, force: bool):
     """Write the combined output content to the specified file."""
     try:
-        with open(
-            output_path,
-            "x",
-            encoding="utf-8"
-        ) as outfile:
+        with open(output_path, "x", encoding="utf-8") as outfile:
             outfile.write(output_content)
         logging.info(f"\nAll code files have been combined into: {output_path}")
     except FileExistsError:
@@ -57,8 +49,6 @@ def write_output(output_path: Path, output_content: str, force: bool):
         logging.error(f"Error creating or writing to output file {output_path}: {e}")
 
 
-
-
 def convert_to_text(
     content: str,
     input_format: FormatType,
@@ -78,7 +68,9 @@ def convert_to_text(
                     if file_path_text is None:
                         continue
                     file_path_display: str = file_path_text
-                    file_content: str = content_element.text if content_element.text else ""
+                    file_content: str = (
+                        content_element.text if content_element.text else ""
+                    )
                     if output_format == "markdown":
                         lang = Path(file_path_display).suffix.lstrip(".")
                         text_output.append(
@@ -120,6 +112,7 @@ def convert_to_text(
         except json.JSONDecodeError:
             return f"Error: Could not parse JSON content.\n{content}"
     return content
+
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments for the code combiner script."""
@@ -187,21 +180,21 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-
 def run_code_combiner(config: CombinerConfig) -> None:
     """Run the code combiner with the given configuration."""
     config.validate_config()
     combiner = CodeCombiner(config)
     combiner.execute()
 
+
 class CodeCombiner:
     """Orchestrates the code combining process."""
 
     def __init__(self, config: CombinerConfig):
+        """Initialize the CodeCombiner."""
         self.config = config
         self.formatter = FormatterFactory.create(
-            config.format,
-            header_width=config.header_width
+            config.format, header_width=config.header_width
         )
         self.filter_chain = self._build_filter_chain()
 
@@ -222,26 +215,34 @@ class CodeCombiner:
     def _scan_files(self) -> list[Path]:
         """Scan directory for matching files."""
         files = []
-        context = {'root_path': self.config.directory_path}
-        
+        context = {"root_path": self.config.directory_path}
+
         for file_path in self.config.directory_path.rglob("*"):
-            if file_path.is_file() and self.filter_chain.should_process(file_path, context):
+            if file_path.is_file() and self.filter_chain.should_process(
+                file_path, context
+            ):
                 files.append(file_path)
-        
+
         return files
 
     def execute(self) -> None:
         """Execute the combining process."""
         files = self._scan_files()
 
+        generator: InMemoryOutputGenerator | StreamingOutputGenerator
         if self.config.count_tokens or self.config.final_output_format:
-            generator = InMemoryOutputGenerator(files, self.config.directory_path, self.formatter)
+            generator = InMemoryOutputGenerator(
+                files, self.config.directory_path, self.formatter
+            )
             if self.config.count_tokens:
                 token_counter = TokenCounterObserver()
                 generator.subscribe(token_counter)
         else:
             generator = StreamingOutputGenerator(
-                files, self.config.directory_path, self.formatter, Path(self.config.output)
+                files,
+                self.config.directory_path,
+                self.formatter,
+                Path(self.config.output),
             )
 
         progress_bar = ProgressBarObserver(len(files), "Processing files")
@@ -253,9 +254,15 @@ class CodeCombiner:
             output, raw_content = result
             if self.config.final_output_format:
                 output = convert_to_text(
-                    output, self.config.format, self.config.header_width, self.config.final_output_format
+                    output,
+                    self.config.format,
+                    self.config.header_width,
+                    self.config.final_output_format,
                 )
             write_output(Path(self.config.output), output, self.config.force)
+            if self.config.count_tokens:
+                generator.notify("output_generated", output)
+
 
 def main() -> None:
     """Parse arguments, load config, and run the code combiner."""
@@ -266,6 +273,7 @@ def main() -> None:
     except CodeCombinerError as e:
         logging.error(f"{e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

@@ -6,8 +6,10 @@ from typing import Literal
 
 from .formatters import FormatType
 
+
 class CodeCombinerError(Exception):
     """Custom exception for CodeCombiner errors."""
+
 
 DEFAULT_EXTENSIONS: list[str] = [
     ".py",
@@ -39,6 +41,7 @@ DEFAULT_EXTENSIONS: list[str] = [
 
 ConvertType = Literal["text", "markdown"]
 
+
 @dataclass
 class CombinerConfig:
     """Configuration for the CodeCombiner tool."""
@@ -58,19 +61,19 @@ class CombinerConfig:
     def validate_config(self) -> None:
         """Validate the configuration settings."""
         if not self.directory_path.is_dir():
-            raise CodeCombinerError(f"Error: Directory '{self.directory_path}' does not exist.")
+            raise CodeCombinerError(
+                f"Error: Directory '{self.directory_path}' does not exist."
+            )
 
         if not self.extensions:
             raise CodeCombinerError("Error: Extension list cannot be empty.")
 
         for ext in self.extensions:
-            if not ext.startswith('.'):
+            if not ext.startswith("."):
                 raise CodeCombinerError(f"Extension must start with '.': {ext}")
 
-        if self.final_output_format and self.format not in ['json', 'xml']:
-            raise CodeCombinerError(
-                f"--convert-to only works with json/xml formats"
-            )
+        if self.final_output_format and self.format not in ["json", "xml"]:
+            raise CodeCombinerError("--convert-to only works with json/xml formats")
 
         if self.final_output_format and self.format == self.final_output_format:
             raise CodeCombinerError(
