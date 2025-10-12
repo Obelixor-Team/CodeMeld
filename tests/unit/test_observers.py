@@ -114,28 +114,21 @@ def test_progress_bar_observer(mock_tqdm):
 
 
 
-@patch("src.observers.tiktoken")
+def test_token_counter_observer():
+    # Mock tiktoken.get_encoding to return a mock encoder
+    with patch("src.observers.tiktoken.get_encoding") as mock_get_encoding:
+        mock_encoding = MagicMock()
+        mock_encoding.encode.return_value = [1, 2, 3, 4, 5]  # Simulate 5 tokens
+        mock_get_encoding.return_value = mock_encoding
 
+        observer = TokenCounterObserver()
+        observer.update("output_generated", "some text")
 
-def test_token_counter_observer(mock_tiktoken):
-
-
-    mock_encoding = MagicMock()
-
-
-    mock_encoding.encode.return_value = [1, 2, 3, 4, 5]
-
-
-    mock_tiktoken.get_encoding.return_value = mock_encoding
-
-
-    observer = TokenCounterObserver()
-
-
-    observer.update("output_generated", "some text")
-
-
-    assert observer.total_tokens == 5
+        # Assert that get_encoding was called with the expected encoding type
+        mock_get_encoding.assert_called_once_with("cl100k_base")
+        # Assert that encode was called with the correct text
+        mock_encoding.encode.assert_called_once_with("some text")
+        assert observer.total_tokens == 5
 
 
 

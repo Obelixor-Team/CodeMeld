@@ -3,7 +3,6 @@
 import argparse
 import json
 import logging
-import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -215,36 +214,35 @@ class CodeCombiner:
 
     def _scan_files(self) -> list[Path]:
         """Scan directory for matching files, respecting always_include and filters."""
-        files_to_process: list[Path] = []
+        all_files: set[Path] = set()
         context = {"root_path": self.config.directory_path}
 
-        # Resolve always_include paths once for efficient lookup
-        resolved_always_include_paths: set[Path] = set()
+        # Add always_include files first
         for p in self.config.always_include:
             path = Path(p)
+            full_path: Path
             if path.is_absolute():
                 full_path = self._resolve_path(path)
             else:
                 full_path = self._resolve_path(self.config.directory_path / path)
 
             if full_path.is_file():
-                files_to_process.append(full_path)
-                resolved_always_include_paths.add(full_path)
+                all_files.add(full_path)
             else:
                 logging.warning(
                     f"Warning: --always-include path not found or not a file: {p}"
                 )
 
-        # Second Pass: General scan, applying filters and avoiding duplicates
+        # Add filtered files, avoiding duplicates
         try:
             for file_path in self._iter_files():
                 resolved_file_path = self._resolve_path(file_path)
-                if resolved_file_path in resolved_always_include_paths:
-                    # Already added in the first pass
+                if resolved_file_path in all_files:
+                    # Already added as an always_include file
                     continue
 
                 if self.filter_chain.should_process(file_path, context):
-                    files_to_process.append(file_path)
+                    all_files.add(resolved_file_path)
         except PermissionError as e:
             logging.error(f"Permission denied during file scan: {e}")
             raise CodeCombinerError("Insufficient permissions to read files") from e
@@ -252,22 +250,15 @@ class CodeCombiner:
             logging.error(f"OS error during file scan: {e}")
             raise CodeCombinerError(f"File system error: {e}") from e
 
-        return files_to_process
+        return sorted(list(all_files))
 
     def _iter_files(self):
-        """Iterate over files in the directory using os.walk, respecting hidden."""
-        for root, dirs, files in os.walk(self.config.directory_path):
-            current_path = Path(root)
-
-            # Filter out hidden directories if include_hidden is False
-            if not self.config.include_hidden:
-                dirs[:] = [d for d in dirs if not d.startswith(".")]
-
-            for file_name in files:
-                file_path = current_path / file_name
-                # Filter out hidden files if include_hidden is False
-                if not self.config.include_hidden and file_name.startswith("."):
-                    continue
+        """Iterate over files in the directory using pathlib.Path.rglob()."""
+        # rglob will traverse all directories, including hidden ones.
+        # The HiddenFileFilter will then handle filtering based on
+        # self.config.include_hidden.
+        for file_path in self.config.directory_path.rglob("*"):
+            if file_path.is_file():
                 yield file_path
 
     def _resolve_path(self, path: Path) -> Path:

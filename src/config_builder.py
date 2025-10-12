@@ -7,7 +7,6 @@ from typing import Any
 import toml
 
 from .config import DEFAULT_EXTENSIONS, CodeCombinerError, CombinerConfig
-from .types import ConvertType, FormatType
 
 
 def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
@@ -111,33 +110,7 @@ class CombinerConfigBuilder:
                     f"to itself."
                 )
 
-        output_suffix = Path(output).suffix.lstrip(".").lower()
-        expected_suffix: FormatType | ConvertType
-        if self._config["final_output_format"]:
-            expected_suffix = self._config["final_output_format"]
-        else:
-            expected_suffix = self._config["format"]
-
-        if expected_suffix == "text" and output_suffix not in ["txt", "md"]:
-            print(
-                f"Warning: Output file extension '.{output_suffix}' does not typically "
-                f"match 'text' format. Consider using .txt or .md."
-            )
-        elif expected_suffix == "markdown" and output_suffix not in ["md", "txt"]:
-            print(
-                f"Warning: Output file extension '.{output_suffix}' does not typically "
-                f"match 'markdown' format. Consider using .md or .txt."
-            )
-        elif expected_suffix == "json" and output_suffix != "json":
-            raise CodeCombinerError(
-                f"Error: Output file extension '.{output_suffix}' does not match "
-                f"'json' format. Consider using .json."
-            )
-        elif expected_suffix == "xml" and output_suffix != "xml":
-            raise CodeCombinerError(
-                f"Error: Output file extension '.{output_suffix}' does not match "
-                f"'xml' format. Consider using .xml."
-            )
+        # Remove file extension validation - let users name files as they want
         return self
 
     def build(self, directory: str, output: str) -> CombinerConfig:

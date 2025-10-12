@@ -22,8 +22,19 @@ def read_file_content(file_path: Path) -> str | None:
         with open(file_path, encoding="utf-8") as f:
             return f.read()
     except UnicodeDecodeError:
+        logging.warning(f"Skipping file due to UnicodeDecodeError: {file_path}")
         return None
-    except (FileNotFoundError, PermissionError, IsADirectoryError):
+    except FileNotFoundError:
+        logging.warning(f"Skipping file not found: {file_path}")
+        return None
+    except PermissionError:
+        logging.warning(f"Skipping file due to permission error: {file_path}")
+        return None
+    except IsADirectoryError:
+        logging.warning(f"Skipping directory treated as file: {file_path}")
+        return None
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while reading {file_path}: {e}")
         return None
 
 
@@ -79,15 +90,19 @@ class InMemoryOutputGenerator(OutputGenerator):
 
         process = psutil.Process()
         memory_threshold_mb = 500  # 500 MB
+        check_interval = max(
+            1, len(self.files_to_process) // 10
+        )  # Check 10 times total
 
-        for file_path in self.files_to_process:
-            # Check memory usage before processing each file
-            current_memory_rss_mb = process.memory_info().rss / (1024 * 1024)
-            if current_memory_rss_mb > memory_threshold_mb:
-                logging.warning(
-                    f"High memory usage detected (RSS: {current_memory_rss_mb:.1f}MB)"
-                )
-
+        for i, file_path in enumerate(self.files_to_process):
+            # Sample memory usage instead of checking every file
+            if i % check_interval == 0:
+                current_memory_rss_mb = process.memory_info().rss / (1024 * 1024)
+                if current_memory_rss_mb > memory_threshold_mb:
+                    logging.warning(
+                        f"High memory usage detected (RSS: "
+                        f"{current_memory_rss_mb:.1f}MB)"
+                    )
             relative_path = file_path.relative_to(self.root_path)
             content = read_file_content(file_path)
             if content is None:
@@ -131,9 +146,9 @@ class InMemoryOutputGenerator(OutputGenerator):
             isinstance(self.formatter, XMLFormatter)
             and self.xml_root_element is not None
         ):
-            self._indent_xml_element(self.xml_root_element)
+            ET.indent(self.xml_root_element)  # Python 3.9+
             self.output_content = ET.tostring(
-                self.xml_root_element, encoding="utf-8"
+                self.xml_root_element, encoding="utf-8", xml_declaration=True
             ).decode("utf-8")
         else:
             self.output_content = "".join(self.formatted_content_parts)
@@ -144,22 +159,6 @@ class InMemoryOutputGenerator(OutputGenerator):
     def _get_progress_bar_description(self) -> str:
         """Return the description for the progress bar."""
         return f"Processing files ({self.formatter.format_name})"
-
-    def _indent_xml_element(self, elem: ET.Element, level: int = 0) -> None:
-        """Recursively indents ElementTree elements for pretty printing."""
-        i = "\n" + level * "  "
-        if len(elem):
-            if not elem.text or not elem.text.strip():
-                elem.text = i + "  "
-            if not elem.tail or not elem.tail.strip():
-                elem.tail = i
-            for child in elem:
-                self._indent_xml_element(child, level + 1)
-            if not elem.tail or not elem.tail.strip():
-                elem.tail = i
-        else:
-            if level and (not elem.tail or not elem.tail.strip()):
-                elem.tail = i
 
 
 class StreamingOutputGenerator(OutputGenerator):

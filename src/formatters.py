@@ -1,6 +1,5 @@
 """Defines strategies for formatting combined code output."""
 
-import inspect
 import json
 import xml.sax.saxutils
 from abc import ABC, abstractmethod
@@ -177,26 +176,13 @@ class FormatterFactory:
         if not formatter_class:
             raise ValueError(f"Unknown format: {format_type}")
 
-        # Validate kwargs against the formatter's __init__ signature
-        sig = inspect.signature(formatter_class.__init__)
-        for name, param in sig.parameters.items():
-            if name == "self":
-                continue
-            if param.kind == inspect.Parameter.VAR_POSITIONAL:
-                # *args parameter, ignore for kwargs validation
-                continue
-            if param.kind == inspect.Parameter.VAR_KEYWORD:
-                # **kwargs parameter, allow any extra kwargs
-                break
-            if param.default == inspect.Parameter.empty and name not in kwargs:
-                raise TypeError(f"Formatter '{format_type}' requires argument '{name}'")
-        for name in kwargs:
-            if name not in sig.parameters:
-                raise TypeError(
-                    f"Formatter '{format_type}' got unexpected kwarg '{name}'"
-                )
-
-        return cast(OutputFormatter, formatter_class(**kwargs))
+        # Let formatters handle their own parameter validation
+        try:
+            return cast(OutputFormatter, formatter_class(**kwargs))
+        except TypeError as e:
+            raise TypeError(
+                f"Formatter '{format_type}' initialization failed: {e}"
+            ) from e
 
 
 # Register built-in formatters
