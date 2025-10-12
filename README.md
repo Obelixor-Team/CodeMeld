@@ -90,6 +90,7 @@ include_hidden = false
 count_tokens = true
 header_width = 70
 format = "markdown"
+final_output_format = "text" # Example of converting markdown to text
 ```
 
 ### Examples
@@ -116,6 +117,35 @@ format = "markdown"
 
     ```bash
     .venv/bin/python src/code_combiner.py . -o combined.json --format json
+    ```
+
+5.  **Sample JSON Output**:
+
+    ```json
+    {
+        "file1.py": "print('hello')",
+        "file2.js": "console.log('world')",
+        "subdir/file3.py": "x = 1"
+    }
+    ```
+
+6.  **Sample XML Output**:
+
+    ```xml
+    <codebase>
+        <file>
+            <path>file1.py</path>
+            <content>print('hello')</content>
+        </file>
+        <file>
+            <path>file2.js</path>
+            <content>console.log('world')</content>
+        </file>
+        <file>
+            <path>subdir/file3.py</path>
+            <content>x = 1</content>
+        </file>
+    </codebase>
     ```
 
 ### Using with Large Language Models (LLMs)

@@ -2,24 +2,45 @@
 
 import argparse
 import json
+import mimetypes
 import os
-import xml.dom.minidom
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from types import ModuleType
+from typing import Any
 
 import pathspec
 import toml
+from tqdm import tqdm
 
-if TYPE_CHECKING:
-    import tiktoken
-
-# The tiktoken library is optional. If it is not installed, tiktoken will be None.
-try:
-    import tiktoken
-except ImportError:
-    tiktoken = None  # type: ignore
-    print("Warning: tiktoken not found. Token counting will be skipped.")
+DEFAULT_EXTENSIONS: list[str] = [
+    ".py",
+    ".js",
+    ".java",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".php",
+    ".rb",
+    ".go",
+    ".rs",
+    ".ts",
+    ".html",
+    ".css",
+    ".xml",
+    ".json",
+    ".yml",
+    ".yaml",
+    ".sql",
+    ".sh",
+    ".bat",
+    ".ps1",
+    ".md",
+    ".txt",
+]
 
 
 def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
@@ -32,7 +53,7 @@ def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
             if "tool" in pyproject_data and "code_combiner" in pyproject_data["tool"]:
                 config = pyproject_data["tool"]["code_combiner"]
         except Exception as e:
-            print(f"Warning: Could not load pyproject.toml: {e}")
+            sys.stderr.write(f"Warning: Could not load pyproject.toml: {e}\n")
     return config
 
 
@@ -58,12 +79,32 @@ def should_process_file(
     use_gitignore: bool,
     include_hidden: bool,
 ) -> bool:
-    """Determine if a file should be processed based on filtering rules."""
+    """Determine if a file should be processed based on various filtering rules.
+
+    Args:
+        file_path: The path to the file being considered.
+        root_path: The root directory being scanned.
+        output_path: The path to the output file (to avoid processing itself).
+        spec: The gitignore pathspec for matching ignored files, or None.
+        extensions: A list of file extensions to include.
+        exclude_extensions: A list of file extensions to exclude.
+        use_gitignore: Whether to respect .gitignore rules.
+        include_hidden: Whether to include hidden files and directories.
+
+    Returns:
+        True if the file should be processed, False otherwise.
+
+    """
     if file_path.resolve() == output_path.resolve():
         return False
 
     if not file_path.is_file():
         return False
+
+    mime_type, _ = mimetypes.guess_type(file_path)
+    if mime_type and not mime_type.startswith("text/"):
+        if mime_type != "application/xml":  # Allow XML files to be processed
+            return False
 
     if not is_code_file(file_path.name, extensions, exclude_extensions):
         return False
@@ -92,6 +133,29 @@ def get_gitignore_spec(root_path: Path) -> pathspec.PathSpec | None:
     return None
 
 
+def indent(elem, level=0):
+    """Recursively indents ElementTree elements for pretty printing.
+
+    Args:
+        elem: The current ElementTree element.
+        level: The current indentation level.
+
+    """
+    i = "\n" + level * "  "
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for child in elem:
+            indent(child, level + 1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
+
+
 def generate_output(
     files_to_process: list[Path],
     root_path: Path,
@@ -103,9 +167,9 @@ def generate_output(
     relative_path: Path  # Declare relative_path here
     raw_combined_content: str = ""
     raw_content_parts: list[str] = []
+    json_data: dict[str, str] = {}
     if format == "json":
-        json_data: dict[str, str] = {}
-        for file_path in files_to_process:
+        for file_path in tqdm(files_to_process, desc="Processing files (JSON)"):
             relative_path = file_path.relative_to(root_path)
             try:
                 with open(file_path, encoding="utf-8") as infile:
@@ -122,7 +186,7 @@ def generate_output(
 
     elif format == "xml":
         root_element: ET.Element = ET.Element("codebase")
-        for file_path in files_to_process:
+        for file_path in tqdm(files_to_process, desc="Processing files (XML)"):
             relative_path = file_path.relative_to(root_path)
             try:
                 with open(file_path, encoding="utf-8") as infile:
@@ -138,15 +202,15 @@ def generate_output(
                 print(f"Skipping binary file: {relative_path}")
             except Exception as e:
                 print(f"Error reading file {relative_path}: {e}")
-        # Use minidom for pretty printing XML
-        rough_string: bytes = ET.tostring(root_element, "utf-8")
-        reparsed = xml.dom.minidom.parseString(rough_string)
-        output_content = reparsed.toprettyxml(indent="    ")
+        indent(root_element)
+        output_content = ET.tostring(root_element, encoding="utf-8").decode("utf-8")
         raw_combined_content = "".join(raw_content_parts)
 
     else:  # text or markdown
         formatted_content_parts: list[str] = []  # To build the formatted output
-        for file_path in files_to_process:
+        for file_path in tqdm(
+            files_to_process, desc="Processing files (Text/Markdown)"
+        ):
             relative_path = file_path.relative_to(root_path)
             try:
                 with open(file_path, encoding="utf-8") as infile:
@@ -176,8 +240,24 @@ def generate_output(
     return output_content, raw_combined_content
 
 
-def write_output(output_path: Path, output_content: str):
-    """Write the combined output content to the specified file."""
+def write_output(output_path: Path, output_content: str, force: bool):
+    """Write the combined output content to the specified file.
+
+    Args:
+        output_path: The path to the output file.
+        output_content: The content to write to the file.
+        force: If True, overwrite the output file without prompting if it
+            already exists.
+
+    """
+    if output_path.exists() and not force:
+        response = input(
+            f"Output file '{output_path}' already exists. Overwrite? (y/N): "
+        )
+        if response.lower() != "y":
+            print("Operation cancelled by user.")
+            return
+
     try:
         with open(output_path, "w", encoding="utf-8") as outfile:
             outfile.write(output_content)
@@ -255,8 +335,13 @@ def scan_and_combine_code_files(
     header_width: int = 80,
     format: str = "text",
     final_output_format: str = "text",
+    force: bool = False,  # Add force parameter
 ):
-    """Scan a directory and combine code files into a single output file."""
+    """Scan a directory and combine code files into a single output file.
+
+    Token counting, if enabled, is performed on the raw combined content
+    (excluding headers and formatting) to accurately reflect LLM input size.
+    """
     root_path: Path = Path(root_dir)
     output_path: Path = Path(output_file)
 
@@ -273,27 +358,25 @@ def scan_and_combine_code_files(
         return
 
     # Validate and normalize extensions and exclude_extensions
-    normalized_extensions: list[str] = []
+    processed_extensions: list[str] = []
     for ext in extensions:
         if not ext.startswith("."):
-            print(
+            sys.stderr.write(
                 f"Error: Custom extension '{ext}' must start with a dot "
-                f"(e.g., '.{ext}')."
+                f"(e.g., '.{ext}').\n"
             )
             return
-        normalized_extensions.append(ext.lower())
-    extensions = normalized_extensions
+        processed_extensions.append(ext.lower())
 
-    normalized_exclude_extensions: list[str] = []
+    processed_exclude_extensions: list[str] = []
     for ext in exclude_extensions:
         if not ext.startswith("."):
-            print(
+            sys.stderr.write(
                 f"Error: Exclude extension '{ext}' must start with a dot "
-                f"(e.g., '.{ext}')."
+                f"(e.g., '.{ext}').\n"
             )
             return
-        normalized_exclude_extensions.append(ext.lower())
-    exclude_extensions = normalized_exclude_extensions
+        processed_exclude_extensions.append(ext.lower())
 
     spec: pathspec.PathSpec | None = None
     if use_gitignore:
@@ -308,8 +391,8 @@ def scan_and_combine_code_files(
             root_path,
             output_path,
             spec,
-            extensions,
-            exclude_extensions,
+            processed_extensions,
+            processed_exclude_extensions,
             use_gitignore,
             include_hidden,
         ):
@@ -329,23 +412,30 @@ def scan_and_combine_code_files(
         output_content = formatted_output_content
 
     # Count tokens before writing to file
-    if count_tokens and tiktoken is not None:
+    if count_tokens:
+        tiktoken_module: ModuleType | None = None
         try:
-            encoding = tiktoken.get_encoding("cl100k_base")
-            tokens: list[int] = encoding.encode(
-                raw_combined_content
-            )  # Use raw_combined_content
-            print(f"Total tokens in combined content: {len(tokens)}")
-        except ValueError as e:
-            print(f"Error counting tokens: {e}")
-    elif count_tokens and not tiktoken:
-        print("Token counting skipped: 'tiktoken' library not installed.")
+            import tiktoken
 
-    write_output(output_path, output_content)
+            tiktoken_module = tiktoken
+        except ImportError:
+            print("Warning: tiktoken not found. Token counting will be skipped.")
+
+        if tiktoken_module is not None:
+            try:
+                encoding = tiktoken_module.get_encoding("cl100k_base")
+                tokens: list[int] = encoding.encode(
+                    raw_combined_content
+                )  # Use raw_combined_content
+                print(f"Total tokens in combined content: {len(tokens)}")
+            except ValueError as e:
+                print(f"Error counting tokens: {e}")
+
+    write_output(output_path, output_content, force)
 
 
-def main() -> None:
-    """Parse arguments and run the code combiner."""
+def parse_arguments() -> argparse.Namespace:
+    """Parse command-line arguments for the code combiner script."""
     parser = argparse.ArgumentParser(
         description="Combine code files from a directory into a single file."
     )
@@ -402,47 +492,28 @@ def main() -> None:
         choices=["text", "markdown"],
         help="Convert XML/JSON output to text or markdown format.",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite output file if it already exists without prompting.",
+    )
+    return parser.parse_args()
 
-    args = parser.parse_args()
+
+def load_and_merge_config(args: argparse.Namespace) -> dict[str, Any]:
+    """Load configuration from pyproject.toml and merge with command-line arguments."""
     directory_path: Path = Path(args.directory)
 
     if not directory_path.is_dir():
         print(f"Error: Directory '{args.directory}' does not exist.")
-        return
+        sys.exit(1)  # Use sys.exit(1) for errors that prevent further execution
 
     config: dict[str, Any] = load_config_from_pyproject(directory_path)
 
-    # Initialize parameters with config values, then override with command-line
-    # arguments
-    default_extensions: list[str] = [
-        ".py",
-        ".js",
-        ".java",
-        ".c",
-        ".cpp",
-        ".h",
-        ".hpp",
-        ".cs",
-        ".php",
-        ".rb",
-        ".go",
-        ".rs",
-        ".ts",
-        ".html",
-        ".css",
-        ".xml",
-        ".json",
-        ".yml",
-        ".yaml",
-        ".sql",
-        ".sh",
-        ".bat",
-        ".ps1",
-        ".md",
-        ".txt",
-    ]
+    # Default extensions if not provided via command line or config
+    # Default extensions are now loaded from the global DEFAULT_EXTENSIONS constant
 
-    final_extensions: list[str] = config.get("extensions", default_extensions)
+    final_extensions: list[str] = config.get("extensions", DEFAULT_EXTENSIONS)
     if args.extensions is not None:
         final_extensions = args.extensions
 
@@ -458,22 +529,20 @@ def main() -> None:
     # Boolean flags: if present on command line, they override config
     if args.no_gitignore:
         final_use_gitignore = False
-    elif "use_gitignore" in config:  # Only use config if not overridden by command line
+    elif "use_gitignore" in config:
         final_use_gitignore = config["use_gitignore"]
 
     if args.include_hidden:
         final_include_hidden = True
-    elif (
-        "include_hidden" in config
-    ):  # Only use config if not overridden by command line
+    elif "include_hidden" in config:
         final_include_hidden = config["include_hidden"]
 
     if args.no_tokens:
         final_count_tokens = False
-    elif "count_tokens" in config:  # Only use config if not overridden by command line
+    elif "count_tokens" in config:
         final_count_tokens = config["count_tokens"]
 
-    if args.header_width != 80:  # Only override if user explicitly set it
+    if args.header_width != 80:
         final_header_width = args.header_width
     elif "header_width" in config:
         final_header_width = config["header_width"]
@@ -486,18 +555,43 @@ def main() -> None:
         args.convert_to if args.convert_to is not None else final_format
     )
 
+    return {
+        "directory_path": directory_path,
+        "output": args.output,
+        "extensions": final_extensions,
+        "exclude_extensions": final_exclude_extensions,
+        "use_gitignore": final_use_gitignore,
+        "include_hidden": final_include_hidden,
+        "count_tokens": final_count_tokens,
+        "header_width": final_header_width,
+        "format": final_format,
+        "final_output_format": final_convert_to,
+        "force": args.force,
+    }
+
+
+def run_code_combiner(config: dict[str, Any]) -> None:
+    """Run the code combiner with the given configuration."""
     scan_and_combine_code_files(
-        directory_path,
-        args.output,  # Output file is always from command line
-        final_extensions,
-        final_exclude_extensions,
-        final_use_gitignore,
-        final_include_hidden,
-        final_count_tokens,
-        final_header_width,
-        final_format,
-        final_convert_to,
+        config["directory_path"],
+        config["output"],
+        config["extensions"],
+        config["exclude_extensions"],
+        config["use_gitignore"],
+        config["include_hidden"],
+        config["count_tokens"],
+        config["header_width"],
+        config["format"],
+        config["final_output_format"],
+        config["force"],  # Pass force parameter
     )
+
+
+def main() -> None:
+    """Parse arguments, load config, and run the code combiner."""
+    args = parse_arguments()
+    config = load_and_merge_config(args)
+    run_code_combiner(config)
 
 
 if __name__ == "__main__":
