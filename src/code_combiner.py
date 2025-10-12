@@ -81,7 +81,7 @@ def _merge_config_value(
     argparse_default: Any,  # The default value argparse would assign if not provided
     config_default: Any,  # The default value if neither CLI nor config provides it
 ) -> Any:
-    """Helper to merge CLI argument, config value, and default value, prioritizing CLI.
+    """Merge CLI argument, config value, and default value, prioritizing CLI.
 
     Args:
         config: The configuration dictionary loaded from pyproject.toml.
@@ -95,11 +95,13 @@ def _merge_config_value(
 
     Returns:
         The merged value, prioritizing CLI > config > default.
+
     """
     cli_value = getattr(args, arg_name)
 
     # If CLI value is provided (i.e., not the argparse_default)
-    # For nargs arguments, cli_value will be None if not provided, which is not argparse_default
+    # For nargs arguments, cli_value will be None if not provided,
+    # which is not argparse_default
     if cli_value is not argparse_default:
         return cli_value
 
@@ -293,32 +295,37 @@ def _generate_output_streaming(
             # or using a custom JSON stream writer.
             outfile.write("{\n")
             first_file = True
-            for file_path in tqdm(files_to_process, desc="Processing files (JSON Streaming)"):
+            for file_path in tqdm(
+                files_to_process, desc="Processing files (JSON Streaming)"
+            ):
                 relative_path = file_path.relative_to(root_path)
                 content = read_file_content(file_path)
                 if content is None:
                     continue
                 if not first_file:
                     outfile.write(",\n")
-                outfile.write(f"    \"{relative_path}\": {json.dumps(content)}")
+                outfile.write(f'    "{relative_path}": {json.dumps(content)}')
                 first_file = False
                 tqdm.write(f"Processed: {relative_path}")
             outfile.write("\n}")
 
         elif format == "xml":
-            # Similar to JSON, XML needs a root element, making true streaming difficult.
+            # Similar to JSON, XML needs a root element, making true
+            # streaming difficult.
             # A SAX-like approach would be needed for large XML streaming.
             # For simplicity, we'll write a basic structure.
             outfile.write("<codebase>\n")
-            for file_path in tqdm(files_to_process, desc="Processing files (XML Streaming)"):
+            for file_path in tqdm(
+                files_to_process, desc="Processing files (XML Streaming)"
+            ):
                 relative_path = file_path.relative_to(root_path)
                 content = read_file_content(file_path)
                 if content is None:
                     continue
-                outfile.write(f"  <file>\n")
+                outfile.write("  <file>\n")
                 outfile.write(f"    <path>{relative_path}</path>\n")
                 outfile.write(f"    <content><![CDATA[{content}]]></content>\n")
-                outfile.write(f"  </file>\n")
+                outfile.write("  </file>\n")
                 tqdm.write(f"Processed: {relative_path}")
             outfile.write("</codebase>")
 
@@ -356,7 +363,6 @@ def write_output(output_path: Path, output_content: str, force: bool):
             already exists.
 
     """
-
     if output_path.exists() and not force:
         response = input(
             f"Output file '{output_path}' already exists. Overwrite? (y/N): "
@@ -370,7 +376,9 @@ def write_output(output_path: Path, output_content: str, force: bool):
             outfile.write(output_content)
         print(f"\nAll code files have been combined into: {output_path}")
     except Exception as e:
-        sys.stderr.write(f"Error creating or writing to output file {output_path}: {e}\n")
+        sys.stderr.write(
+            f"Error creating or writing to output file {output_path}: {e}\n"
+        )
 
 
 def convert_to_text(
@@ -388,7 +396,11 @@ def convert_to_text(
                 path_element: ET.Element | None = file_element.find("path")
                 content_element: ET.Element | None = file_element.find("content")
                 if path_element is not None and content_element is not None:
-                    file_path_display: str = Path(path_element.text).name
+                    file_path_text = path_element.text
+                    if file_path_text is None:
+                        continue  # Skip if path is None
+
+                    file_path_display: str = file_path_text
                     file_content: str = (
                         content_element.text if content_element.text else ""
                     )
@@ -414,7 +426,7 @@ def convert_to_text(
             json_data: dict[str, str] = json.loads(content)
             text_output = []
             for original_file_path, file_content in json_data.items():
-                file_path_display = Path(original_file_path).name
+                file_path_display = original_file_path
                 if output_format == "markdown":
                     lang = Path(file_path_display).suffix.lstrip(".")
                     text_output.append(
@@ -462,9 +474,6 @@ def _collect_files(
             files_to_process.append(file_path)
             tqdm.write(f"Selected: {file_path.relative_to(root_path)}")
     return files_to_process
-
-
-
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -546,8 +555,12 @@ def load_and_merge_config(args: argparse.Namespace) -> dict[str, Any]:
     # Default extensions if not provided via command line or config
     # Default extensions are now loaded from the global DEFAULT_EXTENSIONS constant
 
-    final_extensions: list[str] = _merge_config_value(config, args, "extensions", "extensions", None, DEFAULT_EXTENSIONS)
-    final_exclude_extensions: list[str] = _merge_config_value(config, args, "exclude_extensions", "exclude", None, [])
+    final_extensions: list[str] = _merge_config_value(
+        config, args, "extensions", "extensions", None, DEFAULT_EXTENSIONS
+    )
+    final_exclude_extensions: list[str] = _merge_config_value(
+        config, args, "exclude_extensions", "exclude", None, []
+    )
 
     final_use_gitignore: bool = config.get("use_gitignore", True)
     if args.no_gitignore:
@@ -561,9 +574,13 @@ def load_and_merge_config(args: argparse.Namespace) -> dict[str, Any]:
     if args.no_tokens:
         final_count_tokens = False
 
-    final_header_width: int = _merge_config_value(config, args, "header_width", "header_width", 80, 80)
+    final_header_width: int = _merge_config_value(
+        config, args, "header_width", "header_width", 80, 80
+    )
 
-    final_format: FormatType = _merge_config_value(config, args, "format", "format", "text", "text")
+    final_format: FormatType = _merge_config_value(
+        config, args, "format", "format", "text", "text"
+    )
 
     final_convert_to: ConvertType | None = args.convert_to
 
@@ -585,12 +602,21 @@ def load_and_merge_config(args: argparse.Namespace) -> dict[str, Any]:
 
 def run_code_combiner(config: dict[str, Any]) -> None:
     """Run the code combiner with the given configuration."""
+
     combiner = CodeCombiner(config)
+
     combiner.execute()
 
 
 class CodeCombiner:
+    """Manages the process of scanning, filtering.
+
+    combining, and outputting code files.
+
+    """
+
     def __init__(self, config: dict[str, Any]):
+        """Initialize the CodeCombiner with the given configuration."""
         self.config = config
         self.root_path: Path = config["directory_path"]
         self.output_path: Path = Path(config["output"])
@@ -664,12 +690,18 @@ class CodeCombiner:
             if mime_type != "application/xml":  # Allow XML files to be processed
                 return False
 
-        if not is_code_file(file_path.name, self.processed_extensions, self.processed_exclude_extensions):
+        if not is_code_file(
+            file_path.name, self.processed_extensions, self.processed_exclude_extensions
+        ):
             return False
 
         relative_path: Path = file_path.relative_to(self.root_path)
 
-        if self.use_gitignore and self.spec and self.spec.match_file(str(relative_path)):
+        if (
+            self.use_gitignore
+            and self.spec
+            and self.spec.match_file(str(relative_path))
+        ):
             return False
 
         is_hidden: bool = any(part.startswith(".") for part in relative_path.parts)
@@ -689,7 +721,9 @@ class CodeCombiner:
         return files_to_process
 
     def _generate_output(self, files_to_process: list[Path]) -> tuple[str, str]:
-        return generate_output(files_to_process, self.root_path, self.format, self.header_width)
+        return _generate_output_in_memory(
+            files_to_process, self.root_path, self.format, self.header_width
+        )
 
     def _count_tokens(self, raw_combined_content: str) -> None:
         if self.count_tokens:
@@ -713,6 +747,11 @@ class CodeCombiner:
         write_output(self.output_path, output_content, self.force)
 
     def execute(self) -> None:
+        """Execute the code combination process based on the.
+
+        initialized configuration.
+
+        """
         if not self._validate_inputs():
             return
 
@@ -729,9 +768,15 @@ class CodeCombiner:
                 files_to_process, self.root_path, self.format, self.header_width
             )
 
-            if self.format in ["json", "xml"] and self.final_output_format in ["text", "markdown"]:
+            if self.format in ["json", "xml"] and self.final_output_format in [
+                "text",
+                "markdown",
+            ]:
                 output_content = convert_to_text(
-                    formatted_output_content, self.format, self.header_width, self.final_output_format
+                    formatted_output_content,
+                    self.format,
+                    self.header_width,
+                    self.final_output_format,
                 )
             else:
                 output_content = formatted_output_content
@@ -740,7 +785,11 @@ class CodeCombiner:
             self._write_output(output_content)
         else:
             _generate_output_streaming(
-                files_to_process, self.root_path, self.format, self.header_width, self.output_path
+                files_to_process,
+                self.root_path,
+                self.format,
+                self.header_width,
+                self.output_path,
             )
             print(f"\nAll code files have been combined into: {self.output_path}")
 

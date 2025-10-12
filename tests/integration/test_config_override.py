@@ -1,5 +1,6 @@
 import pytest
-from src.code_combiner import scan_and_combine_code_files, load_config_from_pyproject
+from src.code_combiner import load_and_merge_config, run_code_combiner
+from argparse import Namespace
 from unittest.mock import patch
 
 @patch('src.code_combiner.toml.load')
@@ -17,13 +18,21 @@ def test_scan_and_combine_code_files_command_line_override(mock_toml_load, temp_
     output_file = temp_project_dir / "combined.txt"
 
     # Run with command-line arguments that override config
-    scan_and_combine_code_files(
-        temp_project_dir,
-        str(output_file),
+    mock_args = Namespace(
+        directory=str(temp_project_dir),
+        output=str(output_file),
         extensions=[".py"],
-        exclude_extensions=[],
+        exclude=[], # Note: exclude is the arg name, not exclude_extensions
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False,
         header_width=40,
+        format="text", # Default format
+        convert_to=None,
+        force=False,
     )
+    config = load_and_merge_config(mock_args)
+    run_code_combiner(config)
 
     assert output_file.is_file()
     content = output_file.read_text()
@@ -48,16 +57,21 @@ def test_scan_and_combine_code_files_config_file_only(mock_is_file, mock_toml_lo
     mock_is_file.return_value = True # Make Path.is_file return True
 
     output_file = temp_project_dir / "combined_2.txt"
-    config = load_config_from_pyproject(temp_project_dir)
-    extensions = config.get("extensions", [])
-    header_width = config.get("header_width", 80)
-    scan_and_combine_code_files(
-        temp_project_dir,
-        str(output_file),
-        extensions=extensions,
-        exclude_extensions=[],
-        header_width=header_width,
+    mock_args = Namespace(
+        directory=str(temp_project_dir),
+        output=str(output_file),
+        extensions=None, # Let config handle this
+        exclude=None, # Let config handle this
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False,
+        header_width=80, # Let config handle this
+        format="text", # Default format
+        convert_to=None,
+        force=False,
     )
+    config = load_and_merge_config(mock_args)
+    run_code_combiner(config)
 
     assert output_file.is_file()
     content_2 = output_file.read_text()

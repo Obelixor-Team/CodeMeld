@@ -1,5 +1,6 @@
 import pytest
-from src.code_combiner import scan_and_combine_code_files
+from src.code_combiner import load_and_merge_config, run_code_combiner
+from argparse import Namespace
 from unittest.mock import patch, MagicMock
 import re
 
@@ -16,13 +17,21 @@ def test_token_counting_accuracy(mock_get_encoding, tmp_path, capsys):
     mock_encoder.encode.return_value = [1, 2, 3, 4, 5, 6, 7] # Simulate 7 tokens
     mock_get_encoding.return_value = mock_encoder
 
-    scan_and_combine_code_files(
-        tmp_path,
-        str(output_file),
+    mock_args = Namespace(
+        directory=str(tmp_path),
+        output=str(output_file),
         extensions=[ ".txt" ],
-        exclude_extensions=[],
-        count_tokens=True,
+        exclude=[],
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False, # count_tokens=True means no_tokens=False
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
     )
+    config = load_and_merge_config(mock_args)
+    run_code_combiner(config)
 
     captured = capsys.readouterr()
 
@@ -42,13 +51,21 @@ def test_token_counting_tiktoken_not_installed(tmp_path, capsys):
     (tmp_path / "test_file.txt").write_text(file_content)
     output_file = tmp_path / "combined.txt"
 
-    scan_and_combine_code_files(
-        tmp_path,
-        str(output_file),
+    mock_args = Namespace(
+        directory=str(tmp_path),
+        output=str(output_file),
         extensions=[".txt"],
-        exclude_extensions=[],
-        count_tokens=True,
+        exclude=[],
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False, # count_tokens=True means no_tokens=False
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
     )
+    config = load_and_merge_config(mock_args)
+    run_code_combiner(config)
 
     captured = capsys.readouterr()
     assert "Warning: tiktoken not found. Token counting will be skipped." in captured.out

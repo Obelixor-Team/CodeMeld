@@ -13,7 +13,5 @@ def test_write_output_permission_error(mock_file_open, tmp_path, capsys):
     write_output(output_file, content, force=True)
 
     captured = capsys.readouterr()
-    assert "Error creating or writing to output file" in captured.out
-    assert "Permission denied" in captured.out
-
-    assert "Permission denied" in captured.out
+    assert "Error creating or writing to output file" in captured.err
+    assert "Permission denied" in captured.err

@@ -1,15 +1,25 @@
 import pytest
-from src.code_combiner import scan_and_combine_code_files
+from src.code_combiner import load_and_merge_config, run_code_combiner
+from argparse import Namespace
 import os
 
 def test_scan_and_combine_code_files_default(temp_project_dir):
     output_file = temp_project_dir / "combined.txt"
-    scan_and_combine_code_files(
-        temp_project_dir,
-        str(output_file),
+    mock_args = Namespace(
+        directory=str(temp_project_dir),
+        output=str(output_file),
         extensions=[ ".py", ".js"],
-        exclude_extensions=[],
+        exclude=[],
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False,
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
     )
+    config = load_and_merge_config(mock_args)
+    run_code_combiner(config)
     assert output_file.is_file()
     content = output_file.read_text()
     # Should include file1.py, file2.js, subdir/file3.py
@@ -24,14 +34,21 @@ def test_scan_and_combine_code_files_default(temp_project_dir):
 
 def test_scan_and_combine_code_files_no_gitignore(temp_project_dir):
     output_file = temp_project_dir / "combined.txt"
-    scan_and_combine_code_files(
-        temp_project_dir,
-        str(output_file),
+    mock_args = Namespace(
+        directory=str(temp_project_dir),
+        output=str(output_file),
         extensions=[ ".py", ".js", ".txt"],
-        exclude_extensions=[],
-        use_gitignore=False,
+        exclude=[],
+        no_gitignore=True,
         include_hidden=True,
+        no_tokens=False,
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
     )
+    config = load_and_merge_config(mock_args)
+    run_code_combiner(config)
     assert output_file.is_file()
     content = output_file.read_text()
     # Should include all files, as .gitignore is ignored
@@ -45,13 +62,21 @@ def test_scan_and_combine_code_files_no_gitignore(temp_project_dir):
 
 def test_scan_and_combine_code_files_include_hidden(temp_project_dir):
     output_file = temp_project_dir / "combined.txt"
-    scan_and_combine_code_files(
-        temp_project_dir,
-        str(output_file),
+    mock_args = Namespace(
+        directory=str(temp_project_dir),
+        output=str(output_file),
         extensions=[ ".py", ".js", ".txt"],
-        exclude_extensions=[],
+        exclude=[],
+        no_gitignore=False,
         include_hidden=True,
+        no_tokens=False,
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
     )
+    config = load_and_merge_config(mock_args)
+    run_code_combiner(config)
     assert output_file.is_file()
     content = output_file.read_text()
     # Should not include hidden files that are in .gitignore
@@ -65,12 +90,21 @@ def test_scan_and_combine_code_files_include_hidden(temp_project_dir):
 
 def test_scan_and_combine_code_files_exclude_extensions(temp_project_dir):
     output_file = temp_project_dir / "combined.txt"
-    scan_and_combine_code_files(
-        temp_project_dir,
-        str(output_file),
+    mock_args = Namespace(
+        directory=str(temp_project_dir),
+        output=str(output_file),
         extensions=[ ".py", ".js", ".txt"],
-        exclude_extensions=[ ".js"],
+        exclude=[ ".js"],
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False,
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
     )
+    config = load_and_merge_config(mock_args)
+    run_code_combiner(config)
     assert output_file.is_file()
     content = output_file.read_text()
     # Should include .py and .txt files, but exclude .js files
@@ -81,13 +115,21 @@ def test_scan_and_combine_code_files_exclude_extensions(temp_project_dir):
 
 def test_scan_and_combine_code_files_no_tokens(temp_project_dir, capsys):
     output_file = temp_project_dir / "combined.txt"
-    scan_and_combine_code_files(
-        temp_project_dir,
-        str(output_file),
+    mock_args = Namespace(
+        directory=str(temp_project_dir),
+        output=str(output_file),
         extensions=[ ".py"],
-        exclude_extensions=[],
-        count_tokens=False,
+        exclude=[],
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=True, # Set to True for no_tokens
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
     )
+    config = load_and_merge_config(mock_args)
+    run_code_combiner(config)
     captured = capsys.readouterr()
     assert "Total tokens in combined file:" not in captured.out
     assert output_file.is_file()
@@ -95,13 +137,21 @@ def test_scan_and_combine_code_files_no_tokens(temp_project_dir, capsys):
 def test_scan_and_combine_code_files_header_width(temp_project_dir):
     output_file = temp_project_dir / "combined.txt"
     custom_width = 50
-    scan_and_combine_code_files(
-        temp_project_dir,
-        str(output_file),
+    mock_args = Namespace(
+        directory=str(temp_project_dir),
+        output=str(output_file),
         extensions=[ ".py"],
-        exclude_extensions=[],
+        exclude=[],
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False,
         header_width=custom_width,
+        format="text",
+        convert_to=None,
+        force=False,
     )
+    config = load_and_merge_config(mock_args)
+    run_code_combiner(config)
     assert output_file.is_file()
     content = output_file.read_text()
     # Check if the header separator has the custom width
