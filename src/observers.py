@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Defines the observer pattern for progress reporting and token counting."""
+
+from __future__ import annotations
 
 import logging
 import time

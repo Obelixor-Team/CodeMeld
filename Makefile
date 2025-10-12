@@ -24,7 +24,7 @@ format:
 	.venv/bin/black src
 
 lint:
-	.venv/bin/ruff check src
+	.venv/bin/ruff check src --fix
 
 check:
 	.venv/bin/mypy --package src

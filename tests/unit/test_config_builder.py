@@ -19,6 +19,7 @@ def test_header_width_validation_positive():
         convert_to=None,
         force=False,
         always_include=None,
+        custom_file_headers="{}",
     )
     config = load_and_merge_config(args)
     assert config.header_width == 80
@@ -38,6 +39,7 @@ def test_header_width_validation_zero_raises_error():
         convert_to=None,
         force=False,
         always_include=None,
+        custom_file_headers="{}",
     )
     with pytest.raises(CodeCombinerError, match="Header width must be positive"):
         load_and_merge_config(args)
@@ -57,6 +59,7 @@ def test_header_width_validation_negative_raises_error():
         convert_to=None,
         force=False,
         always_include=None,
+        custom_file_headers="{}",
     )
     with pytest.raises(CodeCombinerError, match="Header width must be positive"):
         load_and_merge_config(args)
@@ -77,9 +80,11 @@ def test_output_directory_non_existent_raises_error(tmp_path):
         convert_to=None,
         force=False,
         always_include=None,
+        custom_file_headers="{}",
     )
-    with pytest.raises(CodeCombinerError, match=f"Output directory doesn't exist: {non_existent_dir.parent}"):
-        load_and_merge_config(args)
+    load_and_merge_config(args)
+    assert non_existent_dir.parent.exists()
+    assert not non_existent_dir.exists() # The file itself is not created yet, only the directory
 
 def test_extension_without_dot_raises_error_with_suggestion():
     args = Namespace(
@@ -95,6 +100,7 @@ def test_extension_without_dot_raises_error_with_suggestion():
         convert_to=None,
         force=False,
         always_include=None,
+        custom_file_headers="{}",
     )
     with pytest.raises(CodeCombinerError, match="Error: Extension 'py' must start with '.'. Did you mean '.py'?"):
         load_and_merge_config(args)
@@ -113,6 +119,7 @@ def test_extension_with_dot_and_case_conversion(): # This test name is now misle
         convert_to=None,
         force=False,
         always_include=None,
+        custom_file_headers="{}",
     )
     with pytest.raises(CodeCombinerError, match="Error: Extension 'PY' must start with '.'. Did you mean '.py'?"):
         load_and_merge_config(args)
@@ -131,6 +138,7 @@ def test_multiple_extensions_with_one_invalid():
         convert_to=None,
         force=False,
         always_include=None,
+        custom_file_headers="{}",
     )
     with pytest.raises(CodeCombinerError, match="Error: Extension 'py' must start with '.'. Did you mean '.py'?"):
         load_and_merge_config(args)
@@ -149,6 +157,7 @@ def test_convert_to_with_invalid_format_raises_error():
         convert_to="markdown",
         force=False,
         always_include=None,
+        custom_file_headers="{}",
     )
     with pytest.raises(CodeCombinerError, match="--convert-to can only be used when --format is 'json' or 'xml'"):
         load_and_merge_config(args)
@@ -167,6 +176,7 @@ def test_convert_to_same_format_raises_error():
         convert_to="json",  # Converting to the same format
         force=False,
         always_include=None,
+        custom_file_headers="{}",
     )
     with pytest.raises(CodeCombinerError, match="Error: Cannot convert format 'json' to itself."):
         load_and_merge_config(args)

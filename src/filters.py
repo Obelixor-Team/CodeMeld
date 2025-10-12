@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Defines the filter chain for selecting files to be combined."""
+
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -200,7 +200,7 @@ class FilterChainBuilder:
             filters.append(GitignoreFilter(spec))
 
         chain = OutputFilePathFilter(output_path)
-        current = chain
+        current: FileFilter = chain
         for f in filters:
             current = current.set_next(f)
 

@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Utility functions for the code combiner."""
+
+from __future__ import annotations
 
 import logging
 from pathlib import Path

@@ -17,6 +17,7 @@ max-complexity = 10  # Matches radon's default
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]  # Skip docstring checks in tests
+"src/config_builder.py" = ["E402", "D100"]
 
 [tool.ruff.format]
 quote-style = "double"

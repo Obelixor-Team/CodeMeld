@@ -1,0 +1,74 @@
+.venv/bin/black src
+.venv/bin/ruff check src --fix
+All checks passed!
+.venv/bin/mypy --package src
+src/filters.py:20: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/observers.py:28: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/observers.py:109: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/observers.py:110: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+Success: no issues found in 11 source files
+PYTHONPATH=. .venv/bin/pytest --cov=src --cov-report=term-missing tests/
+..........F............................................................. [ 73%]
+..........................                                               [100%]
+=================================== FAILURES ===================================
+________________________ test_memory_threshold_fallback ________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-skum/pytest-312/test_memory_threshold_fallback0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x7f357954d550>
+
+    def test_memory_threshold_fallback(tmp_path, caplog):
+        """Test that memory threshold exceeding triggers fallback to streaming output."""
+        large_file = tmp_path / "large_file.txt"
+        large_file.write_text("a" * (1024 * 1024 * 2))  # 2MB file
+    
+        output_file = tmp_path / "output.txt"
+    
+        config = CombinerConfig(
+            directory_path=tmp_path,
+            output=str(output_file),
+            extensions=[".txt"],
+            max_memory_mb=1,  # Intentionally very low
+            count_tokens=False,  # Fallback only occurs if token counting is not needed
+        )
+    
+        combiner = CodeCombiner(config)
+    
+        with caplog.at_level(logging.WARNING):
+            combiner.execute()
+    
+        # Output file should exist (streaming fallback succeeded)
+        assert output_file.exists()
+        content = output_file.read_text()
+        assert "a" * (1024 * 1024 * 2) in content
+    
+        # Log should contain fallback message (looser match for robustness)
+>       assert any("Falling back to streaming" in record.message for record in caplog.records)
+E       assert False
+E        +  where False = any(<generator object test_memory_threshold_fallback.<locals>.<genexpr> at 0x7f357af979f0>)
+
+tests/integration/test_end_to_end.py:222: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Processed: large_file.txt
+----------------------------- Captured stderr call -----------------------------
+Processing files:   0%|          | 0/1 [00:00<?, ?it/s]                                                       Processing files: 100%|██████████| 1/1 [00:00<00:00, 213.91it/s]Processing files: 100%|██████████| 1/1 [00:00<00:00, 206.47it/s]
+
+---------- coverage: platform linux, python 3.11.13-final-0 ----------
+Name                      Stmts   Miss  Cover   Missing
+-------------------------------------------------------
+src/__init__.py               1      0   100%
+src/code_combiner.py        142     36    75%   35-40, 47-49, 54-157, 163-164, 228, 318-334
+src/config.py                26      0   100%
+src/config_builder.py        94     18    81%   22-25, 36-38, 67-68, 77, 79, 81, 83, 91, 93, 101-102, 112, 115
+src/filters.py              116     14    88%   38, 70, 74-75, 88, 91, 95-96, 133, 157-162, 192
+src/formatters.py           136     30    78%   38, 43, 48, 53, 58, 99, 128, 132, 136, 153-155, 159-160, 164, 168, 184-185, 194, 198, 202, 219-233
+src/memory_monitor.py        21      1    95%   24
+src/observers.py             83      3    96%   20, 152-153
+src/output_generator.py     114     29    75%   24-38, 56, 61, 108, 119, 125, 130-134, 143, 148-149, 194
+src/types.py                  4      0   100%
+src/utils.py                 31     10    68%   27-45, 69
+-------------------------------------------------------
+TOTAL                       768    141    82%
+
+=========================== short test summary info ============================
+FAILED tests/integration/test_end_to_end.py::test_memory_threshold_fallback
+1 failed, 97 passed in 1.19s

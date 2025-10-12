@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Defines strategies for formatting combined code output."""
+
+from __future__ import annotations
 
 import importlib.metadata
 import json
@@ -8,7 +8,7 @@ import xml.sax.saxutils
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from pathlib import Path
-from typing import cast, final
+from typing import Any, cast, final
 
 from src.types import FormatType
 
@@ -224,7 +224,8 @@ class FormatterFactory:
                     import logging
 
                     logging.warning(
-                        f"Entry point {entry_point.name} is not a subclass of OutputFormatter."
+                        f"Entry point {entry_point.name} is not a subclass of "
+                        "OutputFormatter."
                     )
             except Exception as e:
                 import logging

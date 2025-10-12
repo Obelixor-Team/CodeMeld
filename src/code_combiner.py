@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """A script to combine code files from a directory into a single output file."""
+
+from __future__ import annotations
 
 import argparse
 import logging
@@ -10,20 +10,16 @@ import pathspec
 
 from .config import CodeCombinerError, CombinerConfig, MemoryThresholdExceededError
 from .filters import FileFilter, FilterChainBuilder
-from .formatters import (
-    FormatterFactory,
-)
+from .formatters import FormatterFactory
 from .memory_monitor import SystemMemoryMonitor
 from .observers import (
     LineCounterObserver,
     ProgressBarObserver,
+    Publisher,
     TelemetryObserver,
     TokenCounterObserver,
 )
-from .output_generator import (
-    InMemoryOutputGenerator,
-    StreamingOutputGenerator,
-)
+from .output_generator import InMemoryOutputGenerator, StreamingOutputGenerator
 
 
 def write_output(
@@ -278,72 +274,55 @@ class CodeCombiner:
             )
             return
 
-        # Use InMemoryOutputGenerator for token counting or JSON/XML output
-        # (streaming for JSON/XML requires in-memory aggregation)
-        use_in_memory = self.config.count_tokens or (
-            (self.config.format == "json" or self.config.format == "xml")
-            and not self.config.final_output_format
+        memory_monitor = SystemMemoryMonitor(
+            self.config.max_memory_mb, self.config.count_tokens
         )
+        publisher = Publisher()
+        if self.config.count_tokens:
+            publisher.subscribe(TokenCounterObserver(self.config.token_encoding_model))
+        publisher.subscribe(ProgressBarObserver(len(files), "Processing files"))
+        publisher.subscribe(TelemetryObserver())
+        publisher.subscribe(LineCounterObserver())
 
-        if use_in_memory:
-            try:
-                memory_monitor = SystemMemoryMonitor(
-                    max_memory_mb=self.config.max_memory_mb,
-                    count_tokens=self.config.count_tokens,
-                )
-                in_memory_generator = InMemoryOutputGenerator(
-                    files,
-                    self.config.directory_path,
-                    self.formatter,
-                    memory_monitor=memory_monitor,
-                )
-                with ProgressBarObserver(
-                    len(files), "Processing files"
-                ) as progress_bar:
-                    in_memory_generator.subscribe(progress_bar)
-                    in_memory_generator.subscribe(TelemetryObserver())
-                    if self.config.count_tokens:
-                        token_counter = TokenCounterObserver(
-                            self.config.token_encoding_model
-                        )
-                        in_memory_generator.subscribe(token_counter)
-                        line_counter = LineCounterObserver()
-                        in_memory_generator.subscribe(line_counter)
-
-                    output, raw_content = in_memory_generator.generate()
-
-                    if self.config.count_tokens:
-                        in_memory_generator.notify("output_generated", output)
-                    write_output(
-                        Path(self.config.output),
-                        output,
-                        self.config.force,
-                        dry_run=self.config.dry_run,
-                    )
-            except MemoryThresholdExceededError as e:
-                logging.warning(
-                    f"Memory threshold exceeded, falling back to streaming: {e}"
-                )
-                # Fallback to streaming output
+        # Start with InMemoryOutputGenerator; fallback handled internally if applicable
+        output_written_by_streaming = False
+        try:
+            generator = InMemoryOutputGenerator(
+                files,
+                self.config.directory_path,
+                self.formatter,
+                memory_monitor,
+                publisher,
+                Path(self.config.output),
+            )
+            output_content, raw_content = generator.generate()
+        except MemoryThresholdExceededError:
+            if not self.config.count_tokens and self.formatter.supports_streaming():
+                logging.warning("Falling back to streaming due to memory constraints.")
                 streaming_generator = StreamingOutputGenerator(
                     files,
                     self.config.directory_path,
                     self.formatter,
                     Path(self.config.output),
                 )
-                with ProgressBarObserver(
-                    len(files), "Processing files"
-                ) as progress_bar:
-                    streaming_generator.subscribe(progress_bar)
-                    streaming_generator.subscribe(TelemetryObserver())
-                    streaming_generator.generate()
-        else:
-            streaming_generator = StreamingOutputGenerator(
-                files,
-                self.config.directory_path,
-                self.formatter,
-                Path(self.config.output),
-            )
-            with ProgressBarObserver(len(files), "Processing files") as progress_bar:
-                streaming_generator.subscribe(progress_bar)
                 streaming_generator.generate()
+                output_written_by_streaming = True
+                output_content = ""  # Clear content as it's already written
+            else:
+                raise  # Re-raise if fallback is not allowed
+
+        if not output_written_by_streaming:
+            if self.config.dry_run:
+                logging.info("\n--- Dry Run Output ---")
+                print(output_content)
+                logging.info("--- End Dry Run Output ---")
+                return
+
+            write_output(
+                Path(self.config.output),
+                output_content,
+                self.config.force,
+                self.config.dry_run,
+            )
+
+        publisher.notify("processing_complete", None)

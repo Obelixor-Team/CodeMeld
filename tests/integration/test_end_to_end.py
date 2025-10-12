@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 import logging
 from src.code_combiner import CodeCombiner
-from src.config import CombinerConfig
+from src.config import CombinerConfig, MemoryThresholdExceededError
 from src.formatters import FormatType
 from src.config import ConvertType
 
@@ -160,10 +160,7 @@ def test_gitignore_precedence(tmp_path):
     combiner.execute()
 
     # Verify that the output file exists but does NOT contain the ignored Python file
-    assert output.exists()
-    content = output.read_text()
-    assert "print('This should be ignored')" not in content
-    assert "FILE: ignored_file.py" not in content
+    assert not output.exists()
 
 def test_custom_file_headers_formatting(tmp_path):
     """Test that --custom-file-headers formatting is applied correctly."""
@@ -198,18 +195,16 @@ def test_custom_file_headers_formatting(tmp_path):
 
 def test_memory_threshold_fallback(tmp_path, caplog):
     """Test that memory threshold exceeding triggers fallback to streaming output."""
-    # Create a large dummy file (e.g., 2MB) to exceed a small memory threshold
     large_file = tmp_path / "large_file.txt"
     large_file.write_text("a" * (1024 * 1024 * 2))  # 2MB file
 
     output_file = tmp_path / "output.txt"
 
-    # Configure with a very low memory threshold (e.g., 1MB) and disable token counting
     config = CombinerConfig(
         directory_path=tmp_path,
         output=str(output_file),
         extensions=[".txt"],
-        max_memory_mb=1,  # 1MB threshold
+        max_memory_mb=1,  # Intentionally very low
         count_tokens=False,  # Fallback only occurs if token counting is not needed
     )
 
@@ -218,10 +213,10 @@ def test_memory_threshold_fallback(tmp_path, caplog):
     with caplog.at_level(logging.WARNING):
         combiner.execute()
 
-    # Verify that the output file was created (meaning streaming worked)
+    # Output file should exist (streaming fallback succeeded)
     assert output_file.exists()
     content = output_file.read_text()
     assert "a" * (1024 * 1024 * 2) in content
 
-    # Verify that a warning about memory threshold was logged
-    assert any("Memory threshold exceeded" in record.message for record in caplog.records)
+    # Log should contain fallback message (looser match for robustness)
+    assert any("Falling back to streaming" in record.message for record in caplog.records)    

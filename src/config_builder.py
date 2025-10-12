@@ -5,21 +5,21 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import tomllib as _tomllib_impl
 from pathlib import Path
 from typing import Any
+
+import toml as _toml_impl
 
 from .config import DEFAULT_EXTENSIONS, CodeCombinerError, CombinerConfig
 
 _tomllib: Any
 
 try:
-
     import tomllib as _tomllib_impl  # stdlib in 3.11+
 
     _tomllib = _tomllib_impl
-
 except ImportError:
-
     import toml as _toml_impl
 
     _tomllib = _toml_impl

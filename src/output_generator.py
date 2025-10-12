@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Provides abstract and concrete classes for generating combined code output."""
+
+from __future__ import annotations
 
 import json
 import xml.etree.ElementTree as ET
@@ -70,6 +70,8 @@ class InMemoryOutputGenerator(OutputGenerator):
         root_path: Path,
         formatter: OutputFormatter,
         memory_monitor: MemoryMonitor,
+        publisher: Publisher,
+        output_path: Path,
     ):
         """Initialize the InMemoryOutputGenerator."""
         super().__init__(files_to_process, root_path, formatter)
@@ -80,6 +82,8 @@ class InMemoryOutputGenerator(OutputGenerator):
         self.json_data: dict[str, str] = {}
         self.xml_root_element: ET.Element | None = None
         self.memory_monitor = memory_monitor
+        self.publisher = publisher
+        self.output_path = output_path
 
     def generate(self) -> tuple[str, str]:
         """Generate output in memory."""
