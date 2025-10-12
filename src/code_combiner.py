@@ -8,11 +8,14 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, Literal
 
 import pathspec
 import toml
 from tqdm import tqdm
+
+FormatType = Literal["text", "markdown", "json", "xml"]
+ConvertType = Literal["text", "markdown"]
 
 DEFAULT_EXTENSIONS: list[str] = [
     ".py",
@@ -133,7 +136,7 @@ def get_gitignore_spec(root_path: Path) -> pathspec.PathSpec | None:
     return None
 
 
-def indent(elem, level=0):
+def _indent_xml_element(elem, level=0):
     """Recursively indents ElementTree elements for pretty printing.
 
     Args:
@@ -148,7 +151,7 @@ def indent(elem, level=0):
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
         for child in elem:
-            indent(child, level + 1)
+            _indent_xml_element(child, level + 1)
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
     else:
@@ -159,12 +162,11 @@ def indent(elem, level=0):
 def generate_output(
     files_to_process: list[Path],
     root_path: Path,
-    format: str,
+    format: FormatType,
     header_width: int,
 ) -> tuple[str, str]:  # Returns formatted_content, raw_content
     """Generate the combined output content based on the specified format."""
     output_content: str = ""
-    relative_path: Path  # Declare relative_path here
     raw_combined_content: str = ""
     raw_content_parts: list[str] = []
     json_data: dict[str, str] = {}
@@ -176,7 +178,7 @@ def generate_output(
                     content: str = infile.read()
                 json_data[str(relative_path)] = content
                 raw_content_parts.append(content)
-                print(f"Processed: {relative_path}")
+                tqdm.write(f"Processed: {relative_path}")
             except UnicodeDecodeError:
                 print(f"Skipping binary file: {relative_path}")
             except Exception as e:
@@ -197,12 +199,12 @@ def generate_output(
                 content_element: ET.Element = ET.SubElement(file_element, "content")
                 content_element.text = content
                 raw_content_parts.append(content)
-                print(f"Processed: {relative_path}")
+                tqdm.write(f"Processed: {relative_path}")
             except UnicodeDecodeError:
                 print(f"Skipping binary file: {relative_path}")
             except Exception as e:
                 print(f"Error reading file {relative_path}: {e}")
-        indent(root_element)
+        _indent_xml_element(root_element)
         output_content = ET.tostring(root_element, encoding="utf-8").decode("utf-8")
         raw_combined_content = "".join(raw_content_parts)
 
@@ -229,7 +231,7 @@ def generate_output(
                     formatted_content_parts.append(content)
                     formatted_content_parts.append("\n\n")
 
-                print(f"Processed: {relative_path}")
+                tqdm.write(f"Processed: {relative_path}")
 
             except UnicodeDecodeError:
                 print(f"Skipping binary file: {relative_path}")
@@ -267,7 +269,10 @@ def write_output(output_path: Path, output_content: str, force: bool):
 
 
 def convert_to_text(
-    content: str, input_format: str, header_width: int, output_format: str
+    content: str,
+    input_format: FormatType,
+    header_width: int,
+    output_format: ConvertType,
 ) -> str:
     """Convert XML or JSON content to a human-readable text/markdown format."""
     if input_format == "xml":
@@ -333,8 +338,8 @@ def scan_and_combine_code_files(
     include_hidden: bool = False,
     count_tokens: bool = True,
     header_width: int = 80,
-    format: str = "text",
-    final_output_format: str = "text",
+    format: FormatType = "text",
+    final_output_format: FormatType = "text",
     force: bool = False,  # Add force parameter
 ):
     """Scan a directory and combine code files into a single output file.
@@ -406,7 +411,7 @@ def scan_and_combine_code_files(
     # text/markdown
     if format in ["json", "xml"] and final_output_format in ["text", "markdown"]:
         output_content = convert_to_text(
-            formatted_output_content, format, header_width, final_output_format
+            formatted_output_content, format, header_width, final_output_format  # type: ignore[arg-type]
         )
     else:
         output_content = formatted_output_content
@@ -427,7 +432,7 @@ def scan_and_combine_code_files(
                 tokens: list[int] = encoding.encode(
                     raw_combined_content
                 )  # Use raw_combined_content
-                print(f"Total tokens in combined content: {len(tokens)}")
+                print(f"Total tokens in raw combined content: {len(tokens)}")
             except ValueError as e:
                 print(f"Error counting tokens: {e}")
 
@@ -547,11 +552,11 @@ def load_and_merge_config(args: argparse.Namespace) -> dict[str, Any]:
     elif "header_width" in config:
         final_header_width = config["header_width"]
 
-    final_format: str = config.get("format", "text")
+    final_format: FormatType = config.get("format", "text")
     if args.format != "text":
         final_format = args.format
 
-    final_convert_to: str = (
+    final_convert_to: ConvertType | FormatType = (
         args.convert_to if args.convert_to is not None else final_format
     )
 

@@ -14,21 +14,6 @@ from unittest.mock import patch, MagicMock, mock_open
 
 
 # Fixture for a temporary directory structure
-@pytest.fixture
-def temp_project_dir(tmp_path):
-    # Create dummy files and directories
-    (tmp_path / "file1.py").write_text("print('hello')")
-    (tmp_path / "file2.js").write_text("console.log('world')")
-    (tmp_path / "ignored_file.txt").write_text("ignored content")
-    (tmp_path / ".hidden_file.txt").write_text("hidden content")
-    (tmp_path / "subdir").mkdir()
-    (tmp_path / "subdir" / "file3.py").write_text("x = 1")
-    (tmp_path / ".hidden_dir").mkdir()
-    (tmp_path / ".hidden_dir" / "hidden_file_in_dir.py").write_text("import os")
-    (tmp_path / "node_modules").mkdir()
-    (tmp_path / "node_modules" / "package.js").write_text("// node module")
-
-    return tmp_path
 
 @pytest.fixture
 def temp_project_dir(tmp_path):
@@ -60,41 +45,15 @@ def test_is_code_file():
     assert is_code_file("test.js", [".py", ".js"], [".js"]) is False  # Exclude .js
 
 
-@patch('src.code_combiner.pathspec.PathSpec.from_lines')
-@patch('src.code_combiner.Path.is_file')
-@patch('builtins.open', new_callable=mock_open)
-def test_get_gitignore_spec(mock_open, mock_is_file, mock_from_lines, temp_project_dir):
-    # Mock Path.is_file to return True for .gitignore
-    mock_is_file.return_value = True
-
-    # Mock the content of the .gitignore file
-    mock_open.return_value.__enter__.return_value = [
-        "ignored_file.txt\n",
-        ".hidden_file.txt\n",
-        ".hidden_dir/\n",
-        "node_modules/\n",
-    ]
-
-    # Mock the behavior of pathspec.PathSpec.from_lines
-    mock_spec = MagicMock()
-    mock_from_lines.return_value = mock_spec
-
+def test_get_gitignore_spec(temp_project_dir):
     spec = get_gitignore_spec(temp_project_dir)
-
     assert spec is not None
-    mock_from_lines.assert_called_once_with("gitwildmatch", mock_open.return_value.__enter__.return_value)
-
-    # Assertions on the mocked spec object
-    spec.match_file("ignored_file.txt")
-    mock_spec.match_file.assert_any_call("ignored_file.txt")
-    spec.match_file(".hidden_file.txt")
-    mock_spec.match_file.assert_any_call(".hidden_file.txt")
-    spec.match_file(".hidden_dir/hidden_file_in_dir.py")
-    mock_spec.match_file.assert_any_call(".hidden_dir/hidden_file_in_dir.py")
-    spec.match_file("node_modules/package.js")
-    mock_spec.match_file.assert_any_call("node_modules/package.js")
-    spec.match_file("file1.py")
-    mock_spec.match_file.assert_any_call("file1.py")
+    assert spec.match_file("ignored_file.txt") is True
+    assert spec.match_file("file1.py") is False
+    assert spec.match_file(".hidden_file.txt") is True
+    assert spec.match_file(".hidden_dir/hidden_file_in_dir.py") is True
+    assert spec.match_file("node_modules/package.js") is True
+    assert spec.match_file("subdir/file3.py") is False
 
 
 def test_scan_and_combine_code_files_default(temp_project_dir):
@@ -344,7 +303,7 @@ def test_token_counting_accuracy(mock_get_encoding, tmp_path, capsys):
     # The expected tokens should now come from our mock
     expected_tokens = len(mock_encoder.encode.return_value)
 
-    match = re.search(r"Total tokens in combined content: (\d+)", captured.out)
+    match = re.search(r"Total tokens in raw combined content: (\d+)", captured.out)
     assert match is not None
     actual_tokens = int(match.group(1))
     assert actual_tokens == expected_tokens
@@ -495,7 +454,6 @@ def test_scan_and_combine_code_files_config_file_only(mock_is_file, mock_toml_lo
     output_file = temp_project_dir / "combined_2.txt"
     config = load_config_from_pyproject(temp_project_dir)
     extensions = config.get("extensions", [])
-    print(f"DEBUG TEST: Extensions before scan_and_combine_code_files: {extensions}") # Add debug print
     header_width = config.get("header_width", 80)
     scan_and_combine_code_files(
         temp_project_dir,

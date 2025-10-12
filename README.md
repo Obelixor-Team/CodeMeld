@@ -90,7 +90,6 @@ include_hidden = false
 count_tokens = true
 header_width = 70
 format = "markdown"
-final_output_format = "text" # Example of converting markdown to text
 ```
 
 ### Examples
