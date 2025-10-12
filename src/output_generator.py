@@ -38,17 +38,21 @@ def read_file_content(file_path: Path) -> str | None:
         return None
 
 
-class OutputGenerator(ABC, Publisher):
+class OutputGenerator(ABC):
     """Abstract base class for output generation."""
 
     def __init__(
-        self, files_to_process: list[Path], root_path: Path, formatter: OutputFormatter
+        self,
+        files_to_process: list[Path],
+        root_path: Path,
+        formatter: OutputFormatter,
+        publisher: Publisher,
     ) -> None:
         """Initialize the OutputGenerator."""
-        super().__init__()
         self.files_to_process = files_to_process
         self.root_path = root_path
         self.formatter = formatter
+        self.publisher = publisher
 
     @abstractmethod
     def generate(self) -> Any:
@@ -74,7 +78,7 @@ class InMemoryOutputGenerator(OutputGenerator):
         output_path: Path,
     ):
         """Initialize the InMemoryOutputGenerator."""
-        super().__init__(files_to_process, root_path, formatter)
+        super().__init__(files_to_process, root_path, formatter, publisher)
         self.output_content = ""
         self.raw_combined_content = ""
         self.raw_content_parts: list[str] = []
@@ -87,7 +91,7 @@ class InMemoryOutputGenerator(OutputGenerator):
 
     def generate(self) -> tuple[str, str]:
         """Generate output in memory."""
-        self.notify(
+        self.publisher.notify(
             "processing_started",
             {
                 "total_files": len(self.files_to_process),
@@ -111,10 +115,10 @@ class InMemoryOutputGenerator(OutputGenerator):
             if content is None:
                 continue
             self._process_file(relative_path, content)
-            self.notify("file_processed", relative_path)
+            self.publisher.notify("file_processed", relative_path)
 
         result = self._end_output()
-        self.notify("processing_complete", result)
+        self.publisher.notify("processing_complete", result)
         return result
 
     def _begin_output(self) -> None:
@@ -173,14 +177,15 @@ class StreamingOutputGenerator(OutputGenerator):
         root_path: Path,
         formatter: OutputFormatter,
         output_path: Path,
+        publisher: Publisher,
     ) -> None:
         """Initialize the StreamingOutputGenerator."""
-        super().__init__(files_to_process, root_path, formatter)
+        super().__init__(files_to_process, root_path, formatter, publisher)
         self.output_path = output_path
 
     def generate(self) -> None:
         """Generate output by streaming to file."""
-        self.notify(
+        self.publisher.notify(
             "processing_started",
             {
                 "total_files": len(self.files_to_process),
@@ -199,11 +204,11 @@ class StreamingOutputGenerator(OutputGenerator):
 
                 # Write the formatted file content
                 outfile.write(self.formatter.format_file(relative_path, content))
-                self.notify("file_processed", relative_path)
+                self.publisher.notify("file_processed", relative_path)
 
             outfile.write(self.formatter.end_output())
 
-        self.notify("processing_complete", None)
+        self.publisher.notify("processing_complete", None)
         return None
 
     def _get_progress_bar_description(self) -> str:

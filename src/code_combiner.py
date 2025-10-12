@@ -304,6 +304,7 @@ class CodeCombiner:
                     self.config.directory_path,
                     self.formatter,
                     Path(self.config.output),
+                    publisher,
                 )
                 streaming_generator.generate()
                 output_written_by_streaming = True
