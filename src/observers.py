@@ -26,14 +26,20 @@ class Publisher:
         """Subscribe an observer to the publisher."""
         self.observers.append(observer)
 
-    def unsubscribe(self, observer: Observer):
+    def unsubscribe(self, observer: Observer) -> None:
         """Unsubscribe an observer from the publisher."""
-        self.observers.remove(observer)
+        try:
+            self.observers.remove(observer)
+        except ValueError:
+            pass
 
-    def notify(self, event: str, data: Any):
+    def notify(self, event: str, data: Any) -> None:
         """Notify all subscribed observers of an event."""
-        for observer in self.observers:
-            observer.update(event, data)
+        for observer in self.observers[:]:  # Copy list to allow modifications
+            try:
+                observer.update(event, data)
+            except Exception as e:
+                logging.error(f"Observer {observer.__class__.__name__} failed: {e}")
 
 
 class ProgressBarObserver(Observer):
@@ -51,7 +57,21 @@ class ProgressBarObserver(Observer):
             self.progress_bar.update(1)
             self.progress_bar.write(f"Processed: {data}")
         elif event == "processing_complete":
+            self.close()
+
+    def close(self):
+        """Clean up the progress bar."""
+        if hasattr(self, "progress_bar") and self.progress_bar:
             self.progress_bar.close()
+
+    def __enter__(self):
+        """Enter the runtime context related to this object."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit the runtime context related to this object."""
+        self.close()
+        return False
 
 
 class LineCounterObserver(Observer):

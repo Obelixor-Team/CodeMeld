@@ -12,7 +12,7 @@ from src.filters import (
     FilterChainBuilder,
     GitignoreFilter,
     HiddenFileFilter,
-    OutputFileFilter,
+    OutputFilePathFilter,
     SymlinkFilter,
 )
 
@@ -76,13 +76,13 @@ class TestGitignoreFilter:
         assert not filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
 
 
-class TestOutputFileFilter:
+class TestOutputFilePathFilter:
     def test_should_process_other_files(self, temp_dir: Path):
-        filter = OutputFileFilter(output_path=temp_dir / "output.txt")
+        filter = OutputFilePathFilter(output_path=temp_dir / "output.txt")
         assert filter.should_process(temp_dir / "test.py", {})
 
     def test_should_not_process_output_file(self, temp_dir: Path):
-        filter = OutputFileFilter(output_path=temp_dir / "output.txt")
+        filter = OutputFilePathFilter(output_path=temp_dir / "output.txt")
         assert not filter.should_process(temp_dir / "output.txt", {})
 
 
@@ -129,3 +129,20 @@ class TestFilterChainBuilder:
         assert not chain.should_process(
             temp_dir / "symlink.py", {"root_path": temp_dir}
         )
+
+
+class TestPathResolution:
+    def test_absolute_path_resolution(self, temp_dir: Path):
+        from src.code_combiner import CodeCombiner
+        mock_config = Mock(spec=CombinerConfig, directory_path=temp_dir, format="text", header_width=80, output=str(temp_dir / "output.txt"), extensions=[], exclude_extensions=[])
+        combiner = CodeCombiner(mock_config)
+        abs_path = temp_dir / "test.py"
+        assert combiner._resolve_path(abs_path) == abs_path.resolve()
+
+    def test_relative_path_resolution(self, temp_dir: Path):
+        from src.code_combiner import CodeCombiner
+        mock_config = Mock(spec=CombinerConfig, directory_path=temp_dir, format="text", header_width=80, output=str(temp_dir / "output.txt"), extensions=[], exclude_extensions=[])
+        combiner = CodeCombiner(mock_config)
+        rel_path = Path("test.py")
+        expected_path = (temp_dir / rel_path).resolve()
+        assert combiner._resolve_path(rel_path) == expected_path

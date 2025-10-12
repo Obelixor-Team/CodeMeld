@@ -2,79 +2,12 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any
 
 import pathspec
 
 from .config import CombinerConfig
-
-BINARY_EXTENSIONS: list[str] = [
-    ".bin",
-    ".exe",
-    ".dll",
-    ".so",
-    ".dylib",
-    ".o",
-    ".a",
-    ".lib",
-    ".png",
-    ".jpg",
-    ".jpeg",
-    ".gif",
-    ".bmp",
-    ".tiff",
-    ".webp",
-    ".ico",
-    ".mp3",
-    ".wav",
-    ".ogg",
-    ".flac",
-    ".aac",
-    ".wma",
-    ".mp4",
-    ".avi",
-    ".mkv",
-    ".mov",
-    ".wmv",
-    ".flv",
-    ".pdf",
-    ".doc",
-    ".docx",
-    ".xls",
-    ".xlsx",
-    ".ppt",
-    ".pptx",
-    ".zip",
-    ".tar",
-    ".gz",
-    ".7z",
-    ".rar",
-    ".jar",
-    ".sqlite",
-    ".db",
-    ".mdb",
-    ".class",
-    ".pyc",
-    ".pyo",
-    ".woff",
-    ".woff2",
-    ".ttf",
-    ".otf",
-    ".eot",
-]
-
-BINARY_DETECTION_CHUNK_SIZE = 1024
-
-
-def is_likely_binary(file_path: Path) -> bool:
-    """Check if a file is likely binary by extension or null bytes."""
-    if file_path.suffix.lower() in BINARY_EXTENSIONS:
-        return True
-    try:
-        with open(file_path, "rb") as f:
-            chunk = f.read(BINARY_DETECTION_CHUNK_SIZE)
-            return b"\0" in chunk
-    except Exception:
-        return True
+from .utils import is_likely_binary
 
 
 class FileFilter(ABC):
@@ -161,15 +94,16 @@ class GitignoreFilter(FileFilter):
             return True
 
 
-class OutputFileFilter(FileFilter):
-    """Filter the output file itself."""
+class OutputFilePathFilter(FileFilter):
+    """Filters out the output file itself."""
 
     def __init__(self, output_path: Path):
-        """Initialize the output file filter."""
+        """Initialize the OutputFilePathFilter."""
         super().__init__()
         self.output_path = output_path.resolve()
 
-    def _check(self, file_path: Path, context: dict) -> bool:
+    def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
+        """Determine if the file should be processed."""
         return file_path.resolve() != self.output_path
 
 
@@ -193,7 +127,11 @@ class FilterChainBuilder:
     @staticmethod
     def build(config: CombinerConfig, spec: pathspec.PathSpec | None) -> FileFilter:
         """Build the filter chain based on the configuration."""
-        chain = OutputFileFilter(Path(config.output))
+        output_path = Path(config.output)
+        if not output_path.is_absolute():
+            output_path = (config.directory_path / output_path).resolve()
+
+        chain = OutputFilePathFilter(output_path)
         current: FileFilter = chain
         current = current.set_next(SymlinkFilter())
         current = current.set_next(BinaryFileFilter())

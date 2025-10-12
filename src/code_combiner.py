@@ -23,28 +23,22 @@ from .output_generator import (
 
 def write_output(output_path: Path, output_content: str, force: bool):
     """Write the combined output content to the specified file."""
+    if output_path.exists() and not force:
+        response = input(
+            f"Output file '{output_path}' already exists. Overwrite? (y/N): "
+        )
+        if response.lower() != "y":
+            logging.info("Operation cancelled by user.")
+            return
+
     try:
-        with open(output_path, "x", encoding="utf-8") as outfile:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as outfile:
             outfile.write(output_content)
         logging.info(f"\nAll code files have been combined into: {output_path}")
-    except FileExistsError:
-        if not force:
-            response = input(
-                f"Output file '{output_path}' already exists. Overwrite? (y/N): "
-            )
-            if response.lower() != "y":
-                logging.info("Operation cancelled by user.")
-                return
-        try:
-            with open(output_path, "w", encoding="utf-8") as outfile:
-                outfile.write(output_content)
-            logging.info(f"\nAll code files have been combined into: {output_path}")
-        except Exception as e:
-            logging.error(
-                f"Error creating or writing to output file {output_path}: {e}"
-            )
     except Exception as e:
-        logging.error(f"Error creating or writing to output file {output_path}: {e}")
+        logging.error(f"Error writing to output file {output_path}: {e}")
+        raise
 
 
 def convert_to_text(
@@ -188,7 +182,7 @@ def parse_arguments() -> argparse.Namespace:
 
 def run_code_combiner(config: CombinerConfig) -> None:
     """Run the code combiner with the given configuration."""
-    config.validate_config()
+
     combiner = CodeCombiner(config)
     combiner.execute()
 
@@ -226,7 +220,12 @@ class CodeCombiner:
         # Resolve always_include paths once for efficient lookup
         resolved_always_include_paths: set[Path] = set()
         for p in self.config.always_include:
-            full_path = (self.config.directory_path / Path(p)).resolve()
+            path = Path(p)
+            if path.is_absolute():
+                full_path = self._resolve_path(path)
+            else:
+                full_path = self._resolve_path(self.config.directory_path / path)
+
             if full_path.is_file():
                 files_to_process.append(full_path)
                 resolved_always_include_paths.add(full_path)
@@ -236,55 +235,65 @@ class CodeCombiner:
                 )
 
         # Second Pass: General scan, applying filters and avoiding duplicates
-        for file_path in self.config.directory_path.rglob("*"):
-            resolved_file_path = file_path.resolve()
+        for file_path in self._iter_files():
+            resolved_file_path = self._resolve_path(file_path)
             if resolved_file_path in resolved_always_include_paths:
                 # Already added in the first pass
                 continue
 
-            if file_path.is_file() and self.filter_chain.should_process(
-                file_path, context
-            ):
+            if self.filter_chain.should_process(file_path, context):
                 files_to_process.append(file_path)
 
         return files_to_process
+
+    def _iter_files(self):
+        """Iterate over files in the directory."""
+        for entry in self.config.directory_path.rglob("*"):
+            if entry.is_file():
+                yield entry
+
+    def _resolve_path(self, path: Path) -> Path:
+        """Resolve a path to its absolute form."""
+        if path.is_absolute():
+            return path.resolve()
+        return (self.config.directory_path / path).resolve()
 
     def execute(self) -> None:
         """Execute the combining process."""
         files = self._scan_files()
 
-        generator: InMemoryOutputGenerator | StreamingOutputGenerator
         if self.config.count_tokens or self.config.final_output_format:
-            generator = InMemoryOutputGenerator(
+            in_memory_generator = InMemoryOutputGenerator(
                 files, self.config.directory_path, self.formatter
             )
-            if self.config.count_tokens:
-                token_counter = TokenCounterObserver()
-                generator.subscribe(token_counter)
-                line_counter = LineCounterObserver()
-                generator.subscribe(line_counter)
+            with ProgressBarObserver(len(files), "Processing files") as progress_bar:
+                in_memory_generator.subscribe(progress_bar)
+                if self.config.count_tokens:
+                    token_counter = TokenCounterObserver()
+                    in_memory_generator.subscribe(token_counter)
+                    line_counter = LineCounterObserver()
+                    in_memory_generator.subscribe(line_counter)
+
+                result = in_memory_generator.generate()
+                output, raw_content = result
+
+                if self.config.final_output_format:
+                    output = convert_to_text(
+                        output,
+                        self.config.format,
+                        self.config.header_width,
+                        self.config.final_output_format,
+                    )
+                if self.config.count_tokens:
+                    in_memory_generator.notify("output_generated", output)
+                write_output(Path(self.config.output), output, self.config.force)
         else:
-            generator = StreamingOutputGenerator(
+            streaming_generator = StreamingOutputGenerator(
                 files,
                 self.config.directory_path,
                 self.formatter,
                 Path(self.config.output),
             )
-
-        progress_bar = ProgressBarObserver(len(files), "Processing files")
-        generator.subscribe(progress_bar)
-
-        result = generator.generate()
-
-        if isinstance(generator, InMemoryOutputGenerator):
-            output, raw_content = result
-            if self.config.final_output_format:
-                output = convert_to_text(
-                    output,
-                    self.config.format,
-                    self.config.header_width,
-                    self.config.final_output_format,
-                )
-            write_output(Path(self.config.output), output, self.config.force)
-            if self.config.count_tokens:
-                generator.notify("output_generated", output)
+            with ProgressBarObserver(len(files), "Processing files") as progress_bar:
+                streaming_generator.subscribe(progress_bar)
+                streaming_generator.generate()

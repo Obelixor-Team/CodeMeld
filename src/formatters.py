@@ -4,9 +4,9 @@ import json
 import xml.sax.saxutils
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Literal, cast
+from typing import cast
 
-FormatType = Literal["text", "markdown", "json", "xml"]
+from src.types import FormatType
 
 
 class OutputFormatter(ABC):
@@ -115,6 +115,7 @@ class JSONFormatter(OutputFormatter):
 
     def begin_output(self) -> str:
         """Return any header/opening content for JSON output."""
+        self.is_first = True  # Reset state
         return "{\n"
 
     def end_output(self) -> str:
@@ -161,16 +162,24 @@ class XMLFormatter(OutputFormatter):
 class FormatterFactory:
     """Factory to create OutputFormatter instances."""
 
-    @staticmethod
-    def create(format_type: FormatType, **kwargs) -> OutputFormatter:
+    _formatters: dict[str, type[OutputFormatter]] = {}
+
+    @classmethod
+    def register(cls, format_type: str, formatter_class: type[OutputFormatter]):
+        """Register a new formatter."""
+        cls._formatters[format_type] = formatter_class
+
+    @classmethod
+    def create(cls, format_type: FormatType, **kwargs) -> OutputFormatter:
         """Create an OutputFormatter instance based on the format type."""
-        formatters = {
-            "text": TextFormatter,
-            "markdown": MarkdownFormatter,
-            "json": JSONFormatter,
-            "xml": XMLFormatter,
-        }
-        formatter_class = formatters.get(format_type)
+        formatter_class = cls._formatters.get(format_type)
         if not formatter_class:
             raise ValueError(f"Unknown format: {format_type}")
         return cast(OutputFormatter, formatter_class(**kwargs))
+
+
+# Register built-in formatters
+FormatterFactory.register("text", TextFormatter)
+FormatterFactory.register("markdown", MarkdownFormatter)
+FormatterFactory.register("json", JSONFormatter)
+FormatterFactory.register("xml", XMLFormatter)

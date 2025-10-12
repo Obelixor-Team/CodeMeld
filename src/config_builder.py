@@ -7,6 +7,7 @@ from typing import Any
 import toml
 
 from .config import DEFAULT_EXTENSIONS, CodeCombinerError, CombinerConfig
+from .types import ConvertType, FormatType
 
 
 def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
@@ -78,8 +79,15 @@ class CombinerConfigBuilder:
 
         return self
 
-    def validate(self) -> "CombinerConfigBuilder":
+    def validate(self, directory: str, output: str) -> "CombinerConfigBuilder":
         """Validate configuration."""
+        directory_path = Path(directory)
+        if not directory_path.is_dir():
+            raise CodeCombinerError(f"Error: Directory '{directory}' does not exist.")
+
+        if not self._config["extensions"]:
+            raise CodeCombinerError("Error: Extension list cannot be empty.")
+
         # Check extensions start with dot
         for ext in self._config["extensions"]:
             if not ext.startswith("."):
@@ -89,7 +97,39 @@ class CombinerConfigBuilder:
         if self._config["final_output_format"]:
             if self._config["format"] not in ["json", "xml"]:
                 raise CodeCombinerError("--convert-to only works with json/xml formats")
+            if self._config["format"] == self._config["final_output_format"]:
+                raise CodeCombinerError(
+                    f"Error: Cannot convert format '{self._config['format']}' "
+                    f"to itself."
+                )
 
+        output_suffix = Path(output).suffix.lstrip(".").lower()
+        expected_suffix: FormatType | ConvertType
+        if self._config["final_output_format"]:
+            expected_suffix = self._config["final_output_format"]
+        else:
+            expected_suffix = self._config["format"]
+
+        if expected_suffix == "text" and output_suffix not in ["txt", "md"]:
+            print(
+                f"Warning: Output file extension '.{output_suffix}' does not typically "
+                f"match 'text' format. Consider using .txt or .md."
+            )
+        elif expected_suffix == "markdown" and output_suffix not in ["md", "txt"]:
+            print(
+                f"Warning: Output file extension '.{output_suffix}' does not typically "
+                f"match 'markdown' format. Consider using .md or .txt."
+            )
+        elif expected_suffix == "json" and output_suffix != "json":
+            raise CodeCombinerError(
+                f"Error: Output file extension '.{output_suffix}' does not match "
+                f"'json' format. Consider using .json."
+            )
+        elif expected_suffix == "xml" and output_suffix != "xml":
+            raise CodeCombinerError(
+                f"Error: Output file extension '.{output_suffix}' does not match "
+                f"'xml' format. Consider using .xml."
+            )
         return self
 
     def build(self, directory: str, output: str) -> CombinerConfig:
@@ -103,9 +143,6 @@ def load_and_merge_config(args: argparse.Namespace) -> CombinerConfig:
     """Load configuration from pyproject.toml and merge with command-line arguments."""
     directory_path = Path(args.directory)
 
-    if not directory_path.is_dir():
-        raise CodeCombinerError(f"Error: Directory '{args.directory}' does not exist.")
-
     pyproject_config = load_config_from_pyproject(directory_path)
 
     return (
@@ -113,6 +150,6 @@ def load_and_merge_config(args: argparse.Namespace) -> CombinerConfig:
         .with_defaults()
         .with_pyproject_config(pyproject_config)
         .with_cli_args(args)
-        .validate()
+        .validate(args.directory, args.output)
         .build(args.directory, args.output)
     )
