@@ -5,6 +5,15 @@ from abc import ABC, abstractmethod
 from types import ModuleType
 from typing import Any
 
+from tqdm import tqdm
+
+tiktoken: ModuleType | None
+try:
+    import tiktoken
+except ImportError:
+    tiktoken = None
+    logging.warning("tiktoken not found. Token counting will be skipped.")
+
 
 class Observer(ABC):
     """Abstract base class for observers."""
@@ -47,8 +56,6 @@ class ProgressBarObserver(Observer):
 
     def __init__(self, total_files: int, description: str):
         """Initialize the ProgressBarObserver."""
-        from tqdm import tqdm
-
         self.progress_bar = tqdm(total=total_files, desc=description)
 
     def update(self, event: str, data: Any):
@@ -94,13 +101,7 @@ class TokenCounterObserver(Observer):
     def __init__(self):
         """Initialize the TokenCounterObserver."""
         self.total_tokens = 0
-        self.tiktoken_module: ModuleType | None = None
-        try:
-            import tiktoken
-
-            self.tiktoken_module = tiktoken
-        except ImportError:
-            logging.warning("tiktoken not found. Token counting will be skipped.")
+        self.tiktoken_module: ModuleType | None = tiktoken
 
     def update(self, event: str, data: Any):
         """Count tokens based on the event."""

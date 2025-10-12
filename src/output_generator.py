@@ -4,7 +4,7 @@ import json
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any
 
 from .formatters import JSONFormatter, OutputFormatter, XMLFormatter
 from .observers import Publisher
@@ -36,40 +36,9 @@ class OutputGenerator(ABC, Publisher):
         self.root_path = root_path
         self.formatter = formatter
 
+    @abstractmethod
     def generate(self) -> Any:
-        """Template method for generating output."""
-        self._begin_output(None)
-        self.notify(
-            "processing_started",
-            {
-                "total_files": len(self.files_to_process),
-                "description": self._get_progress_bar_description(),
-            },
-        )
-        for file_path in self.files_to_process:
-            relative_path = file_path.relative_to(self.root_path)
-            content = read_file_content(file_path)
-            if content is None:
-                continue
-            self._process_file(None, relative_path, content)
-            self.notify("file_processed", relative_path)
-        result = self._end_output(None)
-        self.notify("processing_complete", result)
-        return result
-
-    @abstractmethod
-    def _begin_output(self, outfile: TextIO | None = None):
-        """Perform actions at the beginning of output generation."""
-        pass
-
-    @abstractmethod
-    def _process_file(self, outfile: TextIO | None, relative_path: Path, content: str):
-        """Process each file's content."""
-        pass
-
-    @abstractmethod
-    def _end_output(self, outfile: TextIO | None):
-        """Perform actions at the end of output generation."""
+        """Generate the output."""
         pass
 
     @abstractmethod
@@ -93,12 +62,36 @@ class InMemoryOutputGenerator(OutputGenerator):
         self.json_data: dict[str, str] = {}
         self.xml_root_element: ET.Element | None = None
 
-    def _begin_output(self, outfile: TextIO | None = None):
+    def generate(self) -> tuple[str, str]:
+        """Generate output in memory."""
+        self.notify(
+            "processing_started",
+            {
+                "total_files": len(self.files_to_process),
+                "description": self._get_progress_bar_description(),
+            },
+        )
+
+        self._begin_output()
+
+        for file_path in self.files_to_process:
+            relative_path = file_path.relative_to(self.root_path)
+            content = read_file_content(file_path)
+            if content is None:
+                continue
+            self._process_file(relative_path, content)
+            self.notify("file_processed", relative_path)
+
+        result = self._end_output()
+        self.notify("processing_complete", result)
+        return result
+
+    def _begin_output(self) -> None:
         """Prepare for in-memory output generation."""
         if isinstance(self.formatter, XMLFormatter):
             self.xml_root_element = ET.Element("codebase")
 
-    def _process_file(self, outfile: TextIO | None, relative_path: Path, content: str):
+    def _process_file(self, relative_path: Path, content: str) -> None:
         """Process each file's content for in-memory storage."""
         self.raw_content_parts.append(content)
         if isinstance(self.formatter, JSONFormatter):
@@ -117,7 +110,7 @@ class InMemoryOutputGenerator(OutputGenerator):
                 self.formatter.format_file(relative_path, content)
             )
 
-    def _end_output(self, outfile: TextIO | None = None) -> tuple[str, str]:
+    def _end_output(self) -> tuple[str, str]:
         """Finalize in-memory output and return it."""
         if isinstance(self.formatter, JSONFormatter):
             self.output_content = json.dumps(self.json_data, indent=4)
@@ -167,63 +160,37 @@ class StreamingOutputGenerator(OutputGenerator):
         output_path: Path,
     ):
         """Initialize the StreamingOutputGenerator."""
-
         super().__init__(files_to_process, root_path, formatter)
-
         self.output_path = output_path
 
     def generate(self) -> None:
-        """Template method for generating output."""
+        """Generate output by streaming to file."""
+        self.notify(
+            "processing_started",
+            {
+                "total_files": len(self.files_to_process),
+                "description": self._get_progress_bar_description(),
+            },
+        )
 
         with open(self.output_path, "w", encoding="utf-8") as outfile:
-
-            self._begin_output(outfile)
-
-            self.notify(
-                "processing_started",
-                {
-                    "total_files": len(self.files_to_process),
-                    "description": self._get_progress_bar_description(),
-                },
-            )
+            outfile.write(self.formatter.begin_output())
 
             for file_path in self.files_to_process:
-
                 relative_path = file_path.relative_to(self.root_path)
-
                 content = read_file_content(file_path)
-
                 if content is None:
-
                     continue
 
-                self._process_file(outfile, relative_path, content)
-
+                # Write the formatted file content
+                outfile.write(self.formatter.format_file(relative_path, content))
                 self.notify("file_processed", relative_path)
 
-            self._end_output(outfile)
+            outfile.write(self.formatter.end_output())
 
-            self.notify("processing_complete", None)
-
-        return None
-
-    def _begin_output(self, outfile: TextIO | None = None):
-        """Write the beginning content."""
-        assert outfile is not None
-        outfile.write(self.formatter.begin_output())
-
-    def _process_file(self, outfile: TextIO | None, relative_path: Path, content: str):
-        """Write each file's content directly to the output file."""
-        assert outfile is not None
-        outfile.write(self.formatter.format_file(relative_path, content))
-
-    def _end_output(self, outfile: TextIO | None) -> None:
-        """Write the ending content."""
-        assert outfile is not None
-        outfile.write(self.formatter.end_output())
+        self.notify("processing_complete", None)
         return None
 
     def _get_progress_bar_description(self) -> str:
         """Return the description for the progress bar."""
-
         return "Processing files (Streaming)"

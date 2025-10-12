@@ -146,3 +146,21 @@ class TestPathResolution:
         rel_path = Path("test.py")
         expected_path = (temp_dir / rel_path).resolve()
         assert combiner._resolve_path(rel_path) == expected_path
+
+
+class TestPathResolutionEdgeCases:
+    def test_relative_output_path_resolution(self, temp_dir: Path):
+        output_path = Path("output.txt")
+        filter = OutputFilePathFilter(output_path=temp_dir / output_path)
+        assert not filter.should_process(temp_dir / output_path, {})
+
+    def test_output_path_with_double_dots(self, temp_dir: Path):
+        output_path = temp_dir / "sub" / ".." / "output.txt"
+        filter = OutputFilePathFilter(output_path=output_path)
+        assert not filter.should_process(temp_dir / "output.txt", {})
+
+    def test_non_existent_output_path(self, temp_dir: Path):
+        output_path = temp_dir / "non_existent_dir" / "output.txt"
+        filter = OutputFilePathFilter(output_path=output_path)
+        # The filter should still work correctly even if the path doesn't exist yet.
+        assert not filter.should_process(output_path, {})
