@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 """Defines the observer pattern for progress reporting and token counting."""
 
 import logging
+import time
 from abc import ABC, abstractmethod
 from types import ModuleType
 from typing import Any
@@ -96,6 +99,31 @@ class LineCounterObserver(Observer):
         if event == "output_generated":
             self.total_lines = data.count("\n") + 1 if data else 0
             print(f"Total lines in formatted output: {self.total_lines}")
+
+
+class TelemetryObserver(Observer):
+    """Observer for logging telemetry data like total files processed and time taken."""
+
+    def __init__(self):
+        """Initialize the TelemetryObserver."""
+        self.start_time: float | None = None
+        self.total_files_processed: int = 0
+
+    def update(self, event: str, data: Any):
+        """Receive update from subject and log telemetry."""
+        if event == "processing_started":
+            self.start_time = time.time()
+            self.total_files_processed = data.get("total_files", 0)
+            logging.info(
+                f"Telemetry: Processing started for {self.total_files_processed} files."
+            )
+        elif event == "processing_complete" and self.start_time is not None:
+            end_time = time.time()
+            duration = end_time - self.start_time
+            logging.info(
+                f"Telemetry: Processing completed in {duration:.2f} seconds. "
+                f"Total files processed: {self.total_files_processed}"
+            )
 
 
 class TokenCounterObserver(Observer):

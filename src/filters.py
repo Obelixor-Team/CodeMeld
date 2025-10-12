@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Defines the filter chain for selecting files to be combined."""
 
 from abc import ABC, abstractmethod
@@ -17,7 +19,7 @@ class FileFilter(ABC):
         """Initialize the file filter."""
         self._next_filter: FileFilter | None = None
 
-    def set_next(self, filter: "FileFilter") -> "FileFilter":
+    def set_next(self, filter: FileFilter) -> FileFilter:
         """Set the next filter in the chain."""
         self._next_filter = filter
         return filter
@@ -180,23 +182,26 @@ class FilterChainBuilder:
         if not output_path.is_absolute():
             output_path = (config.directory_path / output_path).resolve()
 
-        chain = OutputFilePathFilter(output_path)
-        current: FileFilter = chain
-        current = current.set_next(SecurityFilter())
-        current = current.set_next(SymlinkFilter())
-        current = current.set_next(BinaryFileFilter())
+        filters: list[FileFilter] = [
+            SecurityFilter(),
+            SymlinkFilter(),
+            BinaryFileFilter(),
+        ]
 
         if config.max_file_size_kb is not None and config.max_file_size_kb > 0:
-            current = current.set_next(FileSizeFilter(config.max_file_size_kb))
+            filters.append(FileSizeFilter(config.max_file_size_kb))
 
-        current = current.set_next(
-            ExtensionFilter(config.extensions, config.exclude_extensions)
-        )
+        filters.append(ExtensionFilter(config.extensions, config.exclude_extensions))
 
         if not config.include_hidden:
-            current = current.set_next(HiddenFileFilter(config.include_hidden))
+            filters.append(HiddenFileFilter(config.include_hidden))
 
         if config.use_gitignore and spec:
-            current = current.set_next(GitignoreFilter(spec))
+            filters.append(GitignoreFilter(spec))
+
+        chain = OutputFilePathFilter(output_path)
+        current = chain
+        for f in filters:
+            current = current.set_next(f)
 
         return chain

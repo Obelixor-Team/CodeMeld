@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 """Defines strategies for formatting combined code output."""
 
+import importlib.metadata
 import json
 import xml.sax.saxutils
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from pathlib import Path
-from typing import cast
+from typing import cast, final
 
 from src.types import FormatType
 
@@ -12,7 +16,11 @@ from src.types import FormatType
 class OutputFormatter(ABC):
     """Strategy interface for different output formats."""
 
-    def __init__(self, custom_file_headers: dict[str, str] | None = None, **kwargs):
+    def __init__(
+        self,
+        custom_file_headers: dict[str, str] | None = None,
+        **kwargs: Mapping[str, Any],
+    ):
         """Initialize the OutputFormatter and validate kwargs."""
         if kwargs:
             raise TypeError(
@@ -50,6 +58,7 @@ class OutputFormatter(ABC):
         pass
 
 
+@final
 class TextFormatter(OutputFormatter):
     """Formats output as plain text."""
 
@@ -90,6 +99,7 @@ class TextFormatter(OutputFormatter):
         return True
 
 
+@final
 class MarkdownFormatter(OutputFormatter):
     """Formats output as Markdown."""
 
@@ -126,6 +136,7 @@ class MarkdownFormatter(OutputFormatter):
         return True
 
 
+@final
 class JSONFormatter(OutputFormatter):
     """Formats output as JSON."""
 
@@ -157,6 +168,7 @@ class JSONFormatter(OutputFormatter):
         return True
 
 
+@final
 class XMLFormatter(OutputFormatter):
     """Formats output as XML."""
 
@@ -194,6 +206,33 @@ class FormatterFactory:
     """Factory to create OutputFormatter instances."""
 
     _formatters: dict[str, type[OutputFormatter]] = {}
+    _plugins_loaded: bool = False
+
+    @classmethod
+    def _load_plugins(cls) -> None:
+        """Discover and register formatters via entry points."""
+        if cls._plugins_loaded:
+            return
+        for entry_point in importlib.metadata.entry_points(
+            group="code_combiner.formatters"
+        ):
+            try:
+                formatter_class = entry_point.load()
+                if issubclass(formatter_class, OutputFormatter):
+                    cls.register(entry_point.name, formatter_class)
+                else:
+                    import logging
+
+                    logging.warning(
+                        f"Entry point {entry_point.name} is not a subclass of OutputFormatter."
+                    )
+            except Exception as e:
+                import logging
+
+                logging.error(
+                    f"Failed to load formatter plugin {entry_point.name}: {e}"
+                )
+        cls._plugins_loaded = True
 
     @classmethod
     def register(cls, format_type: str, formatter_class: type[OutputFormatter]):
@@ -208,6 +247,7 @@ class FormatterFactory:
         **kwargs,
     ) -> OutputFormatter:
         """Create an OutputFormatter instance based on the format type."""
+        cls._load_plugins()  # Ensure plugins are loaded before creation
         formatter_class = cls._formatters.get(format_type)
         if not formatter_class:
             raise ValueError(f"Unknown format: {format_type}")

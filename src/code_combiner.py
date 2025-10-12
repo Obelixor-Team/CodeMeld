@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 """A script to combine code files from a directory into a single output file."""
 
 import argparse
-import json
 import logging
 from pathlib import Path
 
@@ -12,7 +13,13 @@ from .filters import FileFilter, FilterChainBuilder
 from .formatters import (
     FormatterFactory,
 )
-from .observers import LineCounterObserver, ProgressBarObserver, TokenCounterObserver
+from .memory_monitor import SystemMemoryMonitor
+from .observers import (
+    LineCounterObserver,
+    ProgressBarObserver,
+    TelemetryObserver,
+    TokenCounterObserver,
+)
 from .output_generator import (
     InMemoryOutputGenerator,
     StreamingOutputGenerator,
@@ -21,7 +28,7 @@ from .output_generator import (
 
 def write_output(
     output_path: Path, output_content: str, force: bool, dry_run: bool = False
-):
+) -> None:
     """Write the combined output content to the specified file."""
     if dry_run:
         logging.info("\n--- Dry Run Output ---")
@@ -133,7 +140,6 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--custom-file-headers",
-        type=json.loads,
         default="{}",
         help=(
             """JSON string of custom file headers per extension (e.g., """
@@ -281,17 +287,21 @@ class CodeCombiner:
 
         if use_in_memory:
             try:
+                memory_monitor = SystemMemoryMonitor(
+                    max_memory_mb=self.config.max_memory_mb,
+                    count_tokens=self.config.count_tokens,
+                )
                 in_memory_generator = InMemoryOutputGenerator(
                     files,
                     self.config.directory_path,
                     self.formatter,
-                    max_memory_mb=self.config.max_memory_mb,
-                    count_tokens=self.config.count_tokens,
+                    memory_monitor=memory_monitor,
                 )
                 with ProgressBarObserver(
                     len(files), "Processing files"
                 ) as progress_bar:
                     in_memory_generator.subscribe(progress_bar)
+                    in_memory_generator.subscribe(TelemetryObserver())
                     if self.config.count_tokens:
                         token_counter = TokenCounterObserver(
                             self.config.token_encoding_model
@@ -325,6 +335,7 @@ class CodeCombiner:
                     len(files), "Processing files"
                 ) as progress_bar:
                     streaming_generator.subscribe(progress_bar)
+                    streaming_generator.subscribe(TelemetryObserver())
                     streaming_generator.generate()
         else:
             streaming_generator = StreamingOutputGenerator(

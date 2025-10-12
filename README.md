@@ -137,17 +137,25 @@ format = "markdown"
 
 5.  **Sample JSON Output**:
 
-    ```json
-    {
+<details>
+<summary>Click to expand JSON example</summary>
+
+```json
+{
         "file1.py": "print('hello')",
         "file2.js": "console.log('world')",
         "subdir/file3.py": "x = 1"
     }
-    ```
+```
+
+</details>
 
 6.  **Sample XML Output**:
 
-    ```xml
+<details>
+<summary>Click to expand XML example</summary>
+
+```xml
     <codebase>
         <file>
             <path>file1.py</path>
@@ -162,7 +170,9 @@ format = "markdown"
             <content>x = 1</content>
         </file>
     </codebase>
-    ```
+```
+
+</details>
 
 ### Using with Large Language Models (LLMs)
 
@@ -233,6 +243,7 @@ Use the provided `Makefile` for code quality checks:
 -   `make format`: Formats the code using `black`.
 -   `make lint`: Lints the code using `ruff`.
 -   `make check`: Runs static type checking with `mypy`.
+-   `make check-strict`: Runs `ruff check`, `mypy --strict`, and `pytest`.
 -   `make all`: Runs format, lint, and check.
 
 ```bash
@@ -241,6 +252,25 @@ make all
 
 ### Linting with Ruff
 Run `ruff check .` to lint the codebase, or `ruff check --fix .` to auto-fix issues. Configuration is defined in `pyproject.toml` under `[tool.ruff]`. To check formatting, run `ruff format --check .`.
+
+## Development Quality Metrics
+
+This project aims for high code quality, enforced by a suite of static analysis tools and comprehensive testing. Key metrics are:
+
+-   **Maintainability Index**: Striving for >95.
+-   **Cyclomatic Complexity**: Aiming for <2.5 average.
+-   **Type Safety**: 100% strict type checking with `mypy --strict`.
+-   **Test Coverage**: Targeting >95% line coverage.
+
+These metrics ensure the codebase is robust, easy to understand, and maintainable.
+
+## Code Quality Evaluation
+
+This project has undergone a thorough code quality evaluation, focusing on maintainability, cyclomatic complexity, type safety, and test coverage. The goal is to achieve a professional-grade Python project ready for publication and long-term maintenance.
+
+## Static Analysis
+
+For detailed information on the static analysis tools and guidelines used in this project (Ruff, MyPy, Radon), please refer to the [Static Analysis Guidelines](docs/static_analysis.md) document.
 
 ## License
 

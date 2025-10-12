@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 """Utility functions for the code combiner."""
 
+import logging
 from pathlib import Path
 
 BINARY_EXTENSIONS = {
@@ -16,6 +19,32 @@ BINARY_EXTENSIONS = {
     ".pdf",
     ".zip",
 }
+
+
+def log_file_read_error(file_path: Path, error: Exception) -> None:
+    """Log a warning for file read errors."""
+
+    if isinstance(error, UnicodeDecodeError):
+
+        logging.warning(f"Skipping file due to UnicodeDecodeError: {file_path}")
+
+    elif isinstance(error, FileNotFoundError):
+
+        logging.warning(f"Skipping file not found: {file_path}")
+
+    elif isinstance(error, PermissionError):
+
+        logging.warning(f"Skipping file due to permission error: {file_path}")
+
+    elif isinstance(error, IsADirectoryError):
+
+        logging.warning(f"Skipping directory treated as file: {file_path}")
+
+    else:
+
+        logging.error(
+            f"An unexpected error occurred while reading {file_path}: {error}"
+        )
 
 
 def is_likely_binary(file_path: Path) -> bool:

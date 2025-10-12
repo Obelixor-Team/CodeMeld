@@ -1,4 +1,4 @@
-.PHONY: help install format lint check test coverage all radon
+.PHONY: help install format lint check test coverage all radon check-strict
 
 help:
 	@echo "Makefile for managing the project."
@@ -8,6 +8,7 @@ help:
 	@echo "  format     Format the code using black."
 	@echo "  lint       Lint the code using ruff."
 	@echo "  check      Run static type checking with mypy."
+	@echo "  check-strict Run ruff check, mypy --strict, and pytest."
 	@echo "  test       Run tests using pytest."
 	@echo "  coverage   Run tests with coverage reporting."
 	@echo "  all        Run format, lint, check, coverage, and radon."
@@ -27,6 +28,11 @@ lint:
 
 check:
 	.venv/bin/mypy --package src
+
+check-strict:
+	.venv/bin/ruff check src
+	.venv/bin/mypy --strict --package src
+	PYTHONPATH=. .venv/bin/pytest tests/
 
 test:
 	PYTHONPATH=. .venv/bin/pytest tests/

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Defines common type aliases used across the codebase."""
 
 from typing import Literal

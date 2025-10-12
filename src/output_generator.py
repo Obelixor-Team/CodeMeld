@@ -1,18 +1,17 @@
+from __future__ import annotations
+
 """Provides abstract and concrete classes for generating combined code output."""
 
 import json
-import logging
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-import psutil
-
-from .config import MemoryThresholdExceededError
 from .formatters import JSONFormatter, OutputFormatter, XMLFormatter
+from .memory_monitor import MemoryMonitor
 from .observers import Publisher
-from .utils import is_likely_binary
+from .utils import is_likely_binary, log_file_read_error
 
 
 def read_file_content(file_path: Path) -> str | None:
@@ -22,20 +21,20 @@ def read_file_content(file_path: Path) -> str | None:
     try:
         with open(file_path, encoding="utf-8") as f:
             return f.read()
-    except UnicodeDecodeError:
-        logging.warning(f"Skipping file due to UnicodeDecodeError: {file_path}")
+    except UnicodeDecodeError as e:
+        log_file_read_error(file_path, e)
         return None
-    except FileNotFoundError:
-        logging.warning(f"Skipping file not found: {file_path}")
+    except FileNotFoundError as e:
+        log_file_read_error(file_path, e)
         return None
-    except PermissionError:
-        logging.warning(f"Skipping file due to permission error: {file_path}")
+    except PermissionError as e:
+        log_file_read_error(file_path, e)
         return None
-    except IsADirectoryError:
-        logging.warning(f"Skipping directory treated as file: {file_path}")
+    except IsADirectoryError as e:
+        log_file_read_error(file_path, e)
         return None
     except Exception as e:
-        logging.error(f"An unexpected error occurred while reading {file_path}: {e}")
+        log_file_read_error(file_path, e)
         return None
 
 
@@ -44,7 +43,7 @@ class OutputGenerator(ABC, Publisher):
 
     def __init__(
         self, files_to_process: list[Path], root_path: Path, formatter: OutputFormatter
-    ):
+    ) -> None:
         """Initialize the OutputGenerator."""
         super().__init__()
         self.files_to_process = files_to_process
@@ -70,8 +69,7 @@ class InMemoryOutputGenerator(OutputGenerator):
         files_to_process: list[Path],
         root_path: Path,
         formatter: OutputFormatter,
-        max_memory_mb: int | None = None,
-        count_tokens: bool = True,
+        memory_monitor: MemoryMonitor,
     ):
         """Initialize the InMemoryOutputGenerator."""
         super().__init__(files_to_process, root_path, formatter)
@@ -81,8 +79,7 @@ class InMemoryOutputGenerator(OutputGenerator):
         self.formatted_content_parts: list[str] = []
         self.json_data: dict[str, str] = {}
         self.xml_root_element: ET.Element | None = None
-        self.max_memory_mb = max_memory_mb
-        self.count_tokens = count_tokens
+        self.memory_monitor = memory_monitor
 
     def generate(self) -> tuple[str, str]:
         """Generate output in memory."""
@@ -96,34 +93,15 @@ class InMemoryOutputGenerator(OutputGenerator):
 
         self._begin_output()
 
-        process = psutil.Process()
-        # Use self.max_memory_mb if set, otherwise default to 500 MB
-        memory_threshold_mb = (
-            self.max_memory_mb if self.max_memory_mb is not None else 500
-        )
         check_interval = max(
             1, len(self.files_to_process) // 10
         )  # Check 10 times total
 
         for i, file_path in enumerate(self.files_to_process):
             # Sample memory usage instead of checking every file
-            if (
-                i % check_interval == 0 and memory_threshold_mb > 0
-            ):  # Only check if threshold is positive
-                current_memory_rss_mb = process.memory_info().rss / (1024 * 1024)
-                if current_memory_rss_mb > memory_threshold_mb:
-                    logging.warning(
-                        f"High memory usage detected (RSS: "
-                        f"{current_memory_rss_mb:.1f}MB). "
-                        f"Threshold: {memory_threshold_mb}MB."
-                    )
-                    if (
-                        not self.count_tokens
-                    ):  # Only fallback if token counting is not needed
-                        raise MemoryThresholdExceededError(
-                            f"Memory usage exceeded {memory_threshold_mb}MB. "
-                            "Falling back to streaming output."
-                        )
+            if i % check_interval == 0:
+                self.memory_monitor.check_memory_usage()
+
             relative_path = file_path.relative_to(self.root_path)
             content = read_file_content(file_path)
             if content is None:
@@ -191,7 +169,7 @@ class StreamingOutputGenerator(OutputGenerator):
         root_path: Path,
         formatter: OutputFormatter,
         output_path: Path,
-    ):
+    ) -> None:
         """Initialize the StreamingOutputGenerator."""
         super().__init__(files_to_process, root_path, formatter)
         self.output_path = output_path

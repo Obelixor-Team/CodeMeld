@@ -54,7 +54,7 @@ jobs:
           pip install -r requirements-dev.txt
       - name: Type check with mypy
         run: |
-          mypy .
+          mypy --strict .
 
   test:
     runs-on: ubuntu-latest

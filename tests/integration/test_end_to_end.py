@@ -138,3 +138,90 @@ def test_dry_run_mode(tmp_path, capsys, caplog):
 
 
     assert "print('dry run test')" in captured_stdout
+
+def test_gitignore_precedence(tmp_path):
+    """Test that .gitignore rules take precedence over included extensions."""
+    # Create a Python file
+    (tmp_path / "ignored_file.py").write_text("print('This should be ignored')")
+    # Create a .gitignore that ignores all .py files
+    (tmp_path / ".gitignore").write_text("*.py")
+
+    output = tmp_path / "output.txt"
+
+    config = CombinerConfig(
+        directory_path=tmp_path,
+        output=str(output),
+        extensions=[".py"],  # .py is included
+        use_gitignore=True,
+        count_tokens=False,
+    )
+
+    combiner = CodeCombiner(config)
+    combiner.execute()
+
+    # Verify that the output file exists but does NOT contain the ignored Python file
+    assert output.exists()
+    content = output.read_text()
+    assert "print('This should be ignored')" not in content
+    assert "FILE: ignored_file.py" not in content
+
+def test_custom_file_headers_formatting(tmp_path):
+    """Test that --custom-file-headers formatting is applied correctly."""
+    (tmp_path / "script.py").write_text("print('Hello from Python')")
+    (tmp_path / "app.js").write_text("console.log('Hello from JS')")
+
+    output = tmp_path / "output.txt"
+
+    custom_headers = {
+        "py": "# Python File: {path}",
+        "js": "// JavaScript File: {path}"
+    }
+
+    config = CombinerConfig(
+        directory_path=tmp_path,
+        output=str(output),
+        extensions=[".py", ".js"],
+        custom_file_headers=custom_headers,
+        count_tokens=False,
+    )
+
+    combiner = CodeCombiner(config)
+    combiner.execute()
+
+    assert output.exists()
+    content = output.read_text()
+
+    assert "# Python File: script.py" in content
+    assert "print('Hello from Python')" in content
+    assert "// JavaScript File: app.js" in content
+    assert "console.log('Hello from JS')" in content
+
+def test_memory_threshold_fallback(tmp_path, caplog):
+    """Test that memory threshold exceeding triggers fallback to streaming output."""
+    # Create a large dummy file (e.g., 2MB) to exceed a small memory threshold
+    large_file = tmp_path / "large_file.txt"
+    large_file.write_text("a" * (1024 * 1024 * 2))  # 2MB file
+
+    output_file = tmp_path / "output.txt"
+
+    # Configure with a very low memory threshold (e.g., 1MB) and disable token counting
+    config = CombinerConfig(
+        directory_path=tmp_path,
+        output=str(output_file),
+        extensions=[".txt"],
+        max_memory_mb=1,  # 1MB threshold
+        count_tokens=False,  # Fallback only occurs if token counting is not needed
+    )
+
+    combiner = CodeCombiner(config)
+
+    with caplog.at_level(logging.WARNING):
+        combiner.execute()
+
+    # Verify that the output file was created (meaning streaming worked)
+    assert output_file.exists()
+    content = output_file.read_text()
+    assert "a" * (1024 * 1024 * 2) in content
+
+    # Verify that a warning about memory threshold was logged
+    assert any("Memory threshold exceeded" in record.message for record in caplog.records)

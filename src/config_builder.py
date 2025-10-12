@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 """Provides a builder for creating CombinerConfig objects."""
 
 import argparse
+import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -30,8 +34,8 @@ def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
             pyproject_data: dict[str, Any] = _tomllib.load(pyproject_path.open("rb"))
             if "tool" in pyproject_data and "code_combiner" in pyproject_data["tool"]:
                 config = pyproject_data["tool"]["code_combiner"]
-        except Exception:
-            pass
+        except Exception as e:
+            logging.warning(f"Error parsing pyproject.toml: {e}")
     return config
 
 
@@ -53,18 +57,18 @@ class CombinerConfigBuilder:
             "always_include": [],
         }
 
-    def with_defaults(self) -> "CombinerConfigBuilder":
+    def with_defaults(self) -> CombinerConfigBuilder:
         """Use default values."""
         return self
 
-    def with_pyproject_config(self, config: dict[str, Any]) -> "CombinerConfigBuilder":
+    def with_pyproject_config(self, config: dict[str, Any]) -> CombinerConfigBuilder:
         """Apply pyproject.toml settings."""
         for key, value in config.items():
             if key in self._config:
                 self._config[key] = value
         return self
 
-    def with_cli_args(self, args: argparse.Namespace) -> "CombinerConfigBuilder":
+    def with_cli_args(self, args: argparse.Namespace) -> CombinerConfigBuilder:
         """Apply CLI arguments (highest precedence)."""
         # Only override if explicitly provided (not None)
         if args.extensions is not None:
@@ -88,9 +92,20 @@ class CombinerConfigBuilder:
         if args.always_include is not None:
             self._config["always_include"] = args.always_include
 
+        # Safely parse custom_file_headers from CLI
+        if args.custom_file_headers is not None:
+            try:
+                self._config["custom_file_headers"] = json.loads(
+                    args.custom_file_headers
+                )
+            except json.JSONDecodeError as e:
+                raise CodeCombinerError(
+                    f"Invalid JSON in --custom-file-headers: {e}"
+                ) from e
+
         return self
 
-    def validate(self, directory: str, output: str) -> "CombinerConfigBuilder":
+    def validate(self, directory: str, output: str) -> CombinerConfigBuilder:
         """Validate configuration."""
         directory_path = Path(directory)
         if not directory_path.is_dir():
@@ -102,10 +117,12 @@ class CombinerConfigBuilder:
         if self._config["header_width"] <= 0:
             raise CodeCombinerError("Header width must be positive")
 
-        if not Path(output).parent.exists():
-            raise CodeCombinerError(
-                f"Output directory doesn't exist: {Path(output).parent}"
+        output_path = Path(output)
+        if not output_path.parent.exists():
+            logging.warning(
+                f"Output directory '{output_path.parent}' does not exist. Creating it."
             )
+            output_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Check extensions start with dot and provide suggestions
         for i, ext in enumerate(self._config["extensions"]):
