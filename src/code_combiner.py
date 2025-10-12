@@ -2,11 +2,11 @@
 
 import argparse
 import json
-import mimetypes
 import os
 import sys
 import xml.etree.ElementTree as ET
 import xml.sax.saxutils
+from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Literal
@@ -49,6 +49,9 @@ DEFAULT_EXTENSIONS: list[str] = [
 
 def read_file_content(file_path: Path) -> str | None:
     """Read file content with proper error handling."""
+    if is_likely_binary(file_path):
+        print(f"Skipping binary file: {file_path}")
+        return None
     try:
         with open(file_path, encoding="utf-8") as f:
             return f.read()
@@ -60,8 +63,35 @@ def read_file_content(file_path: Path) -> str | None:
         return None
 
 
+def is_likely_binary(file_path: Path) -> bool:
+    """Check if a file is likely binary by looking for null bytes."""
+    try:
+        with open(file_path, "rb") as f:
+            chunk = f.read(1024)  # Read first 1024 bytes
+            return b"\0" in chunk  # Null bytes often indicate binary
+    except Exception:
+        return True  # Assume binary if cannot read or error occurs
+
+
 class CodeCombinerError(Exception):
     """Custom exception for CodeCombiner errors."""
+
+
+@dataclass
+class CombinerConfig:
+    """Configuration for the CodeCombiner tool."""
+
+    directory_path: Path
+    output: str
+    extensions: list[str]
+    exclude_extensions: list[str]
+    use_gitignore: bool
+    include_hidden: bool
+    count_tokens: bool
+    header_width: int
+    format: FormatType
+    final_output_format: ConvertType | None
+    force: bool
 
 
 def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
@@ -474,7 +504,7 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_and_merge_config(args: argparse.Namespace) -> dict[str, Any]:
+def load_and_merge_config(args: argparse.Namespace) -> CombinerConfig:
     """Load configuration from pyproject.toml and merge with command-line arguments."""
     directory_path: Path = Path(args.directory)
 
@@ -515,23 +545,22 @@ def load_and_merge_config(args: argparse.Namespace) -> dict[str, Any]:
 
     final_output_format: ConvertType | None = args.convert_to
 
-    config_dict = {
-        "directory_path": directory_path,
-        "output": args.output,
-        "extensions": final_extensions,
-        "exclude_extensions": final_exclude_extensions,
-        "use_gitignore": final_use_gitignore,
-        "include_hidden": final_include_hidden,
-        "count_tokens": final_count_tokens,
-        "header_width": final_header_width,
-        "format": final_format,
-        "final_output_format": final_output_format,
-        "force": args.force,
-    }
-    return config_dict
+    return CombinerConfig(
+        directory_path=directory_path,
+        output=args.output,
+        extensions=final_extensions,
+        exclude_extensions=final_exclude_extensions,
+        use_gitignore=final_use_gitignore,
+        include_hidden=final_include_hidden,
+        count_tokens=final_count_tokens,
+        header_width=final_header_width,
+        format=final_format,
+        final_output_format=final_output_format,
+        force=args.force,
+    )
 
 
-def run_code_combiner(config: dict[str, Any]) -> None:
+def run_code_combiner(config: CombinerConfig) -> None:
     """Run the code combiner with the given configuration."""
 
     combiner = CodeCombiner(config)
@@ -546,20 +575,20 @@ class CodeCombiner:
 
     """
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: CombinerConfig):
         """Initialize the CodeCombiner with the given configuration."""
         self.config = config
-        self.root_path: Path = config["directory_path"]
-        self.output_path: Path = Path(config["output"])
-        self.extensions: list[str] = config["extensions"]
-        self.exclude_extensions: list[str] = config["exclude_extensions"]
-        self.use_gitignore: bool = config["use_gitignore"]
-        self.include_hidden: bool = config["include_hidden"]
-        self.count_tokens: bool = config["count_tokens"]
-        self.header_width: int = config["header_width"]
-        self.format: FormatType = config["format"]
-        self.final_output_format: ConvertType | None = config["final_output_format"]
-        self.force: bool = config["force"]
+        self.root_path: Path = config.directory_path
+        self.output_path: Path = Path(config.output)
+        self.extensions: list[str] = config.extensions
+        self.exclude_extensions: list[str] = config.exclude_extensions
+        self.use_gitignore: bool = config.use_gitignore
+        self.include_hidden: bool = config.include_hidden
+        self.count_tokens: bool = config.count_tokens
+        self.header_width: int = config.header_width
+        self.format: FormatType = config.format
+        self.final_output_format: ConvertType | None = config.final_output_format
+        self.force: bool = config.force
 
         self.processed_extensions: list[str] = []
         self.processed_exclude_extensions: list[str] = []
@@ -608,13 +637,8 @@ class CodeCombiner:
         if file_path.resolve() == self.output_path.resolve():
             return False
 
-        if not file_path.is_file():
+        if not file_path.is_file() or file_path.is_symlink():
             return False
-
-        mime_type, _ = mimetypes.guess_type(file_path)
-        if mime_type and not mime_type.startswith("text/"):
-            if mime_type != "application/xml":  # Allow XML files to be processed
-                return False
 
         if not is_code_file(
             file_path.name, self.processed_extensions, self.processed_exclude_extensions
