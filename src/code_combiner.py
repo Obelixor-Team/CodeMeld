@@ -136,7 +136,7 @@ def get_gitignore_spec(root_path: Path) -> pathspec.PathSpec | None:
     return None
 
 
-def _indent_xml_element(elem, level=0):
+def _indent_xml_element(elem: ET.Element, level: int = 0) -> None:
     """Recursively indents ElementTree elements for pretty printing.
 
     Args:
@@ -557,7 +557,7 @@ def load_and_merge_config(args: argparse.Namespace) -> dict[str, Any]:
         final_format = args.format
 
     final_convert_to: ConvertType | FormatType = (
-        args.convert_to if args.convert_to is not None else final_format
+        args.convert_to if args.convert_to is not None else final_format  # type: ignore[assignment]
     )
 
     return {

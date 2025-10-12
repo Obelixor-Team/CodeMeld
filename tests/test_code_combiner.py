@@ -481,7 +481,6 @@ def test_convert_to_text_xml_to_text(temp_project_dir):
         format="xml",
     )
     assert output_file.is_file()
-    xml_content = output_file.read_text()
 
     text_output_file = temp_project_dir / "combined.txt"
     scan_and_combine_code_files(
@@ -585,7 +584,6 @@ def test_convert_to_text_xml_to_markdown(temp_project_dir):
         format="xml",
     )
     assert output_file.is_file()
-    xml_content = output_file.read_text()
 
     markdown_output_file = temp_project_dir / "combined.md"
     scan_and_combine_code_files(
