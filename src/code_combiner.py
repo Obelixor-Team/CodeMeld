@@ -29,6 +29,14 @@ def write_output(
         logging.info("--- End Dry Run Output ---")
         return
 
+    if output_path.exists() and not force:
+        response = input(
+            f"Output file '{output_path}' already exists. Overwrite? (y/N): "
+        ).lower()
+        if response != "y":
+            logging.info("File write cancelled by user.")
+            return
+
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as outfile:
