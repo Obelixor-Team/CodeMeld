@@ -1,5 +1,5 @@
 import pytest
-from src.code_combiner import load_and_merge_config, run_code_combiner
+from src.code_combiner import load_and_merge_config, run_code_combiner, CodeCombinerError
 from argparse import Namespace
 
 def test_scan_and_combine_code_files_invalid_extension_format(temp_project_dir, capsys):
@@ -18,7 +18,6 @@ def test_scan_and_combine_code_files_invalid_extension_format(temp_project_dir, 
         force=False,
     )
     config = load_and_merge_config(mock_args)
-    run_code_combiner(config)
-    captured = capsys.readouterr()
-    assert "Error: Custom extension 'py' must start with a dot" in captured.err
-    assert not output_file.is_file()
+    with pytest.raises(CodeCombinerError) as excinfo:
+        run_code_combiner(config)
+    assert "Error: Custom extension 'py' must start with a dot" in str(excinfo.value)

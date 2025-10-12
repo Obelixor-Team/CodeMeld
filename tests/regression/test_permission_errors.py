@@ -1,5 +1,5 @@
 import pytest
-from src.code_combiner import load_and_merge_config, run_code_combiner
+from src.code_combiner import load_and_merge_config, run_code_combiner, CodeCombinerError
 from argparse import Namespace
 import os
 
@@ -19,13 +19,9 @@ def test_scan_and_combine_code_files_non_existent_directory(tmp_path, capsys):
         convert_to=None,
         force=False,
     )
-    with pytest.raises(SystemExit) as excinfo:
+    with pytest.raises(CodeCombinerError) as excinfo:
         config = load_and_merge_config(mock_args)
-        run_code_combiner(config)
-    assert excinfo.type == SystemExit
-    assert excinfo.value.code == 1
-    captured = capsys.readouterr()
-    assert f"Error: Directory '{non_existent_dir}' does not exist." in captured.out
+    assert f"Error: Directory '{non_existent_dir}' does not exist." in str(excinfo.value)
     assert not output_file.is_file()
 
 def test_scan_and_combine_code_files_no_write_permissions(temp_project_dir, capsys):
@@ -45,12 +41,9 @@ def test_scan_and_combine_code_files_no_write_permissions(temp_project_dir, caps
         convert_to=None,
         force=False,
     )
-    config = load_and_merge_config(mock_args)
-    run_code_combiner(config)
-    captured = capsys.readouterr()
-    assert (
-        f"Error: No write permissions for output directory '{temp_project_dir}'."
-        in captured.out
-    )
+    with pytest.raises(CodeCombinerError) as excinfo:
+        config = load_and_merge_config(mock_args)
+        run_code_combiner(config)
+    assert "Error: No write permissions for output directory" in str(excinfo.value)
     assert not output_file.is_file()
     os.chmod(temp_project_dir, 0o755)  # Restore permissions

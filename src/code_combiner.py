@@ -6,6 +6,7 @@ import mimetypes
 import os
 import sys
 import xml.etree.ElementTree as ET
+import xml.sax.saxutils
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Literal
@@ -59,6 +60,10 @@ def read_file_content(file_path: Path) -> str | None:
         return None
 
 
+class CodeCombinerError(Exception):
+    """Custom exception for CodeCombiner errors."""
+
+
 def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
     """Load configuration from pyproject.toml if available."""
     config: dict[str, Any] = {}
@@ -99,9 +104,11 @@ def _merge_config_value(
     """
     cli_value = getattr(args, arg_name)
 
-    # If CLI value is provided (i.e., not the argparse_default)
-    # For nargs arguments, cli_value will be None if not provided,
-    # which is not argparse_default
+    # The current implementation correctly distinguishes between an argument
+    # not provided (which results in argparse_default) and an argument
+    # explicitly provided with a value that happens to be the same as the default.
+    # This is particularly important for nargs arguments where cli_value can be None
+    # if not provided, which is different from an empty list provided by the user.
     if cli_value is not argparse_default:
         return cli_value
 
@@ -119,58 +126,6 @@ def is_code_file(
     if suffix in exclude_extensions:
         return False
     return suffix in extensions
-
-
-def should_process_file(
-    file_path: Path,
-    root_path: Path,
-    output_path: Path,
-    spec: pathspec.PathSpec | None,
-    extensions: list[str],
-    exclude_extensions: list[str],
-    use_gitignore: bool,
-    include_hidden: bool,
-) -> bool:
-    """Determine if a file should be processed based on various filtering rules.
-
-    Args:
-        file_path: The path to the file being considered.
-        root_path: The root directory being scanned.
-        output_path: The path to the output file (to avoid processing itself).
-        spec: The gitignore pathspec for matching ignored files, or None.
-        extensions: A list of file extensions to include.
-        exclude_extensions: A list of file extensions to exclude.
-        use_gitignore: Whether to respect .gitignore rules.
-        include_hidden: Whether to include hidden files and directories.
-
-    Returns:
-        True if the file should be processed, False otherwise.
-
-    """
-    if file_path.resolve() == output_path.resolve():
-        return False
-
-    if not file_path.is_file():
-        return False
-
-    mime_type, _ = mimetypes.guess_type(file_path)
-    if mime_type and not mime_type.startswith("text/"):
-        if mime_type != "application/xml":  # Allow XML files to be processed
-            return False
-
-    if not is_code_file(file_path.name, extensions, exclude_extensions):
-        return False
-
-    relative_path: Path = file_path.relative_to(root_path)
-
-    if use_gitignore and spec and spec.match_file(str(relative_path)):
-        return False
-
-    is_hidden: bool = any(part.startswith(".") for part in relative_path.parts)
-    if not include_hidden and is_hidden:
-        return False
-
-    return True
 
 
 def get_gitignore_spec(root_path: Path) -> pathspec.PathSpec | None:
@@ -288,13 +243,9 @@ def _generate_output_streaming(
     """Stream the combined output content directly to a file."""
     with open(output_path, "w", encoding="utf-8") as outfile:
         if format == "json":
-            # For JSON, we still need to collect all data to form a valid JSON object
-            # This means JSON cannot be truly streamed in the same way as text/markdown
-            # For now, we'll write an empty object or handle it as a special case.
-            # A more advanced solution would involve writing a JSON array of objects
-            # or using a custom JSON stream writer.
             outfile.write("{\n")
             first_file = True
+            file_count = 0
             for file_path in tqdm(
                 files_to_process, desc="Processing files (JSON Streaming)"
             ):
@@ -306,15 +257,17 @@ def _generate_output_streaming(
                     outfile.write(",\n")
                 outfile.write(f'    "{relative_path}": {json.dumps(content)}')
                 first_file = False
+                file_count += 1
                 tqdm.write(f"Processed: {relative_path}")
-            outfile.write("\n}")
+            if file_count == 0:
+                outfile.seek(0)  # Rewind and write empty object
+                outfile.write("{}")
+            else:
+                outfile.write("\n}")
 
         elif format == "xml":
-            # Similar to JSON, XML needs a root element, making true
-            # streaming difficult.
-            # A SAX-like approach would be needed for large XML streaming.
-            # For simplicity, we'll write a basic structure.
-            outfile.write("<codebase>\n")
+            file_count = 0
+            xml_content_parts = []
             for file_path in tqdm(
                 files_to_process, desc="Processing files (XML Streaming)"
             ):
@@ -322,12 +275,20 @@ def _generate_output_streaming(
                 content = read_file_content(file_path)
                 if content is None:
                     continue
-                outfile.write("  <file>\n")
-                outfile.write(f"    <path>{relative_path}</path>\n")
-                outfile.write(f"    <content><![CDATA[{content}]]></content>\n")
-                outfile.write("  </file>\n")
+                escaped_content = xml.sax.saxutils.escape(content)  # Escape content
+                xml_content_parts.append("  <file>\n")
+                xml_content_parts.append(f"    <path>{relative_path}</path>\n")
+                xml_content_parts.append(f"    <content>{escaped_content}</content>\n")
+                xml_content_parts.append("  </file>\n")
+                file_count += 1
                 tqdm.write(f"Processed: {relative_path}")
-            outfile.write("</codebase>")
+
+            if file_count == 0:
+                outfile.write("<codebase />")
+            else:
+                outfile.write('<?xml version="1.0" encoding="UTF-8"?>\n<codebase>\n')
+                outfile.write("".join(xml_content_parts))
+                outfile.write("</codebase>")
 
         else:  # text or markdown
             for file_path in tqdm(
@@ -447,35 +408,6 @@ def convert_to_text(
     return content  # Return original content if not XML or JSON
 
 
-def _collect_files(
-    root_path: Path,
-    output_path: Path,
-    spec: pathspec.PathSpec | None,
-    processed_extensions: list[str],
-    processed_exclude_extensions: list[str],
-    use_gitignore: bool,
-    include_hidden: bool,
-) -> list[Path]:
-    """Collect files to be processed based on filtering rules."""
-    all_files: list[Path] = list(root_path.rglob("*"))
-    files_to_process: list[Path] = []
-
-    for file_path in tqdm(all_files, desc="Scanning files"):
-        if should_process_file(
-            file_path,
-            root_path,
-            output_path,
-            spec,
-            processed_extensions,
-            processed_exclude_extensions,
-            use_gitignore,
-            include_hidden,
-        ):
-            files_to_process.append(file_path)
-            tqdm.write(f"Selected: {file_path.relative_to(root_path)}")
-    return files_to_process
-
-
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments for the code combiner script."""
     parser = argparse.ArgumentParser(
@@ -547,8 +479,7 @@ def load_and_merge_config(args: argparse.Namespace) -> dict[str, Any]:
     directory_path: Path = Path(args.directory)
 
     if not directory_path.is_dir():
-        print(f"Error: Directory '{args.directory}' does not exist.")
-        sys.exit(1)  # Use sys.exit(1) for errors that prevent further execution
+        raise CodeCombinerError(f"Error: Directory '{args.directory}' does not exist.")
 
     config: dict[str, Any] = load_config_from_pyproject(directory_path)
 
@@ -582,7 +513,7 @@ def load_and_merge_config(args: argparse.Namespace) -> dict[str, Any]:
         config, args, "format", "format", "text", "text"
     )
 
-    final_convert_to: ConvertType | None = args.convert_to
+    final_output_format: ConvertType | None = args.convert_to
 
     config_dict = {
         "directory_path": directory_path,
@@ -594,7 +525,7 @@ def load_and_merge_config(args: argparse.Namespace) -> dict[str, Any]:
         "count_tokens": final_count_tokens,
         "header_width": final_header_width,
         "format": final_format,
-        "final_output_format": final_convert_to,
+        "final_output_format": final_output_format,
         "force": args.force,
     }
     return config_dict
@@ -636,47 +567,42 @@ class CodeCombiner:
 
     def _validate_inputs(self) -> bool:
         if not self.root_path.is_dir():
-            print(f"Error: Directory '{self.root_path}' does not exist.")
-            return False
+            raise CodeCombinerError(
+                f"Error: Directory '{self.root_path}' does not exist."
+            )
 
         output_dir: Path = self.output_path.parent
         if not output_dir.is_dir():
-            print(f"Error: Output directory '{output_dir}' does not exist.")
-            return False
+            raise CodeCombinerError(
+                f"Error: Output directory '{output_dir}' does not exist."
+            )
         if not os.access(output_dir, os.W_OK):
-            print(f"Error: No write permissions for output directory '{output_dir}'.")
-            return False
+            raise CodeCombinerError(
+                f"Error: No write permissions for output directory '{output_dir}'."
+            )
         return True
 
     def _process_extensions(self) -> bool:
         for ext in self.extensions:
             if not ext.startswith("."):
-                sys.stderr.write(
+                raise CodeCombinerError(
                     f"Error: Custom extension '{ext}' must start with a dot "
-                    f"(e.g., '.{ext}').\n"
+                    f"(e.g., '.{ext}')."
                 )
-                return False
             self.processed_extensions.append(ext.lower())
 
         for ext in self.exclude_extensions:
             if not ext.startswith("."):
-                sys.stderr.write(
+                raise CodeCombinerError(
                     f"Error: Exclude extension '{ext}' must start with a dot "
-                    f"(e.g., '.{ext}').\n"
+                    f"(e.g., '.{ext}')."
                 )
-                return False
             self.processed_exclude_extensions.append(ext.lower())
         return True
 
     def _get_gitignore_spec(self) -> pathspec.PathSpec | None:
-        current_path: Path = self.root_path.resolve()
-        while current_path != current_path.parent:
-            gitignore_path: Path = current_path / ".gitignore"
-            if gitignore_path.is_file():
-                with open(gitignore_path, encoding="utf-8") as f:
-                    return pathspec.PathSpec.from_lines("gitwildmatch", f)
-            current_path = current_path.parent
-        return None
+        """Retrieve the pathspec from the .gitignore file using the global function."""
+        return get_gitignore_spec(self.root_path)
 
     def _should_process_file(self, file_path: Path) -> bool:
         if file_path.resolve() == self.output_path.resolve():
@@ -752,38 +678,48 @@ class CodeCombiner:
         initialized configuration.
 
         """
-        if not self._validate_inputs():
-            return
+        self._validate_inputs()
 
-        if not self._process_extensions():
-            return
+        self._process_extensions()
 
         if self.use_gitignore:
             self.spec = self._get_gitignore_spec()
 
         files_to_process = self._collect_files()
 
-        if self.count_tokens:
+        # Determine if in-memory processing is required
+        # This is needed for token counting or if JSON/XML output needs to be converted
+        needs_in_memory_processing = self.count_tokens or (
+            self.format in ["json", "xml"]
+            and self.final_output_format in ["text", "markdown"]
+        )
+
+        if needs_in_memory_processing:
             formatted_output_content, raw_combined_content = _generate_output_in_memory(
                 files_to_process, self.root_path, self.format, self.header_width
             )
 
+            output_to_write: str
             if self.format in ["json", "xml"] and self.final_output_format in [
                 "text",
                 "markdown",
             ]:
-                output_content = convert_to_text(
+                output_to_write = convert_to_text(
                     formatted_output_content,
                     self.format,
                     self.header_width,
                     self.final_output_format,
                 )
             else:
-                output_content = formatted_output_content
+                output_to_write = formatted_output_content
 
-            self._count_tokens(raw_combined_content)
-            self._write_output(output_content)
+            if self.count_tokens:
+                self._count_tokens(raw_combined_content)
+
+            self._write_output(output_to_write)
         else:
+            # Use streaming for simple text/markdown output
+            # without token counting or conversion
             _generate_output_streaming(
                 files_to_process,
                 self.root_path,
@@ -791,14 +727,20 @@ class CodeCombiner:
                 self.header_width,
                 self.output_path,
             )
+            # The streaming function writes directly to the file.
+            # Print the success message here.
             print(f"\nAll code files have been combined into: {self.output_path}")
 
 
 def main() -> None:
     """Parse arguments, load config, and run the code combiner."""
-    args = parse_arguments()
-    config = load_and_merge_config(args)
-    run_code_combiner(config)
+    try:
+        args = parse_arguments()
+        config = load_and_merge_config(args)
+        run_code_combiner(config)
+    except CodeCombinerError as e:
+        sys.stderr.write(f"{e}\n")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
