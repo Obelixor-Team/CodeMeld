@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast, final
 
-from src.types import FormatType
+from src._types import FormatType
 
 
 class OutputFormatter(ABC):

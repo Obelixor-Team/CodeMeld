@@ -118,6 +118,7 @@ class InMemoryOutputGenerator(OutputGenerator):
             self._process_file(relative_path, content)
 
         result = self._end_output()
+        self.publisher.notify("output_generated", result[0])  # Notify with formatted content
         self.publisher.notify("processing_complete", result)
         return result
 

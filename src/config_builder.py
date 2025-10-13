@@ -113,16 +113,16 @@ class CombinerConfigBuilder:
         validator.validate()
         return self
 
-    def build(self, directory: str, output: str) -> CombinerConfig:
+    def build(self, directory_path: Path, output: str) -> CombinerConfig:
         """Build the final configuration."""
         return CombinerConfig(
-            directory_path=Path(directory), output=output, **self._config
+            directory_path=directory_path, output=output, **self._config
         )
 
 
 def load_and_merge_config(args: argparse.Namespace) -> CombinerConfig:
     """Load configuration from pyproject.toml and merge with command-line arguments."""
-    directory_path = Path(args.directory)
+    directory_path = Path(args.directory).resolve()
 
     pyproject_config = load_config_from_pyproject(directory_path)
 
@@ -132,5 +132,5 @@ def load_and_merge_config(args: argparse.Namespace) -> CombinerConfig:
         .with_pyproject_config(pyproject_config)
         .with_cli_args(args)
         .validate(args.directory, args.output)
-        .build(args.directory, args.output)
+        .build(directory_path, args.output)
     )

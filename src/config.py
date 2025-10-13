@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from src.types import ConvertType, FormatType
+from src._types import ConvertType, FormatType
 
 
 class CodeCombinerError(Exception):
