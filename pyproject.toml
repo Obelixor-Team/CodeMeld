@@ -2,7 +2,7 @@
 line-length = 88
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 target-version = "py311"
 cache-dir = ".ruff_cache"
 extend-exclude = ["node_modules", ".git", ".venv", "dist", "build"]

@@ -121,7 +121,9 @@ class LiveUI:
 
         if not skipped:
             self.included_files.append(filename)
-            logging.debug(f"LiveUI.update: Added {filename} to included_files. Current count: {len(self.included_files)}")
+            logging.debug(
+                f"LiveUI.update: Added {filename}. Count: {len(self.included_files)}"
+            )
 
     # ───────────────────────────────
     # Final Summary
@@ -136,7 +138,9 @@ class LiveUI:
         separator = "─" * width
         label_width = 25  # Increased label width for summary
 
-        logging.debug(f"LiveUI.finish: self.list_files={self.list_files}, len(self.included_files)={len(self.included_files)}")
+        logging.debug(
+            f"LiveUI.finish: list_files={self.list_files}, count={len(self.included_files)}"
+        )
 
         if self.list_files and self.included_files:
             print(f"\n{separator}")
