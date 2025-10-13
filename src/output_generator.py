@@ -134,7 +134,7 @@ class InMemoryOutputGenerator(OutputGenerator):
                 if self.token_counter_observer
                 else None
             )
-            self.ui.update(relative_path.name, skipped=(content is None), tokens=tokens)
+            self.ui.update(str(relative_path), skipped=(content is None), tokens=tokens)
 
             if content is None:
                 continue
@@ -250,7 +250,7 @@ class StreamingOutputGenerator(OutputGenerator):
                     else None
                 )
                 self.ui.update(
-                    relative_path.name, skipped=(content is None), tokens=tokens
+                    str(relative_path), skipped=(content is None), tokens=tokens
                 )
 
                 if content is not None:

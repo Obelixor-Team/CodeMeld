@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 import sys
 import time
@@ -120,6 +121,7 @@ class LiveUI:
 
         if not skipped:
             self.included_files.append(filename)
+            logging.debug(f"LiveUI.update: Added {filename} to included_files. Current count: {len(self.included_files)}")
 
     # ───────────────────────────────
     # Final Summary
@@ -134,6 +136,14 @@ class LiveUI:
         separator = "─" * width
         label_width = 25  # Increased label width for summary
 
+        logging.debug(f"LiveUI.finish: self.list_files={self.list_files}, len(self.included_files)={len(self.included_files)}")
+
+        if self.list_files and self.included_files:
+            print(f"\n{separator}")
+            print("Included Files:")
+            for f in sorted(self.included_files):
+                print(f"  - {f}")
+
         summary_items = {
             "Total files processed": self.processed,
             "Skipped (binary)": self.skipped,
@@ -142,7 +152,7 @@ class LiveUI:
         if self.count_tokens:
             summary_items["Token count"] = f"{self.tokens:,}"
         if _psutil_module:
-            print(f"  {'Peak memory usage':<{label_width}} : {self.memory_mb:.0f} MB")
+            summary_items["Peak memory usage"] = f"{self.memory_mb:.0f} MB"
         summary_items["Duration"] = f"{duration:.1f}s"
 
         print(f"\n{separator}")

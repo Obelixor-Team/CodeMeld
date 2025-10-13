@@ -33,11 +33,20 @@ def write_output(
         return
 
     if output_path.exists() and not force:
-        response = input(
-            f"Output file '{output_path}' already exists. Overwrite? (y/N): "
-        )
-        if response.lower() != "y":
-            logging.info("Operation cancelled by user. File not overwritten.")
+        import sys
+
+        if sys.stdin.isatty():
+            response = input(
+                f"Output file '{output_path}' already exists. Overwrite? (y/N): "
+            )
+            if response.lower() != "y":
+                logging.info("Operation cancelled by user. File not overwritten.")
+                return
+        else:
+            logging.info(
+                f"Output file '{output_path}' already exists. "
+                "Skipping overwrite in non-interactive mode."
+            )
             return
 
     try:
