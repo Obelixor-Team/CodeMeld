@@ -166,5 +166,6 @@ class TokenCounterObserver(Observer):
             except ValueError as e:
                 logging.error(f"Error counting tokens for file content: {e}")
         elif event == "output_generated":
-            # This event is now redundant for total_tokens, but can be used for final validation if needed.
+            # This event is now redundant for total_tokens, but can be used for
+            # final validation if needed.
             pass

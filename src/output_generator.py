@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -115,14 +116,24 @@ class InMemoryOutputGenerator(OutputGenerator):
             if i % check_interval == 0:
                 self.memory_monitor.check_memory_usage()
 
-            relative_path = file_path.relative_to(self.root_path)
+            try:
+                relative_path = file_path.relative_to(self.root_path)
+            except ValueError:
+                relative_path = file_path  # Use full path if not relative to root
+
             content = read_file_content(file_path)
             self.publisher.notify("file_processed", relative_path)
             if content is not None:
-                self.publisher.notify("file_content_processed", content) # Notify with content
-            
+                self.publisher.notify(
+                    "file_content_processed", content
+                )  # Notify with content
+
             # Update UI
-            tokens = self.token_counter_observer.total_tokens if self.token_counter_observer else None
+            tokens = (
+                self.token_counter_observer.total_tokens
+                if self.token_counter_observer
+                else None
+            )
             self.ui.update(relative_path.name, skipped=(content is None), tokens=tokens)
 
             if content is None:
@@ -215,50 +226,92 @@ class StreamingOutputGenerator(OutputGenerator):
         )
 
         if self.dry_run:
-            import logging
             import sys
 
             logging.info("--- Dry Run Output (Streaming) ---")
             sys.stdout.write(self.formatter.begin_output())
             for file_path in self.files_to_process:
-                relative_path = file_path.relative_to(self.root_path)
+                try:
+                    relative_path = file_path.relative_to(self.root_path)
+                except ValueError:
+                    relative_path = file_path  # Use full path if not relative to root
+
                 self.publisher.notify("file_processed", relative_path)
                 content = read_file_content(file_path)
                 if content is not None:
-                    self.publisher.notify("file_content_processed", content) # Notify with content
-                
+                    self.publisher.notify(
+                        "file_content_processed", content
+                    )  # Notify with content
+
                 # Update UI
-                tokens = self.token_counter_observer.total_tokens if self.token_counter_observer else None
-                self.ui.update(relative_path.name, skipped=(content is None), tokens=tokens)
+                tokens = (
+                    self.token_counter_observer.total_tokens
+                    if self.token_counter_observer
+                    else None
+                )
+                self.ui.update(
+                    relative_path.name, skipped=(content is None), tokens=tokens
+                )
 
                 if content is not None:
                     sys.stdout.write(self.formatter.format_file(relative_path, content))
             sys.stdout.write(self.formatter.end_output())
             logging.info("--- End Dry Run Output (Streaming) ---")
         else:
-            with open(self.output_path, "w", encoding="utf-8") as outfile:
-                outfile.write(self.formatter.begin_output())
-
-                for file_path in self.files_to_process:
+            # Collect content first to decide if file should be created
+            all_content_parts: list[str] = []
+            for file_path in self.files_to_process:
+                try:
                     relative_path = file_path.relative_to(self.root_path)
-                    self.publisher.notify("file_processed", relative_path)
+                except ValueError:
+                    relative_path = file_path  # Use full path if not relative to root
 
-                    # Update UI
-                    tokens = self.token_counter_observer.total_tokens if self.token_counter_observer else None
-                    self.ui.update(relative_path.name, skipped=False, tokens=tokens)
+                self.publisher.notify("file_processed", relative_path)
 
-                    if hasattr(self.formatter, "format_file_stream"):
-                        self.formatter.format_file_stream(
-                            relative_path, file_path, outfile
+                # Update UI
+                tokens = (
+                    self.token_counter_observer.total_tokens
+                    if self.token_counter_observer
+                    else None
+                )
+                self.ui.update(relative_path.name, skipped=False, tokens=tokens)
+
+                if hasattr(self.formatter, "format_file_stream"):
+                    # For streaming formatters, we can't pre-collect content easily
+                    # so we'll write directly if there are files to process.
+                    # This path needs careful consideration for empty output.
+                    pass  # Handled below if all_content_parts is empty
+                else:
+                    content = read_file_content(file_path)
+                    if content is not None:
+                        self.publisher.notify(
+                            "file_content_processed", content
+                        )  # Notify with content
+                        all_content_parts.append(
+                            self.formatter.format_file(relative_path, content)
                         )
-                    else:
-                        content = read_file_content(file_path)
-                        if content is not None:
-                            self.publisher.notify("file_content_processed", content) # Notify with content
-                            outfile.write(
-                                self.formatter.format_file(relative_path, content)
+
+            # Only write to file if there is content or if it's a streaming
+            # formatter that doesn't pre-collect
+            if all_content_parts or (
+                hasattr(self.formatter, "format_file_stream") and self.files_to_process
+            ):
+                with open(self.output_path, "w", encoding="utf-8") as outfile:
+                    outfile.write(self.formatter.begin_output())
+                    for content_part in all_content_parts:
+                        outfile.write(content_part)
+                    # If streaming formatter, iterate again to write directly
+                    if hasattr(self.formatter, "format_file_stream"):
+                        for file_path in self.files_to_process:
+                            relative_path = file_path.relative_to(self.root_path)
+                            self.formatter.format_file_stream(
+                                relative_path, file_path, outfile
                             )
-                outfile.write(self.formatter.end_output())
+                    outfile.write(self.formatter.end_output())
+            else:
+                logging.info(
+                    f"No content to write to {self.output_path}. File not created."
+                )
 
         self.publisher.notify("processing_complete", None)
         return None

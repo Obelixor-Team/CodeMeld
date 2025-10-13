@@ -35,7 +35,7 @@ def test_always_include_blocks_symlink_outside_root(tmp_path, caplog):
         combiner.execute()
 
     assert not output_file.exists()
-    assert f"Warning: --always-include path '{symlink_path}' was filtered out by safety checks." in caplog.text
+    assert f"Warning: --always-include path '{symlink_path}' was filtered out by safety checks. Skipping." in caplog.text
 
 def test_always_include_blocks_binary_file(tmp_path, caplog):
     """
@@ -57,7 +57,7 @@ def test_always_include_blocks_binary_file(tmp_path, caplog):
         combiner.execute()
 
     assert not output_file.exists()
-    assert f"Warning: --always-include path '{binary_file}' was filtered out by safety checks." in caplog.text
+    assert f"Warning: --always-include path '{binary_file}' was filtered out by safety checks. Skipping." in caplog.text
 
 def test_always_include_blocks_path_traversal(tmp_path, caplog):
     """
@@ -88,7 +88,7 @@ def test_always_include_blocks_path_traversal(tmp_path, caplog):
 
     assert not output_file.exists()
     # Check for the warning message containing the original path
-    assert f"Warning: --always-include path '{always_include_path}' was filtered out by safety checks." in caplog.text
+    assert f"Warning: --always-include path '{always_include_path}' was filtered out by safety checks. Skipping." in caplog.text
 
 def test_always_include_allows_valid_file(tmp_path, caplog):
     """

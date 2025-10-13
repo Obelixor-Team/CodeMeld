@@ -1,28 +1,38 @@
-# src/ui.py
+"""User interface for the Code Combiner, providing live progress and a final summary."""
+
 from __future__ import annotations
-import logging
+
 import shutil
 import sys
 import time
-from typing import Any, Optional
+from typing import Any
 
 from tqdm import tqdm
 
+_psutil_module: Any | None
 try:
     import psutil
+
+    _psutil_module = psutil
 except ImportError:
-    psutil = None
+    _psutil_module = None
 
 
 class LiveUI:
     """A combined live + static text UI for CodeCombiner."""
 
-    def __init__(self, total_files: int = 0, title: str = "CODE COMBINER", version: str = "v0.1.0"):
+    def __init__(
+        self,
+        total_files: int = 0,
+        title: str = "CODE COMBINER",
+        version: str = "v0.1.0",
+    ):
+        """Initialize the LiveUI with default values."""
         self.total_files = total_files
         self.title = title
         self.version = version
         self.start_time: float | None = None
-        self._progress_bar: Optional[tqdm] = None
+        self._progress_bar: tqdm | None = None
         self.processed = 0
         self.skipped = 0
         self.tokens = 0
@@ -41,6 +51,7 @@ class LiveUI:
     # Header & Config Display
     # ───────────────────────────────
     def print_header(self):
+        """Print the header of the UI, including title and version."""
         width = shutil.get_terminal_size((80, 20)).columns
         bar = "═" * (width - 2)
         print(f"╔{bar}╗")
@@ -49,16 +60,24 @@ class LiveUI:
         print(f"╚{bar}╝\n")
 
     def print_config(self):
+        """Print the current configuration settings."""
         width = shutil.get_terminal_size((80, 20)).columns
         separator = "─" * width
         label_width = 18
 
-        print(f"{'Input Directory':<{label_width}} : {self.directory}")
-        print(f"{'Output File':<{label_width}} : {self.output_file}")
-        print(f"{'Format':<{label_width}} : {self.format}")
-        print(f"{'Include Hidden':<{label_width}} : {'yes' if self.include_hidden else 'no'}")
-        print(f"{'Use .gitignore':<{label_width}} : {'yes' if self.use_gitignore else 'no'}")
-        print(f"{'Count Tokens':<{label_width}} : {'yes' if self.count_tokens else 'no'}")
+        label_width = 18
+
+        labels = {
+            "Input Directory": self.directory,
+            "Output File": self.output_file,
+            "Format": self.format,
+            "Include Hidden": "yes" if self.include_hidden else "no",
+            "Use .gitignore": "yes" if self.use_gitignore else "no",
+            "Count Tokens": "yes" if self.count_tokens else "no",
+        }
+
+        for label, value in labels.items():
+            print(f"{label:<{label_width}} : {value}")
         print(f"\n{separator}")
         print("Scanning files...")
 
@@ -73,27 +92,29 @@ class LiveUI:
                 total=self.total_files,
                 desc="Processing files",
                 ncols=shutil.get_terminal_size((80, 20)).columns,
-                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
+                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]",
             )
         elif self.verbose:
             print(f"Processing {self.total_files} files...")
 
-    def update(self, filename: str, skipped: bool = False, tokens: Optional[int] = None):
+    def update(self, filename: str, skipped: bool = False, tokens: int | None = None):
         """Update progress line-by-line."""
         self.processed += 0 if skipped else 1
         self.skipped += 1 if skipped else 0
         if tokens is not None:
             self.tokens = tokens
-        if psutil:
-            proc = psutil.Process()
+        if _psutil_module:
+            proc = _psutil_module.Process()
             self.memory_mb = proc.memory_info().rss / (1024 * 1024)
         if self._progress_bar:
             self._progress_bar.update(1)
-            self._progress_bar.set_postfix({
-                "file": filename,
-                "mem": f"{self.memory_mb:.0f} MB",
-                "tokens": f"{self.tokens:,}"
-            })
+            self._progress_bar.set_postfix(
+                {
+                    "file": filename,
+                    "mem": f"{self.memory_mb:.0f} MB",
+                    "tokens": f"{self.tokens:,}",
+                }
+            )
         elif self.verbose:
             print(f"Processed: {filename}")
 
@@ -111,24 +132,23 @@ class LiveUI:
 
         width = shutil.get_terminal_size((80, 20)).columns
         separator = "─" * width
-        label_width = 25 # Increased label width for summary
+        label_width = 25  # Increased label width for summary
 
-        if self.list_files and self.included_files:
-            print(f"\n{separator}")
-            print("Included Files:")
-            for f in sorted(self.included_files):
-                print(f"  - {f}")
+        summary_items = {
+            "Total files processed": self.processed,
+            "Skipped (binary)": self.skipped,
+            "Output file": self.output_file,
+        }
+        if self.count_tokens:
+            summary_items["Token count"] = f"{self.tokens:,}"
+        if _psutil_module:
+            print(f"  {'Peak memory usage':<{label_width}} : {self.memory_mb:.0f} MB")
+        summary_items["Duration"] = f"{duration:.1f}s"
 
         print(f"\n{separator}")
         print("Summary:")
-        print(f"  {'Total files processed':<{label_width}} : {self.processed}")
-        print(f"  {'Skipped (binary)':<{label_width}} : {self.skipped}")
-        print(f"  {'Output file':<{label_width}} : {self.output_file}")
-        if self.count_tokens:
-            print(f"  {'Token count':<{label_width}} : {self.tokens:,}")
-        if psutil:
-            print(f"  {'Peak memory usage':<{label_width}} : {self.memory_mb:.0f} MB")
-        print(f"  {'Duration':<{label_width}} : {duration:.1f}s")
+        for label, value in summary_items.items():
+            print(f"  {label:<{label_width}} : {value}")
 
         print(f"{separator}")
         print("All done!\n")

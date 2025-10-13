@@ -28,7 +28,9 @@ class FileFilter(ABC):
     def should_process(self, file_path: Path, context: dict) -> bool:
         """Return True if file should be processed."""
         result = self._check(file_path, context)
-        logging.debug(f"{self.__class__.__name__}._check({file_path.name}) returned {result}")
+        logging.debug(
+            f"{self.__class__.__name__}._check({file_path.name}) returned {result}"
+        )
         if not result:
             return False
         if self._next_filter:
@@ -126,7 +128,7 @@ class SymlinkFilter(FileFilter):
 
         import logging
 
-        logging.warning(
+        logging.debug(
             f"SymlinkFilter: Checking {file_path}, is_symlink: {file_path.is_symlink()}"
         )
 
@@ -144,7 +146,7 @@ class SecurityFilter(FileFilter):
 
         if not root_path:
 
-            logging.warning(
+            logging.debug(
                 f"SecurityFilter: No root_path in context for {file_path}. Allowing."
             )
 
@@ -158,7 +160,7 @@ class SecurityFilter(FileFilter):
 
             resolved_file_path.relative_to(resolved_root_path)
 
-            logging.warning(
+            logging.debug(
                 f"SecurityFilter: {resolved_file_path} "
                 f"in {resolved_root_path}. Allowing."
             )
@@ -167,8 +169,9 @@ class SecurityFilter(FileFilter):
 
         except ValueError:
 
-            logging.warning(
-                f"SecurityFilter: {resolved_file_path} NOT in {resolved_root_path}. Blocking."
+            logging.debug(
+                f"SecurityFilter: {resolved_file_path} NOT in "
+                f"{resolved_root_path}. Blocking."
             )
 
             return False
@@ -192,7 +195,7 @@ class FileSizeFilter(FileFilter):
             # Log other potential errors (e.g., permission issues) and filter out.
             import logging
 
-            logging.warning(f"Error checking file size for {file_path}: {e}")
+            logging.debug(f"Error checking file size for {file_path}: {e}")
             return False
 
 
@@ -233,19 +236,19 @@ class FilterChainBuilder:
         safety_chain_head: FileFilter,
     ) -> FileFilter:
         """Build a full filter chain including all configured filters."""
-        filters: list[FileFilter] = [
-            ExtensionFilter(config.extensions, config.exclude_extensions)
-        ]
+        # Start with the ExtensionFilter as it's a primary filter
+        head_filter: FileFilter = ExtensionFilter(
+            config.extensions, config.exclude_extensions
+        )
+        current: FileFilter = head_filter
 
         if not config.include_hidden:
-            filters.append(HiddenFileFilter(config.include_hidden))
+            current = current.set_next(HiddenFileFilter(config.include_hidden))
 
         if config.use_gitignore and spec:
-            filters.append(GitignoreFilter(spec))
+            current = current.set_next(GitignoreFilter(spec))
 
-        # The full chain starts with the safety chain, and then adds other filters
-        current: FileFilter = safety_chain_head
-        for f in filters:
-            current = current.set_next(f)
+        # Append the safety chain at the end of the full chain
+        current = current.set_next(safety_chain_head)
 
-        return safety_chain_head # Return the head of the chain
+        return head_filter  # Return the head of the newly built full chain

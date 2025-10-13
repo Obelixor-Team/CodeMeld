@@ -14,7 +14,6 @@ from .formatters import FormatterFactory
 from .memory_monitor import SystemMemoryMonitor
 from .observers import (
     LineCounterObserver,
-    ProgressBarObserver,
     Publisher,
     TelemetryObserver,
     TokenCounterObserver,
@@ -34,8 +33,10 @@ def write_output(
         return
 
     if output_path.exists() and not force:
-        response = input(f"Output file '{output_path}' already exists. Overwrite? (y/N): ")
-        if response.lower() != 'y':
+        response = input(
+            f"Output file '{output_path}' already exists. Overwrite? (y/N): "
+        )
+        if response.lower() != "y":
             logging.info("Operation cancelled by user. File not overwritten.")
             return
 
@@ -166,6 +167,7 @@ def parse_arguments() -> argparse.Namespace:
     )
     return parser.parse_args()
 
+
 def run_code_combiner(config: CombinerConfig) -> None:
     """Run the code combiner with the given configuration."""
 
@@ -211,8 +213,6 @@ class CodeCombiner:
             current_path = current_path.parent
         return None
 
-
-
     def _iter_files(self):
         """Iterate over files in the directory using pathlib.Path.rglob()."""
         # rglob will traverse all directories, including hidden ones.
@@ -228,17 +228,24 @@ class CodeCombiner:
 
         Returns:
             A sorted list of file paths.
+
         """
         all_files: list[Path] = []
         try:
             all_files = list(self._iter_files())
         except PermissionError as e:
-            raise CodeCombinerError(f"Insufficient permissions to read files: {e}")
+            raise CodeCombinerError(
+                f"Insufficient permissions to read files: {e}"
+            ) from e
         except OSError as e:
-            raise CodeCombinerError(f"File system error: {e}")
+            raise CodeCombinerError(f"File system error: {e}") from e
 
         filtered_files = [
-            file for file in all_files if self.full_filter_chain.should_process(file, {"root_path": self.root_path})
+            file
+            for file in all_files
+            if self.full_filter_chain.should_process(
+                file, {"root_path": self.root_path}
+            )
         ]
         return sorted(filtered_files)
 
@@ -252,12 +259,37 @@ class CodeCombiner:
         """Execute the combining process."""
         files = self._get_filtered_files()
 
-        if not files:
+        # Process --always-include files with safety checks
+        always_included_files: list[Path] = []
+        for path_str in self.config.always_include:
+            path = Path(path_str)
+            resolved_path = self._resolve_path(path)
+            if not resolved_path.is_file():
+                logging.warning(
+                    f"Warning: --always-include path '{path_str}' is not a file "
+                    "or does not exist. Skipping."
+                )
+                continue
+
+            if not self.safety_filter_chain.should_process(
+                resolved_path, {"root_path": self.root_path}
+            ):
+                logging.warning(
+                    f"Warning: --always-include path '{path_str}' was filtered out "
+                    "by safety checks. Skipping."
+                )
+                continue
+            always_included_files.append(resolved_path)
+
+        # Combine filtered files and always_included_files, ensuring no duplicates
+        all_files_to_process = sorted(list(set(files + always_included_files)))
+
+        if not all_files_to_process:
             logging.info("No files found to process. Exiting.")
             return
 
         # Initialize UI
-        ui = LiveUI(total_files=len(files))
+        ui = LiveUI(total_files=len(all_files_to_process))
         ui.apply_config(self.config)
         ui.print_header()
         ui.print_config()
@@ -269,7 +301,9 @@ class CodeCombiner:
         publisher = Publisher()
         token_counter_observer = None
         if self.config.count_tokens:
-            token_counter_observer = TokenCounterObserver(self.config.token_encoding_model)
+            token_counter_observer = TokenCounterObserver(
+                self.config.token_encoding_model
+            )
             publisher.subscribe(token_counter_observer)
         publisher.subscribe(TelemetryObserver())
         publisher.subscribe(LineCounterObserver())
@@ -277,27 +311,27 @@ class CodeCombiner:
         output_written_by_streaming = False
         try:
             generator = InMemoryOutputGenerator(
-                files,
+                all_files_to_process,
                 self.config.directory_path,
                 self.formatter,
                 memory_monitor,
                 publisher,
                 Path(self.config.output),
-                ui, # Pass ui to InMemoryOutputGenerator
-                token_counter_observer, # Pass token_counter_observer
+                ui,  # Pass ui to InMemoryOutputGenerator
+                token_counter_observer,  # Pass token_counter_observer
             )
             output_content, raw_content = generator.generate()
         except MemoryThresholdExceededError:
             if not self.config.count_tokens and self.formatter.supports_streaming():
                 logging.warning("Falling back to streaming due to memory constraints.")
                 streaming_generator = StreamingOutputGenerator(
-                    files,
+                    all_files_to_process,
                     self.config.directory_path,
                     self.formatter,
                     Path(self.config.output),
                     publisher,
-                    ui, # Pass ui to StreamingOutputGenerator
-                    token_counter_observer, # Pass token_counter_observer
+                    ui,  # Pass ui to StreamingOutputGenerator
+                    token_counter_observer,  # Pass token_counter_observer
                     dry_run=self.config.dry_run,
                 )
                 streaming_generator.generate()
@@ -314,5 +348,5 @@ class CodeCombiner:
                 self.config.dry_run,
             )
 
-        ui.finish() # Finalize UI and print summary
+        ui.finish()  # Finalize UI and print summary
         publisher.notify("processing_complete", None)

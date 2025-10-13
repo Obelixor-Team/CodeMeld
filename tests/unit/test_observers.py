@@ -98,10 +98,10 @@ def test_token_counter_observer():
         mock_get_encoding.return_value = mock_encoding
         mock_tiktoken_module.get_encoding = mock_get_encoding # Assign the mock to get_encoding
 
-        observer.update("output_generated", "some text")
+        observer.update("file_content_processed", "some text")
 
         # Assert that get_encoding was called with the expected encoding type
-        mock_get_encoding.assert_called_once_with("cl100k_base")
+        mock_tiktoken_module.get_encoding.assert_called_once_with("cl100k_base")
         # Assert that encode was called with the correct text
         mock_encoding.encode.assert_called_once_with("some text")
         assert observer.total_tokens == 5
@@ -120,7 +120,7 @@ def test_token_counter_observer_no_tiktoken(caplog):
 
         # Ensure update does nothing if tiktoken_module is None
         initial_tokens = observer.total_tokens
-        observer.update("output_generated", "some text")
+        observer.update("file_content_processed", "some text")
         assert observer.total_tokens == initial_tokens
 
 
@@ -188,10 +188,10 @@ def test_token_counter_observer_with_custom_encoding():
         mock_get_encoding.return_value = mock_encoding
         mock_tiktoken_module.get_encoding = mock_get_encoding
 
-        observer.update("output_generated", "some custom text")
+        observer.update("file_content_processed", "some custom text")
 
         # Assert that get_encoding was called with the custom encoding type
-        mock_get_encoding.assert_called_once_with(custom_encoding_model)
+        mock_tiktoken_module.get_encoding.assert_called_once_with(custom_encoding_model)
         # Assert that encode was called with the correct text
         mock_encoding.encode.assert_called_once_with("some custom text")
         assert observer.total_tokens == 3
