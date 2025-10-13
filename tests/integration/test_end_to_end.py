@@ -220,3 +220,37 @@ def test_memory_threshold_fallback(tmp_path, caplog):
 
     # Log should contain fallback message (looser match for robustness)
     assert any("Falling back to streaming due to memory constraints" in record.message for record in caplog.records)    
+
+def test_dry_run_mode_with_streaming_fallback(tmp_path, capsys, caplog):
+    """Test that --dry-run mode with forced streaming fallback prints to stdout and does not create an output file."""
+    large_file = tmp_path / "large_file.txt"
+    large_file.write_text("a" * (1024 * 1024 * 2))  # 2MB file
+
+    output_file = tmp_path / "dry_run_streaming_output.txt"
+
+    config = CombinerConfig(
+        directory_path=tmp_path,
+        output=str(output_file),
+        extensions=[".txt"],
+        dry_run=True,
+        max_memory_mb=1,  # Force streaming fallback
+        count_tokens=False, # Required for streaming fallback
+    )
+
+    combiner = CodeCombiner(config)
+    
+    with caplog.at_level(logging.INFO):
+        combiner.execute()
+
+    # Verify that the output file was NOT created
+    assert not output_file.exists()
+
+    # Verify that the content was printed to stdout
+    captured_stdout = capsys.readouterr().out
+    
+    # Verify logging messages using caplog
+    assert "--- Dry Run Output (Streaming) ---" in caplog.text
+    assert "--- End Dry Run Output (Streaming) ---" in caplog.text
+    assert "Falling back to streaming due to memory constraints" in caplog.text
+
+    assert "a" * (1024 * 1024 * 2) in captured_stdout

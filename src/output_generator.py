@@ -179,13 +179,15 @@ class StreamingOutputGenerator(OutputGenerator):
         formatter: OutputFormatter,
         output_path: Path,
         publisher: Publisher,
+        dry_run: bool = False,
     ) -> None:
         """Initialize the StreamingOutputGenerator."""
         super().__init__(files_to_process, root_path, formatter, publisher)
         self.output_path = output_path
+        self.dry_run = dry_run
 
     def generate(self) -> None:
-        """Generate output by streaming to file."""
+        """Generate output by streaming to file or printing to stdout if dry_run."""
         self.publisher.notify(
             "processing_started",
             {
@@ -194,21 +196,36 @@ class StreamingOutputGenerator(OutputGenerator):
             },
         )
 
-        with open(self.output_path, "w", encoding="utf-8") as outfile:
-            outfile.write(self.formatter.begin_output())
+        if self.dry_run:
+            import sys
+            import logging
 
+            logging.info("--- Dry Run Output (Streaming) ---")
+            sys.stdout.write(self.formatter.begin_output())
             for file_path in self.files_to_process:
                 relative_path = file_path.relative_to(self.root_path)
                 self.publisher.notify("file_processed", relative_path)
+                content = read_file_content(file_path)
+                if content is not None:
+                    sys.stdout.write(self.formatter.format_file(relative_path, content))
+            sys.stdout.write(self.formatter.end_output())
+            logging.info("--- End Dry Run Output (Streaming) ---")
+        else:
+            with open(self.output_path, "w", encoding="utf-8") as outfile:
+                outfile.write(self.formatter.begin_output())
 
-                if hasattr(self.formatter, "format_file_stream"):
-                    self.formatter.format_file_stream(relative_path, file_path, outfile)
-                else:
-                    content = read_file_content(file_path)
-                    if content is None:
-                        continue
-                    outfile.write(self.formatter.format_file(relative_path, content))
-            outfile.write(self.formatter.end_output())
+                for file_path in self.files_to_process:
+                    relative_path = file_path.relative_to(self.root_path)
+                    self.publisher.notify("file_processed", relative_path)
+
+                    if hasattr(self.formatter, "format_file_stream"):
+                        self.formatter.format_file_stream(relative_path, file_path, outfile)
+                    else:
+                        content = read_file_content(file_path)
+                        if content is None:
+                            continue
+                        outfile.write(self.formatter.format_file(relative_path, content))
+                outfile.write(self.formatter.end_output())
 
         self.publisher.notify("processing_complete", None)
         return None

@@ -309,6 +309,7 @@ class CodeCombiner:
                     self.formatter,
                     Path(self.config.output),
                     publisher,
+                    dry_run=self.config.dry_run,
                 )
                 streaming_generator.generate()
                 output_written_by_streaming = True
@@ -317,12 +318,6 @@ class CodeCombiner:
                 raise  # Re-raise if fallback is not allowed
 
         if not output_written_by_streaming:
-            if self.config.dry_run:
-                logging.info("\n--- Dry Run Output ---")
-                print(output_content)
-                logging.info("--- End Dry Run Output ---")
-                return
-
             write_output(
                 Path(self.config.output),
                 output_content,
