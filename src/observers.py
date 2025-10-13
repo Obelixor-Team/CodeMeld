@@ -118,7 +118,6 @@ class LineCounterObserver(Observer):
         """Count lines based on the event."""
         if event == "output_generated":
             self.total_lines = data.count("\n") + 1 if data else 0
-            print(f"Total lines in formatted output: {self.total_lines}")
 
 
 class TelemetryObserver(Observer):
@@ -155,11 +154,17 @@ class TokenCounterObserver(Observer):
 
     def update(self, event: str, data: Any):
         """Count tokens based on the event."""
-        if event == "output_generated" and self.tiktoken_module is not None:
+        if self.tiktoken_module is None:
+            return
+
+        if event == "file_content_processed":
+            content = data
             try:
                 encoding = self.tiktoken_module.get_encoding(self.token_encoding_model)
-                tokens: list[int] = encoding.encode(data)
-                self.total_tokens = len(tokens)
-                print(f"Total tokens in formatted output: {self.total_tokens}")
+                tokens: list[int] = encoding.encode(content)
+                self.total_tokens += len(tokens)
             except ValueError as e:
-                logging.error(f"Error counting tokens: {e}")
+                logging.error(f"Error counting tokens for file content: {e}")
+        elif event == "output_generated":
+            # This event is now redundant for total_tokens, but can be used for final validation if needed.
+            pass

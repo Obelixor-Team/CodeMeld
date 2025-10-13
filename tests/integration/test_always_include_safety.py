@@ -1,3 +1,4 @@
+import logging
 import pytest
 from pathlib import Path
 import os
@@ -30,7 +31,8 @@ def test_always_include_blocks_symlink_outside_root(tmp_path, caplog):
     )
 
     combiner = CodeCombiner(config)
-    combiner.execute()
+    with caplog.at_level(logging.WARNING):
+        combiner.execute()
 
     assert not output_file.exists()
     assert f"Warning: --always-include path '{symlink_path}' was filtered out by safety checks." in caplog.text
@@ -51,7 +53,8 @@ def test_always_include_blocks_binary_file(tmp_path, caplog):
     )
 
     combiner = CodeCombiner(config)
-    combiner.execute()
+    with caplog.at_level(logging.WARNING):
+        combiner.execute()
 
     assert not output_file.exists()
     assert f"Warning: --always-include path '{binary_file}' was filtered out by safety checks." in caplog.text
@@ -80,7 +83,8 @@ def test_always_include_blocks_path_traversal(tmp_path, caplog):
     )
 
     combiner = CodeCombiner(config)
-    combiner.execute()
+    with caplog.at_level(logging.WARNING):
+        combiner.execute()
 
     assert not output_file.exists()
     # Check for the warning message containing the original path

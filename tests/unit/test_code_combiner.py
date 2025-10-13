@@ -6,6 +6,7 @@ import os
 
 from src.config import CombinerConfig, CodeCombinerError
 from src.code_combiner import CodeCombiner
+from src.filters import FilterChainBuilder
 
 def create_mock_path(path_str: str, is_file: bool = True) -> MagicMock:
     mock_path = MagicMock(spec=Path, name=path_str)
@@ -51,7 +52,7 @@ def test_scan_files_permission_error(mock_config):
 
     combiner = CodeCombiner(mock_config)
     with pytest.raises(CodeCombinerError, match="Insufficient permissions to read files"):
-        combiner._scan_files()
+        combiner._get_filtered_files()
 
 def test_scan_files_os_error(mock_config):
     # Simulate OSError during Path.rglob() iteration
@@ -59,7 +60,7 @@ def test_scan_files_os_error(mock_config):
 
     combiner = CodeCombiner(mock_config)
     with pytest.raises(CodeCombinerError, match="File system error: OS error occurred"):
-        combiner._scan_files()
+        combiner._get_filtered_files()
 
 def test_scan_files_no_error(mock_config):
     # Test normal operation without errors
@@ -70,17 +71,20 @@ def test_scan_files_no_error(mock_config):
     mock_config.directory_path.rglob.return_value = [mock_file1, mock_file2]
 
     with patch.object(CodeCombiner, '_resolve_path', side_effect=lambda p: p):
-        # Patch _build_filter_chain to return a mock filter_chain
-        with patch.object(CodeCombiner, '_build_filter_chain') as mock_build_filter_chain:
-            mock_filter_chain = MagicMock()
-            mock_filter_chain.should_process.return_value = True
-            mock_build_filter_chain.return_value = mock_filter_chain
+        with patch.object(FilterChainBuilder, 'build_safety_chain') as mock_build_safety_chain:
+            mock_safety_filter_chain = MagicMock()
+            mock_safety_filter_chain.should_process.return_value = True
+            mock_build_safety_chain.return_value = mock_safety_filter_chain
+            with patch.object(CodeCombiner, '_build_full_filter_chain') as mock_build_full_filter_chain:
+                mock_full_filter_chain = MagicMock()
+                mock_full_filter_chain.should_process.return_value = True
+                mock_build_full_filter_chain.return_value = mock_full_filter_chain
 
-            combiner = CodeCombiner(mock_config)
-            files = combiner._scan_files()
-            assert len(files) == 2
-            assert mock_file1 in files
-            assert mock_file2 in files
+                combiner = CodeCombiner(mock_config)
+                files = combiner._get_filtered_files()
+                assert len(files) == 2
+                assert mock_file1 in files
+                assert mock_file2 in files
 
 
 
@@ -132,6 +136,6 @@ def test_execute_empty_directory_no_files_processed(mock_config, caplog):
     with caplog.at_level(logging.INFO):
         combiner.execute()
 
-    assert "No files to process after filtering. Output file will not be created." in caplog.text
+    assert "No files found to process. Exiting." in caplog.text
     # Ensure write_output was not called
     assert not Path(mock_config.output).exists()

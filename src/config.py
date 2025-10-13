@@ -66,3 +66,5 @@ class CombinerConfig:
     custom_file_headers: dict[str, str] = field(default_factory=dict)
     dry_run: bool = False
     max_file_size_kb: int | None = None
+    verbose: bool = False
+    list_files: bool = False

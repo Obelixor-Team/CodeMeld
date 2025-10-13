@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -26,7 +27,9 @@ class FileFilter(ABC):
 
     def should_process(self, file_path: Path, context: dict) -> bool:
         """Return True if file should be processed."""
-        if not self._check(file_path, context):
+        result = self._check(file_path, context)
+        logging.debug(f"{self.__class__.__name__}._check({file_path.name}) returned {result}")
+        if not result:
             return False
         if self._next_filter:
             return self._next_filter.should_process(file_path, context)
@@ -120,6 +123,13 @@ class SymlinkFilter(FileFilter):
     """Filter symbolic links."""
 
     def _check(self, file_path: Path, context: dict) -> bool:
+
+        import logging
+
+        logging.warning(
+            f"SymlinkFilter: Checking {file_path}, is_symlink: {file_path.is_symlink()}"
+        )
+
         return not file_path.is_symlink()
 
 
@@ -127,16 +137,40 @@ class SecurityFilter(FileFilter):
     """Filter to prevent path traversal by ensuring files are within the root path."""
 
     def _check(self, file_path: Path, context: dict) -> bool:
+
+        import logging
+
         root_path = context.get("root_path")
+
         if not root_path:
-            # If root_path is not provided, we cannot perform the check, so allow.
+
+            logging.warning(
+                f"SecurityFilter: No root_path in context for {file_path}. Allowing."
+            )
+
             return True
+
         try:
-            # Resolve both paths to handle symlinks and '..' correctly
-            file_path.resolve().relative_to(root_path.resolve())
+
+            resolved_file_path = file_path.resolve()
+
+            resolved_root_path = root_path.resolve()
+
+            resolved_file_path.relative_to(resolved_root_path)
+
+            logging.warning(
+                f"SecurityFilter: {resolved_file_path} "
+                f"in {resolved_root_path}. Allowing."
+            )
+
             return True
+
         except ValueError:
-            # file_path is not a subpath of root_path
+
+            logging.warning(
+                f"SecurityFilter: {resolved_file_path} NOT in {resolved_root_path}. Blocking."
+            )
+
             return False
 
 
@@ -166,32 +200,42 @@ class FilterChainBuilder:
     """Builder for constructing file filter chains."""
 
     @staticmethod
-    def build(config: CombinerConfig, spec: pathspec.PathSpec | None) -> FileFilter:
-        """
-        Build a filter chain based on configuration.
-
-        Args:
-            config: The combiner configuration
-            spec: Optional gitignore PathSpec for filtering
-
-        Returns:
-            The head of the filter chain
-
-        """
+    def _resolve_output_path(config: CombinerConfig) -> Path:
         output_path = Path(config.output)
         if not output_path.is_absolute():
             output_path = (config.directory_path / output_path).resolve()
+        return output_path
 
+    @staticmethod
+    def build_safety_chain(config: CombinerConfig) -> FileFilter:
+        """Build a filter chain for safety checks only."""
+        output_path = FilterChainBuilder._resolve_output_path(config)
         filters: list[FileFilter] = [
             SecurityFilter(),
             SymlinkFilter(),
             BinaryFileFilter(),
         ]
-
         if config.max_file_size_kb is not None and config.max_file_size_kb > 0:
             filters.append(FileSizeFilter(config.max_file_size_kb))
 
-        filters.append(ExtensionFilter(config.extensions, config.exclude_extensions))
+        # OutputFilePathFilter should always be at the end of the safety chain
+        # to ensure it's not accidentally included.
+        chain = OutputFilePathFilter(output_path)
+        current: FileFilter = chain
+        for f in filters:
+            current = current.set_next(f)
+        return chain
+
+    @staticmethod
+    def build_full_chain(
+        config: CombinerConfig,
+        spec: pathspec.PathSpec | None,
+        safety_chain_head: FileFilter,
+    ) -> FileFilter:
+        """Build a full filter chain including all configured filters."""
+        filters: list[FileFilter] = [
+            ExtensionFilter(config.extensions, config.exclude_extensions)
+        ]
 
         if not config.include_hidden:
             filters.append(HiddenFileFilter(config.include_hidden))
@@ -199,9 +243,9 @@ class FilterChainBuilder:
         if config.use_gitignore and spec:
             filters.append(GitignoreFilter(spec))
 
-        chain = OutputFilePathFilter(output_path)
-        current: FileFilter = chain
+        # The full chain starts with the safety chain, and then adds other filters
+        current: FileFilter = safety_chain_head
         for f in filters:
             current = current.set_next(f)
 
-        return chain
+        return safety_chain_head # Return the head of the chain

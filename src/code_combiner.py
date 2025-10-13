@@ -20,6 +20,7 @@ from .observers import (
     TokenCounterObserver,
 )
 from .output_generator import InMemoryOutputGenerator, StreamingOutputGenerator
+from .ui import LiveUI
 
 
 def write_output(
@@ -33,11 +34,9 @@ def write_output(
         return
 
     if output_path.exists() and not force:
-        response = input(
-            f"Output file '{output_path}' already exists. Overwrite? (y/N): "
-        ).lower()
-        if response != "y":
-            logging.info("File write cancelled by user.")
+        response = input(f"Output file '{output_path}' already exists. Overwrite? (y/N): ")
+        if response.lower() != 'y':
+            logging.info("Operation cancelled by user. File not overwritten.")
             return
 
     try:
@@ -139,7 +138,7 @@ def parse_arguments() -> argparse.Namespace:
         default="{}",
         help=(
             """JSON string of custom file headers per extension (e.g., """
-            """'{"py": "# FILE: {path}", "js": "// FILE: {path}"}')."""
+            """'{"py": "# FILE: {path}", "js": "// FILE: {path}"}'"""
         ),
     )
     parser.add_argument(
@@ -155,8 +154,17 @@ def parse_arguments() -> argparse.Namespace:
             "Files larger than this will be skipped."
         ),
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose output, showing each file as it's processed.",
+    )
+    parser.add_argument(
+        "--list-files",
+        action="store_true",
+        help="List all files that were added to the output file.",
+    )
     return parser.parse_args()
-
 
 def run_code_combiner(config: CombinerConfig) -> None:
     """Run the code combiner with the given configuration."""
@@ -171,6 +179,7 @@ class CodeCombiner:
     def __init__(self, config: CombinerConfig):
         """Initialize the CodeCombiner."""
         self.config = config
+        self.root_path = self.config.directory_path.resolve()
         # Determine the effective format based on --convert-to
         effective_format = (
             config.final_output_format if config.final_output_format else config.format
@@ -185,11 +194,12 @@ class CodeCombiner:
             custom_file_headers=self.config.custom_file_headers,
             **formatter_kwargs,
         )
-        self.filter_chain = self._build_filter_chain()
+        self.safety_filter_chain = FilterChainBuilder.build_safety_chain(self.config)
+        self.full_filter_chain = self._build_full_filter_chain(self.safety_filter_chain)
 
-    def _build_filter_chain(self) -> FileFilter:
+    def _build_full_filter_chain(self, safety_chain_head: FileFilter) -> FileFilter:
         spec = self._get_gitignore_spec() if self.config.use_gitignore else None
-        return FilterChainBuilder.build(self.config, spec)
+        return FilterChainBuilder.build_full_chain(self.config, spec, safety_chain_head)
 
     def _get_gitignore_spec(self) -> pathspec.PathSpec | None:
         current_path: Path = self.config.directory_path.resolve()
@@ -201,65 +211,36 @@ class CodeCombiner:
             current_path = current_path.parent
         return None
 
-    def _scan_files(self) -> list[Path]:
-        """Scan directory for matching files, respecting always_include and filters."""
-        all_files: set[Path] = set()
-        all_files = self._process_always_include_files(all_files)
-        all_files = self._process_directory_files(all_files)
-        return sorted(list(all_files))
 
-    def _process_always_include_files(self, all_files: set[Path]) -> set[Path]:
-        """Process always_include files, applying safety filters."""
-        context = {"root_path": self.config.directory_path}
-        for p in self.config.always_include:
-            path = Path(p)
-            full_path: Path
-            if path.is_absolute():
-                full_path = self._resolve_path(path)
-            else:
-                full_path = self._resolve_path(self.config.directory_path / path)
-
-            if full_path.is_file():
-                if self.filter_chain.should_process(full_path, context):
-                    all_files.add(full_path)
-                else:
-                    logging.warning(
-                        f"Warning: --always-include path '{p}' was filtered out "
-                        "by safety checks."
-                    )
-            else:
-                logging.warning(
-                    f"Warning: --always-include path not found or not a file: {p}"
-                )
-        return all_files
-
-    def _process_directory_files(self, all_files: set[Path]) -> set[Path]:
-        """Add filtered files from the directory, avoiding duplicates."""
-        context = {"root_path": self.config.directory_path}
-        try:
-            for file_path in self._iter_files():
-                resolved_file_path = self._resolve_path(file_path)
-                if resolved_file_path in all_files:
-                    continue
-
-                if self.filter_chain.should_process(file_path, context):
-                    all_files.add(resolved_file_path)
-        except PermissionError as e:
-            logging.error(f"Permission denied during file scan: {e}")
-            raise CodeCombinerError("Insufficient permissions to read files") from e
-        except OSError as e:
-            logging.error(f"OS error during file scan: {e}")
-            raise CodeCombinerError(f"File system error: {e}") from e
-        return all_files
 
     def _iter_files(self):
         """Iterate over files in the directory using pathlib.Path.rglob()."""
         # rglob will traverse all directories, including hidden ones.
         # The HiddenFileFilter will then handle filtering based on
         # self.config.include_hidden.
-        for file_path in self.config.directory_path.rglob("*"):
-            if file_path.is_file():
-                yield file_path
+        for path in self.root_path.rglob("*"):
+            if path.is_file():
+                yield path
+
+    def _get_filtered_files(self) -> list[Path]:
+        """
+        Get a list of files to be processed after applying all filters.
+
+        Returns:
+            A sorted list of file paths.
+        """
+        all_files: list[Path] = []
+        try:
+            all_files = list(self._iter_files())
+        except PermissionError as e:
+            raise CodeCombinerError(f"Insufficient permissions to read files: {e}")
+        except OSError as e:
+            raise CodeCombinerError(f"File system error: {e}")
+
+        filtered_files = [
+            file for file in all_files if self.full_filter_chain.should_process(file, {"root_path": self.root_path})
+        ]
+        return sorted(filtered_files)
 
     def _resolve_path(self, path: Path) -> Path:
         """Resolve a path to its absolute form."""
@@ -269,26 +250,30 @@ class CodeCombiner:
 
     def execute(self) -> None:
         """Execute the combining process."""
-        files = self._scan_files()
+        files = self._get_filtered_files()
 
         if not files:
-            logging.info(
-                "No files to process after filtering. Output file will not be created."
-            )
+            logging.info("No files found to process. Exiting.")
             return
+
+        # Initialize UI
+        ui = LiveUI(total_files=len(files))
+        ui.apply_config(self.config)
+        ui.print_header()
+        ui.print_config()
+        ui.start()
 
         memory_monitor = SystemMemoryMonitor(
             self.config.max_memory_mb, self.config.count_tokens
         )
         publisher = Publisher()
+        token_counter_observer = None
         if self.config.count_tokens:
-            publisher.subscribe(TokenCounterObserver(self.config.token_encoding_model))
-        with ProgressBarObserver(len(files), "Processing files") as progress_bar:
-            publisher.subscribe(progress_bar)
-            publisher.subscribe(TelemetryObserver())
-            publisher.subscribe(LineCounterObserver())
+            token_counter_observer = TokenCounterObserver(self.config.token_encoding_model)
+            publisher.subscribe(token_counter_observer)
+        publisher.subscribe(TelemetryObserver())
+        publisher.subscribe(LineCounterObserver())
 
-        # Start with InMemoryOutputGenerator; fallback handled internally if applicable
         output_written_by_streaming = False
         try:
             generator = InMemoryOutputGenerator(
@@ -298,6 +283,8 @@ class CodeCombiner:
                 memory_monitor,
                 publisher,
                 Path(self.config.output),
+                ui, # Pass ui to InMemoryOutputGenerator
+                token_counter_observer, # Pass token_counter_observer
             )
             output_content, raw_content = generator.generate()
         except MemoryThresholdExceededError:
@@ -309,6 +296,8 @@ class CodeCombiner:
                     self.formatter,
                     Path(self.config.output),
                     publisher,
+                    ui, # Pass ui to StreamingOutputGenerator
+                    token_counter_observer, # Pass token_counter_observer
                     dry_run=self.config.dry_run,
                 )
                 streaming_generator.generate()
@@ -317,7 +306,7 @@ class CodeCombiner:
             else:
                 raise  # Re-raise if fallback is not allowed
 
-        if not output_written_by_streaming:
+        if not output_written_by_streaming and output_content:
             write_output(
                 Path(self.config.output),
                 output_content,
@@ -325,4 +314,5 @@ class CodeCombiner:
                 self.config.dry_run,
             )
 
+        ui.finish() # Finalize UI and print summary
         publisher.notify("processing_complete", None)

@@ -10,7 +10,8 @@ from typing import Any
 
 from .formatters import JSONFormatter, OutputFormatter, XMLFormatter
 from .memory_monitor import MemoryMonitor
-from .observers import Publisher
+from .observers import Publisher, TokenCounterObserver
+from .ui import LiveUI
 from .utils import is_likely_binary, log_file_read_error
 
 
@@ -76,6 +77,8 @@ class InMemoryOutputGenerator(OutputGenerator):
         memory_monitor: MemoryMonitor,
         publisher: Publisher,
         output_path: Path,
+        ui: LiveUI,
+        token_counter_observer: TokenCounterObserver | None,
     ):
         """Initialize the InMemoryOutputGenerator."""
         super().__init__(files_to_process, root_path, formatter, publisher)
@@ -88,6 +91,8 @@ class InMemoryOutputGenerator(OutputGenerator):
         self.memory_monitor = memory_monitor
         self.publisher = publisher
         self.output_path = output_path
+        self.ui = ui
+        self.token_counter_observer = token_counter_observer
 
     def generate(self) -> tuple[str, str]:
         """Generate output in memory."""
@@ -113,12 +118,21 @@ class InMemoryOutputGenerator(OutputGenerator):
             relative_path = file_path.relative_to(self.root_path)
             content = read_file_content(file_path)
             self.publisher.notify("file_processed", relative_path)
+            if content is not None:
+                self.publisher.notify("file_content_processed", content) # Notify with content
+            
+            # Update UI
+            tokens = self.token_counter_observer.total_tokens if self.token_counter_observer else None
+            self.ui.update(relative_path.name, skipped=(content is None), tokens=tokens)
+
             if content is None:
                 continue
             self._process_file(relative_path, content)
 
         result = self._end_output()
-        self.publisher.notify("output_generated", result[0])  # Notify with formatted content
+        self.publisher.notify(
+            "output_generated", result[0]
+        )  # Notify with formatted content
         self.publisher.notify("processing_complete", result)
         return result
 
@@ -179,12 +193,16 @@ class StreamingOutputGenerator(OutputGenerator):
         formatter: OutputFormatter,
         output_path: Path,
         publisher: Publisher,
+        ui: LiveUI,
+        token_counter_observer: TokenCounterObserver | None,
         dry_run: bool = False,
     ) -> None:
         """Initialize the StreamingOutputGenerator."""
         super().__init__(files_to_process, root_path, formatter, publisher)
         self.output_path = output_path
         self.dry_run = dry_run
+        self.ui = ui
+        self.token_counter_observer = token_counter_observer
 
     def generate(self) -> None:
         """Generate output by streaming to file or printing to stdout if dry_run."""
@@ -197,8 +215,8 @@ class StreamingOutputGenerator(OutputGenerator):
         )
 
         if self.dry_run:
-            import sys
             import logging
+            import sys
 
             logging.info("--- Dry Run Output (Streaming) ---")
             sys.stdout.write(self.formatter.begin_output())
@@ -206,6 +224,13 @@ class StreamingOutputGenerator(OutputGenerator):
                 relative_path = file_path.relative_to(self.root_path)
                 self.publisher.notify("file_processed", relative_path)
                 content = read_file_content(file_path)
+                if content is not None:
+                    self.publisher.notify("file_content_processed", content) # Notify with content
+                
+                # Update UI
+                tokens = self.token_counter_observer.total_tokens if self.token_counter_observer else None
+                self.ui.update(relative_path.name, skipped=(content is None), tokens=tokens)
+
                 if content is not None:
                     sys.stdout.write(self.formatter.format_file(relative_path, content))
             sys.stdout.write(self.formatter.end_output())
@@ -218,13 +243,21 @@ class StreamingOutputGenerator(OutputGenerator):
                     relative_path = file_path.relative_to(self.root_path)
                     self.publisher.notify("file_processed", relative_path)
 
+                    # Update UI
+                    tokens = self.token_counter_observer.total_tokens if self.token_counter_observer else None
+                    self.ui.update(relative_path.name, skipped=False, tokens=tokens)
+
                     if hasattr(self.formatter, "format_file_stream"):
-                        self.formatter.format_file_stream(relative_path, file_path, outfile)
+                        self.formatter.format_file_stream(
+                            relative_path, file_path, outfile
+                        )
                     else:
                         content = read_file_content(file_path)
-                        if content is None:
-                            continue
-                        outfile.write(self.formatter.format_file(relative_path, content))
+                        if content is not None:
+                            self.publisher.notify("file_content_processed", content) # Notify with content
+                            outfile.write(
+                                self.formatter.format_file(relative_path, content)
+                            )
                 outfile.write(self.formatter.end_output())
 
         self.publisher.notify("processing_complete", None)

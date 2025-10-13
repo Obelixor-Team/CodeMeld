@@ -160,8 +160,9 @@ class TestFileSizeFilter:
 
 
 class TestFilterChainBuilder:
-    def test_build_default_chain(self, temp_dir: Path):
+    def test_build_full_chain_default_filters(self, temp_dir: Path):
         config = Mock(spec=CombinerConfig)
+        config.directory_path = temp_dir
         config.output = str(temp_dir / "output.txt")
         config.extensions = [".py"]
         config.exclude_extensions = []
@@ -178,20 +179,87 @@ class TestFilterChainBuilder:
         config.custom_file_headers = {}
         config.max_file_size_kb = None
 
-        chain = FilterChainBuilder.build(config, None)
+        safety_chain = FilterChainBuilder.build_safety_chain(config)
+        full_chain = FilterChainBuilder.build_full_chain(config, None, safety_chain)
 
-        assert chain.should_process(temp_dir / "test.py", {"root_path": temp_dir})
-        assert not chain.should_process(temp_dir / "test.js", {"root_path": temp_dir})
-        assert not chain.should_process(temp_dir / ".hidden", {"root_path": temp_dir})
-        assert not chain.should_process(
+        # Test files that should be processed by the full chain
+        assert full_chain.should_process(temp_dir / "test.py", {"root_path": temp_dir})
+        # Test files that should be filtered by the full chain
+        assert not full_chain.should_process(temp_dir / "test.js", {"root_path": temp_dir})
+        assert not full_chain.should_process(temp_dir / ".hidden", {"root_path": temp_dir})
+        assert not full_chain.should_process(
             temp_dir / "output.txt", {"root_path": temp_dir}
         )
-        assert not chain.should_process(
+        assert not full_chain.should_process(
             temp_dir / "binary.bin", {"root_path": temp_dir}
         )
-        assert not chain.should_process(
+        assert not full_chain.should_process(
             temp_dir / "symlink.py", {"root_path": temp_dir}
         )
+
+    def test_build_safety_chain_only_safety_filters(self, temp_dir: Path):
+        config = Mock(spec=CombinerConfig)
+        config.directory_path = temp_dir
+        config.output = str(temp_dir / "output.txt")
+        config.extensions = [".py"]
+        config.exclude_extensions = []
+        config.include_hidden = False
+        config.use_gitignore = False
+        config.count_tokens = False
+        config.header_width = 80
+        config.format = "text"
+        config.final_output_format = None
+        config.force = False
+        config.always_include = []
+        config.token_encoding_model = "cl100k_base"
+        config.max_memory_mb = 500
+        config.custom_file_headers = {}
+        config.max_file_size_kb = None
+
+        safety_chain = FilterChainBuilder.build_safety_chain(config)
+
+        # Test files that should be processed by the safety chain (i.e., not filtered by safety filters)
+        assert safety_chain.should_process(temp_dir / "test.py", {"root_path": temp_dir})
+        assert safety_chain.should_process(temp_dir / "test.js", {"root_path": temp_dir}) # Should pass safety, but fail full
+        assert safety_chain.should_process(temp_dir / ".hidden", {"root_path": temp_dir}) # Should pass safety, but fail full
+
+        # Test files that should be filtered by the safety chain
+        assert not safety_chain.should_process(
+            temp_dir / "output.txt", {"root_path": temp_dir}
+        )
+        assert not safety_chain.should_process(
+            temp_dir / "binary.bin", {"root_path": temp_dir}
+        )
+        assert not safety_chain.should_process(
+            temp_dir / "symlink.py", {"root_path": temp_dir}
+        )
+
+        # Test security filter in safety chain
+        outside_dir = temp_dir.parent / "outside_file.txt"
+        outside_dir.touch()
+        assert not safety_chain.should_process(outside_dir, {"root_path": temp_dir})
+
+    def test_safety_chain_filters_symlink(self, temp_dir: Path):
+        config = Mock(spec=CombinerConfig)
+        config.directory_path = temp_dir
+        config.output = str(temp_dir / "output.txt")
+        config.extensions = []
+        config.exclude_extensions = []
+        config.include_hidden = False
+        config.use_gitignore = False
+        config.count_tokens = False
+        config.header_width = 80
+        config.format = "text"
+        config.final_output_format = None
+        config.force = False
+        config.always_include = []
+        config.token_encoding_model = "cl100k_base"
+        config.max_memory_mb = 500
+        config.custom_file_headers = {}
+        config.max_file_size_kb = None
+
+        safety_chain = FilterChainBuilder.build_safety_chain(config)
+        assert not safety_chain.should_process(temp_dir / "symlink.py", {"root_path": temp_dir})
 
 
 class TestPathResolution:

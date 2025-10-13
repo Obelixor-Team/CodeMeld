@@ -72,5 +72,6 @@ def is_likely_binary(file_path: Path) -> bool:
             text_chars = bytes(range(32, 127)) + b"\n\r\t\f\b"
             non_text = sum(1 for byte in chunk if byte not in text_chars)
             return (non_text / len(chunk)) > 0.30
-    except Exception:
+    except Exception as e:
+        logging.warning(f"Error checking binary status for {file_path}: {e}")
         return True

@@ -105,6 +105,11 @@ class CombinerConfigBuilder:
                     f"Invalid JSON in --custom-file-headers: {e}"
                 ) from e
 
+        if hasattr(args, "verbose") and args.verbose:
+            self._config["verbose"] = True
+        if hasattr(args, "list_files") and args.list_files:
+            self._config["list_files"] = True
+
         return self
 
     def validate(self, directory: str, output: str) -> CombinerConfigBuilder:
