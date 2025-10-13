@@ -1,8 +1,11 @@
+# Copyright (c) 2025 skum
+
 """Defines the observer pattern for progress reporting and token counting."""
 
 from __future__ import annotations
 
 import logging
+import sys
 import time
 from abc import ABC, abstractmethod
 from types import ModuleType
@@ -23,9 +26,20 @@ class Observer(ABC):
 class Publisher:
     """Publisher class for the observer pattern."""
 
-    def __init__(self):
+    def __init__(self, total_files: int = 0):
         """Initialize the Publisher."""
         self.observers: list[Observer] = []
+        self.total_files = total_files
+
+    def __enter__(self):
+        """Enter runtime context; notify observers processing started."""
+        self.notify("processing_started", {"total_files": self.total_files})
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit the runtime context and notify observers that processing is complete."""
+        self.notify("processing_complete", None)
+        return False
 
     def subscribe(self, observer: Observer):
         """Subscribe an observer to the publisher."""
@@ -62,13 +76,21 @@ class ProgressBarObserver(Observer):
 
     def __init__(self, total_files: int, description: str):
         """Initialize the ProgressBarObserver."""
-        self.progress_bar = tqdm(total=total_files, desc=description)
+        self.progress_bar: tqdm | None
+        if sys.stdout.isatty():
+            self.progress_bar = tqdm(total=total_files, desc=description)
+        else:
+            self.progress_bar = None
+            logging.info(f"Progress: {description} - 0/{total_files}")
 
     def update(self, event: str, data: Any):
         """Update the progress bar based on the event."""
         if event == "file_processed":
-            self.progress_bar.update(1)
-            self.progress_bar.write(f"Processed: {data}")
+            if self.progress_bar:
+                self.progress_bar.update(1)
+                self.progress_bar.write(f"Processed: {data}")
+            else:
+                logging.info(f"Processed: {data}")
 
     def close(self):
         """Clean up the progress bar."""
@@ -112,16 +134,8 @@ class TelemetryObserver(Observer):
         if event == "processing_started":
             self.start_time = time.time()
             self.total_files_processed = data.get("total_files", 0)
-            logging.info(
-                f"Telemetry: Processing started for {self.total_files_processed} files."
-            )
         elif event == "processing_complete" and self.start_time is not None:
-            end_time = time.time()
-            duration = end_time - self.start_time
-            logging.info(
-                f"Telemetry: Processing completed in {duration:.2f} seconds. "
-                f"Total files processed: {self.total_files_processed}"
-            )
+            pass
 
 
 class TokenCounterObserver(Observer):
