@@ -180,3 +180,26 @@ def test_convert_to_same_format_raises_error():
     )
     with pytest.raises(CodeCombinerError, match="Error: Cannot convert format 'json' to itself."):
         load_and_merge_config(args)
+
+def test_malformed_custom_file_headers_raises_error():
+    builder = CombinerConfigBuilder()
+    args = Namespace(
+        extensions=None,
+        exclude=None,
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=False,
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
+        always_include=None,
+        custom_file_headers='{"py": "# Python"' # Invalid JSON
+    )
+    with pytest.raises(CodeCombinerError, match="Invalid JSON in --custom-file-headers"):
+        builder.with_cli_args(args)
+
+def test_non_existent_directory_raises_error():
+    builder = CombinerConfigBuilder()
+    with pytest.raises(CodeCombinerError, match="Error: Directory 'non_existent_dir' does not exist."):
+        builder.validate("non_existent_dir", "output.txt")

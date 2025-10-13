@@ -74,28 +74,50 @@ def test_line_counter_observer():
 
 @patch("src.observers.tqdm")
 
+
+
+
+
 def test_progress_bar_observer(mock_tqdm):
+
+
+
 
 
     mock_progress_bar = MagicMock()
 
 
+
+
+
     mock_tqdm.return_value = mock_progress_bar
 
 
-    observer = ProgressBarObserver(total_files=10, description="Processing")
 
 
-    observer.update("file_processed", "test_file")
+
+    with ProgressBarObserver(total_files=10, description="Processing") as observer:
 
 
-    mock_progress_bar.update.assert_called_with(1)
 
 
-    mock_progress_bar.write.assert_called_with("Processed: test_file")
+
+        observer.update("file_processed", "test_file")
 
 
-    observer.update("processing_complete", None)
+
+
+
+        mock_progress_bar.update.assert_called_with(1)
+
+
+
+
+
+        mock_progress_bar.write.assert_called_with("Processed: test_file")
+
+
+
 
 
     mock_progress_bar.close.assert_called()

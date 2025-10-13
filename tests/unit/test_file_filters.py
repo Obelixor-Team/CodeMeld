@@ -122,7 +122,15 @@ class TestSecurityFilter:
         filter = SecurityFilter()
         # Simulate a path traversal attempt using '..'
         traversal_path = temp_dir / ".." / "outside_file.txt"
-        traversal_path.touch()
+        # Create the file to be able to resolve the path
+        (temp_dir.parent / "outside_file.txt").touch()
+        assert not filter.should_process(traversal_path, {"root_path": temp_dir})
+
+    def test_should_not_process_path_with_multiple_traversal_attempts(self, temp_dir: Path):
+        filter = SecurityFilter()
+        # Simulate a path traversal attempt using multiple '..'
+        traversal_path = temp_dir / "sub" / ".." / ".." / "outside_file.txt"
+        (temp_dir.parent / "outside_file.txt").touch()
         assert not filter.should_process(traversal_path, {"root_path": temp_dir})
 
 

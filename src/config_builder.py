@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import DEFAULT_EXTENSIONS, CodeCombinerError, CombinerConfig
+from .config_validator import ConfigValidator
 
 _tomllib: Any
 
@@ -91,7 +92,10 @@ class CombinerConfigBuilder:
             self._config["always_include"] = args.always_include
 
         # Safely parse custom_file_headers from CLI
-        if args.custom_file_headers is not None:
+        if (
+            hasattr(args, "custom_file_headers")
+            and args.custom_file_headers is not None
+        ):
             try:
                 self._config["custom_file_headers"] = json.loads(
                     args.custom_file_headers
@@ -105,48 +109,8 @@ class CombinerConfigBuilder:
 
     def validate(self, directory: str, output: str) -> CombinerConfigBuilder:
         """Validate configuration."""
-        directory_path = Path(directory)
-        if not directory_path.is_dir():
-            raise CodeCombinerError(f"Error: Directory '{directory}' does not exist.")
-
-        if not self._config["extensions"]:
-            raise CodeCombinerError("Error: Extension list cannot be empty.")
-
-        if self._config["header_width"] <= 0:
-            raise CodeCombinerError("Header width must be positive")
-
-        output_path = Path(output)
-        if not output_path.parent.exists():
-            logging.warning(
-                f"Output directory '{output_path.parent}' does not exist. Creating it."
-            )
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Check extensions start with dot and provide suggestions
-        for i, ext in enumerate(self._config["extensions"]):
-            if not ext.startswith("."):
-                # If it doesn't start with a dot, suggest with a lowercase dot-prefix
-                suggested_ext = f".{ext.lower()}"
-                raise CodeCombinerError(
-                    f"Error: Extension '{ext}' must start with '.'. "
-                    f"Did you mean '{suggested_ext}'?"
-                )
-            # If it already starts with a dot, just ensure it's lowercase
-            self._config["extensions"][i] = ext.lower()
-
-        # Check conversion makes sense
-        if self._config["final_output_format"]:
-            if self._config["format"] not in ["json", "xml"]:
-                raise CodeCombinerError(
-                    "--convert-to can only be used when --format is 'json' or 'xml'"
-                )
-            if self._config["format"] == self._config["final_output_format"]:
-                raise CodeCombinerError(
-                    f"Error: Cannot convert format '{self._config['format']}' "
-                    f"to itself."
-                )
-
-        # Remove file extension validation - let users name files as they want
+        validator = ConfigValidator(self._config, directory, output)
+        validator.validate()
         return self
 
     def build(self, directory: str, output: str) -> CombinerConfig:

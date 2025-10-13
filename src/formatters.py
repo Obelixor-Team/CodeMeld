@@ -197,6 +197,19 @@ class XMLFormatter(OutputFormatter):
         """Return any footer/closing content for XML output."""
         return "</codebase>"
 
+    def format_file_stream(self, relative_path: Path, file_path: Path, outfile):
+        """Format a single file's content from a stream for XML output."""
+        outfile.write(f"  <file>\n    <path>{relative_path}</path>\n    <content>")
+        try:
+            with open(file_path, encoding="utf-8") as f:
+                for line in f:
+                    outfile.write(xml.sax.saxutils.escape(line))
+        except Exception as e:
+            from .utils import log_file_read_error
+
+            log_file_read_error(file_path, e)
+        outfile.write("</content>\n  </file>\n")
+
     def supports_streaming(self) -> bool:
         """XML formatter supports streaming."""
         return True

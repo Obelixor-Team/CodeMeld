@@ -219,4 +219,4 @@ def test_memory_threshold_fallback(tmp_path, caplog):
     assert "a" * (1024 * 1024 * 2) in content
 
     # Log should contain fallback message (looser match for robustness)
-    assert any("Falling back to streaming" in record.message for record in caplog.records)    
+    assert any("Falling back to streaming due to memory constraints" in record.message for record in caplog.records)    

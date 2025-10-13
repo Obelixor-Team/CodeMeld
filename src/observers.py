@@ -69,8 +69,6 @@ class ProgressBarObserver(Observer):
         if event == "file_processed":
             self.progress_bar.update(1)
             self.progress_bar.write(f"Processed: {data}")
-        elif event == "processing_complete":
-            self.close()
 
     def close(self):
         """Clean up the progress bar."""

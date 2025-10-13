@@ -184,7 +184,77 @@ The primary goal of this script is to generate a single file that can be easily 
 
 **Tip for Large Projects**: For very large projects, consider using the `--no-tokens` flag to disable token counting. This enables a memory-safe streaming approach, preventing potential out-of-memory errors.
 
+### More Examples
+
+7.  **Convert JSON Output to Markdown**:
+    Generate an intermediate JSON representation and then convert it to a clean Markdown file.
+
+    ```bash
+    .venv/bin/python main.py . -e .py -o combined.md --format json --convert-to markdown
+    ```
+
+8.  **Force Streaming for a Large Project**:
+    To avoid high memory usage, you can set a low memory limit to force the script to use a streaming approach.
+
+    ```bash
+    .venv/bin/python main.py . -o combined.txt --max-memory-mb 100
+    ```
+
+9.  **Always Include a Specific File**:
+    Ensure a specific configuration file is included, even if it doesn't have a standard extension or is in a hidden directory.
+
+    ```bash
+    .venv/bin/python main.py . -o combined.txt --always-include ./.config/app.conf
+    ```
+
+### Extending with Custom Formatters
+
+The Code Combiner can be extended with custom formatters using a plugin-based architecture. If you have a specific output format you need, you can create a custom formatter and make it available to the script via entry points.
+
+To create a custom formatter:
+
+1.  **Implement the `OutputFormatter` interface**:
+    Create a class that inherits from `OutputFormatter` and implements the required methods (`format_name`, `format_file`, `begin_output`, `end_output`, `supports_streaming`).
+
+    ```python
+    # my_custom_formatter.py
+    from src.formatters import OutputFormatter
+    from pathlib import Path
+
+    class YAMLFormatter(OutputFormatter):
+        format_name = "yaml"
+
+        def format_file(self, relative_path: Path, content: str) -> str:
+            # Simple YAML-like output
+            return f'  - file: "{relative_path}"\n    content: |\n' + "\n".join(f"      {line}" for line in content.splitlines())
+
+        def begin_output(self) -> str:
+            return "files:\n"
+
+        def end_output(self) -> str:
+            return ""
+
+        def supports_streaming(self) -> bool:
+            return True
+    ```
+
+2.  **Register the formatter using an entry point**:
+    In your project's `pyproject.toml`, add an entry point under the `code_combiner.formatters` group.
+
+    ```toml
+    [project.entry-points."code_combiner.formatters"]
+    yaml = "my_project.formatters:YAMLFormatter"
+    ```
+
+Once your package is installed (e.g., with `pip install .`), the Code Combiner will automatically discover and register your custom formatter. You can then use it with the `--format` option:
+
+```bash
+.venv/bin/python main.py . --format yaml -o combined.yaml
+```
+
 ## Architecture
+
+**Filter Chain (Chain of Responsibility)**: The file filtering logic is implemented using the Chain of Responsibility pattern. Each filter is a separate class that handles a specific filtering rule (e.g., checking extensions, hidden files, or `.gitignore` rules). This design was chosen for its modularity and extensibility. While it might seem more complex than a single, monolithic filter class, it makes the code easier to understand, maintain, and extend. Adding a new filter only requires creating a new class that implements the `FileFilter` interface, without modifying the existing code. The performance overhead of this pattern is minimal and is outweighed by the benefits of a clean and maintainable design.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -248,6 +318,16 @@ Use the provided `Makefile` for code quality checks:
 
 ```bash
 make all
+```
+
+### Dependency Vulnerability Scanning
+
+This project uses `pip-audit` to scan for vulnerabilities in the dependencies.
+To run the audit locally, install `pip-audit` and run it:
+
+```bash
+pip install pip-audit
+pip-audit
 ```
 
 ### Linting with Ruff

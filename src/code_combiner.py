@@ -204,9 +204,13 @@ class CodeCombiner:
     def _scan_files(self) -> list[Path]:
         """Scan directory for matching files, respecting always_include and filters."""
         all_files: set[Path] = set()
-        context = {"root_path": self.config.directory_path}
+        all_files = self._process_always_include_files(all_files)
+        all_files = self._process_directory_files(all_files)
+        return sorted(list(all_files))
 
-        # Process always_include files, applying safety filters
+    def _process_always_include_files(self, all_files: set[Path]) -> set[Path]:
+        """Process always_include files, applying safety filters."""
+        context = {"root_path": self.config.directory_path}
         for p in self.config.always_include:
             path = Path(p)
             full_path: Path
@@ -216,8 +220,6 @@ class CodeCombiner:
                 full_path = self._resolve_path(self.config.directory_path / path)
 
             if full_path.is_file():
-                # Apply the full filter chain to always_include files
-                # This ensures safety filters are applied
                 if self.filter_chain.should_process(full_path, context):
                     all_files.add(full_path)
                 else:
@@ -229,13 +231,15 @@ class CodeCombiner:
                 logging.warning(
                     f"Warning: --always-include path not found or not a file: {p}"
                 )
+        return all_files
 
-        # Add filtered files, avoiding duplicates
+    def _process_directory_files(self, all_files: set[Path]) -> set[Path]:
+        """Add filtered files from the directory, avoiding duplicates."""
+        context = {"root_path": self.config.directory_path}
         try:
             for file_path in self._iter_files():
                 resolved_file_path = self._resolve_path(file_path)
                 if resolved_file_path in all_files:
-                    # Already added as an always_include file
                     continue
 
                 if self.filter_chain.should_process(file_path, context):
@@ -246,8 +250,7 @@ class CodeCombiner:
         except OSError as e:
             logging.error(f"OS error during file scan: {e}")
             raise CodeCombinerError(f"File system error: {e}") from e
-
-        return sorted(list(all_files))
+        return all_files
 
     def _iter_files(self):
         """Iterate over files in the directory using pathlib.Path.rglob()."""
@@ -280,9 +283,10 @@ class CodeCombiner:
         publisher = Publisher()
         if self.config.count_tokens:
             publisher.subscribe(TokenCounterObserver(self.config.token_encoding_model))
-        publisher.subscribe(ProgressBarObserver(len(files), "Processing files"))
-        publisher.subscribe(TelemetryObserver())
-        publisher.subscribe(LineCounterObserver())
+        with ProgressBarObserver(len(files), "Processing files") as progress_bar:
+            publisher.subscribe(progress_bar)
+            publisher.subscribe(TelemetryObserver())
+            publisher.subscribe(LineCounterObserver())
 
         # Start with InMemoryOutputGenerator; fallback handled internally if applicable
         output_written_by_streaming = False

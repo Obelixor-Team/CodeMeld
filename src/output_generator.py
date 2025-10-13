@@ -112,10 +112,10 @@ class InMemoryOutputGenerator(OutputGenerator):
 
             relative_path = file_path.relative_to(self.root_path)
             content = read_file_content(file_path)
+            self.publisher.notify("file_processed", relative_path)
             if content is None:
                 continue
             self._process_file(relative_path, content)
-            self.publisher.notify("file_processed", relative_path)
 
         result = self._end_output()
         self.publisher.notify("processing_complete", result)
@@ -198,14 +198,15 @@ class StreamingOutputGenerator(OutputGenerator):
 
             for file_path in self.files_to_process:
                 relative_path = file_path.relative_to(self.root_path)
-                content = read_file_content(file_path)
-                if content is None:
-                    continue
-
-                # Write the formatted file content
-                outfile.write(self.formatter.format_file(relative_path, content))
                 self.publisher.notify("file_processed", relative_path)
 
+                if hasattr(self.formatter, "format_file_stream"):
+                    self.formatter.format_file_stream(relative_path, file_path, outfile)
+                else:
+                    content = read_file_content(file_path)
+                    if content is None:
+                        continue
+                    outfile.write(self.formatter.format_file(relative_path, content))
             outfile.write(self.formatter.end_output())
 
         self.publisher.notify("processing_complete", None)
