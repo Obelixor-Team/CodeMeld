@@ -55,14 +55,14 @@ class TestReadFileContent:
 
 
 class TestInMemoryOutputGenerator:
-    def test_xml_formatter(self, mock_files_to_process, mock_root_path):
+    def test_xml_formatter(self, mock_files_to_process, mock_root_path, tmp_path):
         with patch('src.output_generator.read_file_content', return_value=['some content']):
             context = GeneratorContext(
                 files_to_process=mock_files_to_process,
                 root_path=mock_root_path,
                 formatter=XMLFormatter(),
                 publisher=MagicMock(),
-                output_path=Path("/tmp/output.xml"),
+                output_path=tmp_path / "output.xml",
                 ui=MagicMock(),
                 token_counter_observer=MagicMock(),
                 line_counter_observer=MagicMock(),
