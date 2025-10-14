@@ -14,7 +14,16 @@ from typing import Any
 
 from .formatters import JSONFormatter, OutputFormatter, XMLFormatter
 from .memory_monitor import MemoryMonitor
-from .observers import LineCounterObserver, Publisher, TokenCounterObserver
+from .observers import (
+    FileContentProcessedData,
+    FileProcessedData,
+    LineCounterObserver,
+    OutputGeneratedData,
+    ProcessingEvent,
+    ProcessingStartedData,
+    Publisher,
+    TokenCounterObserver,
+)
 from .ui import LiveUI
 from .utils import is_likely_binary, log_file_read_error
 
@@ -104,27 +113,35 @@ class InMemoryOutputGenerator(OutputGenerator):
     def generate(self) -> tuple[str, str]:
         """Generate output in memory."""
         self.publisher.notify(
-            "processing_started",
-            {
-                "total_files": len(self.files_to_process),
-                "description": self._get_progress_bar_description(),
-            },
+            ProcessingEvent.PROCESSING_STARTED,
+            ProcessingStartedData(total_files=len(self.files_to_process)),
         )
 
         self._begin_output()
 
-        check_interval = max(
-            1, len(self.files_to_process) // 10
-        )  # Check 10 times total
+        check_interval = max(1, min(10, len(self.files_to_process) // 20))
 
         for i, file_path in enumerate(self.files_to_process):
             self._process_single_file(i, file_path, check_interval)
 
         result = self._end_output()
         self.publisher.notify(
-            "output_generated", result[0]
-        )  # Notify with formatted content
-        self.publisher.notify("processing_complete", result)
+            ProcessingEvent.OUTPUT_GENERATED,
+            OutputGeneratedData(
+                output_path=str(self.output_path),
+                total_tokens=(
+                    self.token_counter_observer.total_tokens
+                    if self.token_counter_observer
+                    else None
+                ),
+                total_lines=(
+                    self.line_counter_observer.total_lines
+                    if self.line_counter_observer
+                    else None
+                ),
+            ),
+        )
+        self.publisher.notify(ProcessingEvent.PROCESSING_COMPLETE, None)
         return result
 
     def _begin_output(self) -> None:
@@ -173,34 +190,29 @@ class InMemoryOutputGenerator(OutputGenerator):
         """Return the description for the progress bar."""
         return f"Processing files ({self.formatter.format_name})"
 
-    def _process_single_file(
-        self, i: int, file_path: Path, check_interval: int
-    ) -> None:
-        """Process a single file within the main loop."""
-        # Sample memory usage instead of checking every file
-        if i % check_interval == 0:
-            self.memory_monitor.check_memory_usage()
-
+    def _get_relative_path(self, file_path: Path) -> Path:
         try:
-            relative_path = file_path.relative_to(self.root_path)
+            return file_path.relative_to(self.root_path)
         except ValueError:
-            relative_path = file_path  # Use full path if not relative to root
+            return file_path
 
-        content_generator = read_file_content(file_path)
-        self.publisher.notify("file_processed", relative_path)
-        full_content = ""
-        for chunk in content_generator:
-            full_content += chunk
-            self.publisher.notify("file_content_processed", chunk)  # Notify with chunk
+    def _read_and_notify_content(self, file_path: Path) -> str | None:
+        content_chunks = list(read_file_content(file_path))
+        if not content_chunks and not is_likely_binary(file_path):
+            return None
 
-        if not full_content and not is_likely_binary(file_path):
-            # If content is empty and not binary, it means an error occurred during reading
-            # or the file was genuinely empty. Treat as skipped for UI purposes.
-            content = None
-        else:
-            content = full_content
+        full_content = "".join(content_chunks)
+        for chunk in content_chunks:
+            self.publisher.notify(
+                ProcessingEvent.FILE_CONTENT_PROCESSED,
+                FileContentProcessedData(content_chunk=chunk),
+            )
 
-        # Update UI
+        return full_content
+
+    def _update_ui(
+        self, relative_path: Path, skipped: bool, content: str | None
+    ) -> None:
         tokens = (
             self.token_counter_observer.total_tokens
             if self.token_counter_observer
@@ -213,10 +225,27 @@ class InMemoryOutputGenerator(OutputGenerator):
         )
         self.ui.update(
             str(relative_path),
-            skipped=(content is None),
+            skipped=skipped,
             tokens=tokens,
             lines=lines,
         )
+
+    def _process_single_file(
+        self, i: int, file_path: Path, check_interval: int
+    ) -> None:
+        """Process a single file within the main loop."""
+        # Sample memory usage instead of checking every file
+        if i % check_interval == 0:
+            self.memory_monitor.check_memory_usage()
+
+        relative_path = self._get_relative_path(file_path)
+        content = self._read_and_notify_content(file_path)
+
+        self.publisher.notify(
+            ProcessingEvent.FILE_PROCESSED, FileProcessedData(path=str(relative_path))
+        )
+
+        self._update_ui(relative_path, content is None, content)
 
         if content is None:
             return  # Changed from continue to return as it's a separate function
@@ -260,12 +289,17 @@ class StreamingOutputGenerator(OutputGenerator):
         except ValueError:
             relative_path = file_path  # Use full path if not relative to root
 
-        self.publisher.notify("file_processed", relative_path)
+        self.publisher.notify(
+            ProcessingEvent.FILE_PROCESSED, FileProcessedData(path=str(relative_path))
+        )
         content_generator = read_file_content(file_path)
         full_content = ""
         for chunk in content_generator:
             full_content += chunk
-            self.publisher.notify("file_content_processed", chunk)  # Notify with chunk
+            self.publisher.notify(
+                ProcessingEvent.FILE_CONTENT_PROCESSED,
+                FileContentProcessedData(content_chunk=chunk),
+            )  # Notify with chunk
 
         if not full_content and not is_likely_binary(file_path):
             content = None
@@ -307,7 +341,7 @@ class StreamingOutputGenerator(OutputGenerator):
         else:
             self._handle_actual_streaming()
 
-        self.publisher.notify("processing_complete", None)
+        self.publisher.notify(ProcessingEvent.PROCESSING_COMPLETE, None)
         return None
 
     def _stream_files_to_output(self, outfile: Any, is_dry_run: bool) -> None:
@@ -344,8 +378,14 @@ class StreamingOutputGenerator(OutputGenerator):
 
         if not self.files_to_process and not is_direct_streaming_formatter:
             logging.info("No content to write. File not created.")
-            self.publisher.notify("processing_complete", None)
+            self.publisher.notify(ProcessingEvent.PROCESSING_COMPLETE, None)
             return
 
-        with open(self.output_path, "w", encoding="utf-8") as outfile:
-            self._write_stream_to_file(outfile, is_dry_run=False)
+        temp_path = self.output_path.with_suffix(".tmp")
+        try:
+            with open(temp_path, "w", encoding="utf-8") as outfile:
+                self._write_stream_to_file(outfile, is_dry_run=False)
+            temp_path.replace(self.output_path)  # Atomic rename
+        except Exception:
+            temp_path.unlink(missing_ok=True)
+            raise

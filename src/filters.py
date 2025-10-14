@@ -245,6 +245,14 @@ class FilterChainBuilder:
         safety_chain_head: FileFilter,
     ) -> FileFilter:
         """Build a full filter chain including all configured filters."""
+        """
+        Build filter chain in order of execution:
+        1. ExtensionFilter - Fast rejection based on file extension
+        2. HiddenFileFilter - Quick path-based check
+        3. GitignoreFilter - Pattern matching
+        4. Safety chain (Security, Symlink, Binary, OutputFile, FileSize)
+           - Ordered by: Security > Symlink > OutputFile > Binary > FileSize
+        """
         # Start with the ExtensionFilter as it's a primary filter
         head_filter: FileFilter = ExtensionFilter(
             config.extensions, config.exclude_extensions

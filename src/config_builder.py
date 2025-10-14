@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-import tomllib as _tomllib_impl
+import tomllib
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -14,16 +14,11 @@ from typing import Any
 from .config import DEFAULT_EXTENSIONS, CombinerConfig
 from .config_validator import ConfigValidator
 
-_tomllib: Any
 
-try:
-    import tomllib as _tomllib_impl  # stdlib in 3.11+
-
-    _tomllib = _tomllib_impl
-except ImportError:
-    import toml as _toml_impl
-
-    _tomllib = _toml_impl
+def load_toml(path: Path) -> dict[str, Any]:
+    """Load TOML data from a file using tomllib (Python 3.11+)."""
+    with open(path, "rb") as f:
+        return tomllib.load(f)
 
 
 def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
@@ -32,7 +27,7 @@ def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
     pyproject_path = root_path / "pyproject.toml"
     if pyproject_path.is_file():
         try:
-            pyproject_data: dict[str, Any] = _tomllib.load(pyproject_path.open("rb"))
+            pyproject_data: dict[str, Any] = load_toml(pyproject_path)
             if "tool" in pyproject_data and "code_combiner" in pyproject_data["tool"]:
                 config = pyproject_data["tool"]["code_combiner"]
         except Exception as e:

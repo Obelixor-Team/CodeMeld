@@ -61,10 +61,9 @@ class ConfigValidator:
     def _validate_output_path(self) -> None:
         output_path = Path(self._output)
         if not output_path.parent.exists():
-            logging.warning(
-                f"Output directory '{output_path.parent}' does not exist. Creating it."
+            logging.info(
+                f"Output directory '{output_path.parent}' does not exist and will be created."
             )
-            output_path.parent.mkdir(parents=True, exist_ok=True)
 
     def _validate_conversion(self) -> None:
         if self._config["final_output_format"]:

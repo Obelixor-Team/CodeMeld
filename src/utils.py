@@ -22,13 +22,20 @@ BINARY_EXTENSIONS = {
     ".zip",
 }
 
+_SAMPLE_SIZE_BYTES = 8192
+_LARGE_FILE_THRESHOLD_BYTES = 1024 * 1024  # 1MB
+_NON_TEXT_THRESHOLD = 0.30
+
 
 def log_file_read_error(file_path: Path, error: Exception) -> None:
     """Log a warning for file read errors."""
 
     if isinstance(error, UnicodeDecodeError):
 
-        logging.warning(f"Skipping file due to UnicodeDecodeError: {file_path}")
+        logging.warning(
+            f"Skipping file due to UnicodeDecodeError: {file_path} "
+            f"(codec: {error.encoding}, position: {error.start}-{error.end})"
+        )
 
     elif isinstance(error, FileNotFoundError):
 
@@ -68,7 +75,11 @@ def is_likely_binary(file_path: Path) -> bool:
         file_size = file_path.stat().st_size
         # Determine sample size: For very large files (>1MB), only read the first 8KB.
         # Otherwise, read up to 8KB or the entire file if smaller.
-        sample_size = min(8192, file_size) if file_size > 1024 * 1024 else file_size
+        sample_size = (
+            min(_SAMPLE_SIZE_BYTES, file_size)
+            if file_size > _LARGE_FILE_THRESHOLD_BYTES
+            else file_size
+        )
 
         with open(file_path, "rb") as f:
             chunk = f.read(sample_size)
@@ -87,7 +98,7 @@ def is_likely_binary(file_path: Path) -> bool:
             text_chars = bytes(range(32, 127)) + b"\n\r\t\f\b"
             non_text = sum(1 for byte in chunk if byte not in text_chars)
             # This threshold (0.30) is a common heuristic; it can be tuned.
-            return (non_text / len(chunk)) > 0.30
+            return (non_text / len(chunk)) > _NON_TEXT_THRESHOLD
     except Exception as e:
         # Log any errors during file access or analysis and default to treating as binary
         # to prevent potential issues with processing unreadable or problematic files.

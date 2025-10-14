@@ -90,8 +90,8 @@ def test_header_width_validation_negative_raises_error():
     with pytest.raises(CodeCombinerError, match="Header width must be positive"):
         load_and_merge_config(args)
 
-def test_output_directory_non_existent_raises_error(tmp_path):
-    # Test that a non-existent output directory raises an error
+def test_output_directory_is_not_created_during_config(tmp_path):
+    # Test that the output directory is not created during the configuration phase.
     non_existent_dir = tmp_path / "non_existent_parent" / "output.txt"
     args = Namespace(
         directory=str(tmp_path),
@@ -117,8 +117,7 @@ def test_output_directory_non_existent_raises_error(tmp_path):
         progress_style=None,
     )
     load_and_merge_config(args)
-    assert non_existent_dir.parent.exists()
-    assert not non_existent_dir.exists() # The file itself is not created yet, only the directory
+    assert not non_existent_dir.parent.exists()
 
 def test_extension_without_dot_raises_error_with_suggestion():
     args = Namespace(
