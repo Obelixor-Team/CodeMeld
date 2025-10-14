@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 import logging
 import pytest
 from pathlib import Path
@@ -112,3 +114,23 @@ def test_always_include_allows_valid_file(tmp_path, caplog):
     content = output_file.read_text()
     assert "print('hello')" in content
     assert "Warning" not in caplog.text # Ensure no warnings for valid files
+
+def test_always_include_non_existent_path(tmp_path, caplog):
+    """
+    Test that --always-include logs a warning and skips non-existent paths.
+    """
+    non_existent_file = tmp_path / "non_existent_file.py"
+    output_file = tmp_path / "output.txt"
+
+    config = CombinerConfig(
+        directory_path=tmp_path,
+        output=str(output_file),
+        always_include=[str(non_existent_file)],
+    )
+
+    combiner = CodeCombiner(config)
+    with caplog.at_level(logging.WARNING):
+        combiner.execute()
+
+    assert not output_file.exists()
+    assert f"Warning: --always-include path '{non_existent_file}' is not a file or does not exist. Skipping." in caplog.text

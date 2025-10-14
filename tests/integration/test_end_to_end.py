@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 import pytest
 from pathlib import Path
 import logging

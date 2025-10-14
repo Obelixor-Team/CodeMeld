@@ -1,10 +1,15 @@
+# Copyright (c) 2025 skum
+
 """Provides a validator for the combiner configuration."""
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
+
+import tiktoken
 
 from .config import CodeCombinerError
 
@@ -25,6 +30,9 @@ class ConfigValidator:
         self._validate_header_width()
         self._validate_output_path()
         self._validate_conversion()
+        self._validate_max_file_size_kb()
+        self._validate_token_encoding_model()
+        self._validate_custom_file_headers()
 
     def _validate_directory(self) -> None:
         directory_path = Path(self._directory)
@@ -69,3 +77,47 @@ class ConfigValidator:
                     f"Error: Cannot convert format '{self._config['format']}' "
                     f"to itself."
                 )
+
+    def _validate_max_file_size_kb(self) -> None:
+        max_size = self._config.get("max_file_size_kb")
+        if max_size is not None and (not isinstance(max_size, int) or max_size <= 0):
+            raise CodeCombinerError("Max file size must be a positive integer.")
+
+    def _validate_token_encoding_model(self) -> None:
+        if self._config.get("count_tokens"):
+            token_encoding_model = self._config.get("token_encoding_model")
+            if token_encoding_model:
+                try:
+                    tiktoken.encoding_for_model(token_encoding_model)
+                except KeyError as e:
+                    raise CodeCombinerError(
+                        f"Invalid token encoding model: {token_encoding_model}"
+                    ) from e
+
+    def _validate_custom_file_headers(self) -> None:
+        custom_headers_str = self._config.get("custom_file_headers")
+        if custom_headers_str:
+            try:
+                # Attempt to parse the JSON string
+                parsed_headers = json.loads(custom_headers_str)
+                if not isinstance(parsed_headers, dict):
+                    raise ValueError("Custom file headers must be a JSON object.")
+                # Optionally, add more specific validation for the content of parsed_headers
+                # For example, check if keys are strings and values are strings.
+                for key, value in parsed_headers.items():
+                    if not isinstance(key, str) or not isinstance(value, str):
+                        raise ValueError(
+                            "All keys and values in custom file headers must be strings."
+                        )
+                # If validation passes, store the parsed dictionary back in _config
+                self._config["custom_file_headers"] = parsed_headers
+            except json.JSONDecodeError as e:
+                raise CodeCombinerError(
+                    f"Invalid JSON in custom_file_headers: {e}\n"
+                    f'Example: \'{{"py": "# Python: {{path}}"}}\''
+                ) from e
+            except ValueError as e:
+                raise CodeCombinerError(
+                    f"Invalid custom_file_headers format: {e}\n"
+                    f'Example: \'{{"py": "# Python: {{path}}"}}\''
+                ) from e

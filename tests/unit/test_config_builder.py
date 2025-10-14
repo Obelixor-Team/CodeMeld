@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 import pytest
 from src.config import CodeCombinerError
 from src.config_builder import CombinerConfigBuilder, load_and_merge_config
@@ -13,13 +15,21 @@ def test_header_width_validation_positive():
         exclude=None,
         no_gitignore=False,
         include_hidden=False,
-        no_tokens=False,
+        no_tokens=True,
         header_width=80,
         format="text",
         convert_to=None,
         force=False,
         always_include=None,
         custom_file_headers="{}",
+        follow_symlinks=False,
+        max_file_size_kb=None,
+        token_encoding_model="gpt-2",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
     )
     config = load_and_merge_config(args)
     assert config.header_width == 80
@@ -33,13 +43,21 @@ def test_header_width_validation_zero_raises_error():
         exclude=None,
         no_gitignore=False,
         include_hidden=False,
-        no_tokens=False,
+        no_tokens=True,
         header_width=0,
         format="text",
         convert_to=None,
         force=False,
         always_include=None,
         custom_file_headers="{}",
+        follow_symlinks=False,
+        max_file_size_kb=None,
+        token_encoding_model="gpt-2",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
     )
     with pytest.raises(CodeCombinerError, match="Header width must be positive"):
         load_and_merge_config(args)
@@ -53,13 +71,21 @@ def test_header_width_validation_negative_raises_error():
         exclude=None,
         no_gitignore=False,
         include_hidden=False,
-        no_tokens=False,
-        header_width=-10,
+        no_tokens=True,
+        header_width=-1,
         format="text",
         convert_to=None,
         force=False,
         always_include=None,
         custom_file_headers="{}",
+        follow_symlinks=False,
+        max_file_size_kb=None,
+        token_encoding_model="gpt-2",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
     )
     with pytest.raises(CodeCombinerError, match="Header width must be positive"):
         load_and_merge_config(args)
@@ -74,13 +100,21 @@ def test_output_directory_non_existent_raises_error(tmp_path):
         exclude=None,
         no_gitignore=False,
         include_hidden=False,
-        no_tokens=False,
+        no_tokens=True,
         header_width=80,
         format="text",
         convert_to=None,
         force=False,
         always_include=None,
         custom_file_headers="{}",
+        follow_symlinks=False,
+        max_file_size_kb=None,
+        token_encoding_model="gpt-2",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
     )
     load_and_merge_config(args)
     assert non_existent_dir.parent.exists()
@@ -90,38 +124,54 @@ def test_extension_without_dot_raises_error_with_suggestion():
     args = Namespace(
         directory=".",
         output="output.txt",
-        extensions=["py"],  # Invalid extension
+        extensions=["py"],
         exclude=None,
         no_gitignore=False,
         include_hidden=False,
-        no_tokens=False,
+        no_tokens=True,
         header_width=80,
         format="text",
         convert_to=None,
         force=False,
         always_include=None,
         custom_file_headers="{}",
+        follow_symlinks=False,
+        max_file_size_kb=None,
+        token_encoding_model="gpt-2",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match="Error: Extension 'py' must start with '.'. Did you mean '.py'?"):
+    with pytest.raises(CodeCombinerError, match=r"Error: Extension 'py' must start with '.'. Did you mean '.py'\?"):
         load_and_merge_config(args)
 
 def test_extension_with_dot_and_case_conversion(): # This test name is now misleading
     args = Namespace(
         directory=".",
         output="output.txt",
-        extensions=["PY"],  # Invalid extension
+        extensions=["PY"],
         exclude=None,
         no_gitignore=False,
         include_hidden=False,
-        no_tokens=False,
+        no_tokens=True,
         header_width=80,
         format="text",
         convert_to=None,
         force=False,
         always_include=None,
         custom_file_headers="{}",
+        follow_symlinks=False,
+        max_file_size_kb=None,
+        token_encoding_model="gpt-2",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match="Error: Extension 'PY' must start with '.'. Did you mean '.py'?"):
+    with pytest.raises(CodeCombinerError, match=r"Error: Extension 'PY' must start with '.'. Did you mean '.py'\?"):
         load_and_merge_config(args)
 
 def test_multiple_extensions_with_one_invalid():
@@ -132,15 +182,23 @@ def test_multiple_extensions_with_one_invalid():
         exclude=None,
         no_gitignore=False,
         include_hidden=False,
-        no_tokens=False,
+        no_tokens=True,
         header_width=80,
         format="text",
         convert_to=None,
         force=False,
         always_include=None,
         custom_file_headers="{}",
+        follow_symlinks=False,
+        max_file_size_kb=None,
+        token_encoding_model="gpt-2",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match="Error: Extension 'py' must start with '.'. Did you mean '.py'?"):
+    with pytest.raises(CodeCombinerError, match=r"Error: Extension 'py' must start with '.'. Did you mean '.py'\?"):
         load_and_merge_config(args)
 
 def test_convert_to_with_invalid_format_raises_error():
@@ -151,13 +209,21 @@ def test_convert_to_with_invalid_format_raises_error():
         exclude=None,
         no_gitignore=False,
         include_hidden=False,
-        no_tokens=False,
+        no_tokens=True,
         header_width=80,
         format="text",  # Invalid format for --convert-to
         convert_to="markdown",
         force=False,
         always_include=None,
         custom_file_headers="{}",
+        follow_symlinks=False,
+        max_file_size_kb=None,
+        token_encoding_model="gpt-2",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
     )
     with pytest.raises(CodeCombinerError, match="--convert-to can only be used when --format is 'json' or 'xml'"):
         load_and_merge_config(args)
@@ -170,20 +236,115 @@ def test_convert_to_same_format_raises_error():
         exclude=None,
         no_gitignore=False,
         include_hidden=False,
-        no_tokens=False,
+        no_tokens=True,
         header_width=80,
         format="json",
         convert_to="json",  # Converting to the same format
         force=False,
         always_include=None,
         custom_file_headers="{}",
+        follow_symlinks=False,
+        max_file_size_kb=None,
+        token_encoding_model="gpt-2",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
     )
     with pytest.raises(CodeCombinerError, match="Error: Cannot convert format 'json' to itself."):
         load_and_merge_config(args)
 
 def test_malformed_custom_file_headers_raises_error():
-    builder = CombinerConfigBuilder()
     args = Namespace(
+        directory=".",
+        output="output.txt",
+        extensions=None,
+        exclude=None,
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=True,
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
+        always_include=None,
+        custom_file_headers='{"py": "# Python"', # Invalid JSON
+        follow_symlinks=False,
+        max_file_size_kb=None,
+        token_encoding_model="gpt-2",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
+    )
+    with pytest.raises(CodeCombinerError, match="Invalid JSON in custom_file_headers"):
+        load_and_merge_config(args)
+
+def test_non_existent_directory_raises_error():
+    builder = CombinerConfigBuilder()
+    with pytest.raises(CodeCombinerError, match="Error: Directory 'non_existent_dir' does not exist."):
+        builder.validate("non_existent_dir", "output.txt")
+
+def test_max_file_size_kb_validation_zero_raises_error():
+    args = Namespace(
+        directory=".",
+        output="output.txt",
+        extensions=None,
+        exclude=None,
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=True,
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
+        always_include=None,
+        custom_file_headers="{}",
+        follow_symlinks=False,
+        max_file_size_kb=0,
+        token_encoding_model="gpt-2",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
+    )
+    with pytest.raises(CodeCombinerError, match="Max file size must be a positive integer."):
+        load_and_merge_config(args)
+
+def test_max_file_size_kb_validation_negative_raises_error():
+    args = Namespace(
+        directory=".",
+        output="output.txt",
+        extensions=None,
+        exclude=None,
+        no_gitignore=False,
+        include_hidden=False,
+        no_tokens=True,
+        header_width=80,
+        format="text",
+        convert_to=None,
+        force=False,
+        always_include=None,
+        custom_file_headers="{}",
+        follow_symlinks=False,
+        max_file_size_kb=-10,
+        token_encoding_model="gpt-2",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
+    )
+    with pytest.raises(CodeCombinerError, match="Max file size must be a positive integer."):
+        load_and_merge_config(args)
+
+def test_invalid_token_encoding_raises_error():
+    args = Namespace(
+        directory=".",
+        output="output.txt",
         extensions=None,
         exclude=None,
         no_gitignore=False,
@@ -194,12 +355,15 @@ def test_malformed_custom_file_headers_raises_error():
         convert_to=None,
         force=False,
         always_include=None,
-        custom_file_headers='{"py": "# Python"' # Invalid JSON
+        custom_file_headers="{}",
+        follow_symlinks=False,
+        max_file_size_kb=1024,
+        token_encoding_model="invalid_encoding",
+        verbose=False,
+        list_files=False,
+        summary=False,
+        dry_run_output=None,
+        progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match="Invalid JSON in --custom-file-headers"):
-        builder.with_cli_args(args)
-
-def test_non_existent_directory_raises_error():
-    builder = CombinerConfigBuilder()
-    with pytest.raises(CodeCombinerError, match="Error: Directory 'non_existent_dir' does not exist."):
-        builder.validate("non_existent_dir", "output.txt")
+    with pytest.raises(CodeCombinerError, match="Invalid token encoding model: invalid_encoding"):
+        load_and_merge_config(args)

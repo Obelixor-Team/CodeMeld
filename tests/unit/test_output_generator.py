@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 import pytest
 from unittest.mock import MagicMock, patch
 from pathlib import Path
@@ -25,8 +27,8 @@ def test_in_memory_generator_memory_warning(mock_files_to_process, mock_root_pat
     """Ensure MemoryThresholdExceededError is raised when memory exceeds threshold."""
     memory_monitor = SystemMemoryMonitor(max_memory_mb=500, count_tokens=True)
     with patch.object(psutil.Process, 'memory_info') as mock_memory_info:
-        mock_memory_info.return_value.rss = 600 * 1024 * 1024  # 600MB, above 500MB threshold
-        generator = InMemoryOutputGenerator(mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock())
+        mock_memory_info.return_value = MagicMock(rss=600 * 1024 * 1024) # Set rss directly on the return value
+        generator = InMemoryOutputGenerator(mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock())
 
         with patch('src.output_generator.read_file_content', return_value='some content'):
             with pytest.raises(MemoryThresholdExceededError):
@@ -35,10 +37,10 @@ def test_in_memory_generator_memory_warning(mock_files_to_process, mock_root_pat
 def test_in_memory_generator_no_memory_warning(mock_files_to_process, mock_root_path, mock_formatter):
     # Mock psutil.Process().memory_info().rss to simulate normal memory usage
     with patch.object(psutil.Process, 'memory_info') as mock_memory_info:
-        mock_memory_info.return_value.rss = 100 * 1024 * 1024  # 100MB, below 500MB threshold
+        mock_memory_info.return_value = MagicMock(rss=100 * 1024 * 1024)  # 100MB, below 500MB threshold
 
         memory_monitor = SystemMemoryMonitor(max_memory_mb=500, count_tokens=True)
-        generator = InMemoryOutputGenerator(mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock())
+        generator = InMemoryOutputGenerator(mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock())
 
         with patch('src.output_generator.read_file_content', return_value='some content'):
             with patch('logging.warning') as mock_logging_warning:
@@ -52,16 +54,16 @@ def test_read_file_content_is_a_directory_error():
     with patch('src.utils.is_likely_binary', return_value=False):
         with patch('builtins.open', side_effect=IsADirectoryError):
             result = read_file_content(mock_dir_path)
-            assert result is None
+            assert list(result) == []
 
 def test_in_memory_generator_memory_threshold_exceeded_fallback(mock_files_to_process, mock_root_path, mock_formatter):
     # Simulate high memory usage and no token counting
+    memory_monitor = SystemMemoryMonitor(max_memory_mb=500, count_tokens=False) # Moved outside
     with patch.object(psutil.Process, 'memory_info') as mock_memory_info:
-        mock_memory_info.return_value.rss = 600 * 1024 * 1024  # 600MB, above 500MB threshold
+        mock_memory_info.return_value = MagicMock(rss=600 * 1024 * 1024) # Set rss directly on the return value
 
-        memory_monitor = SystemMemoryMonitor(max_memory_mb=500, count_tokens=False)
         generator = InMemoryOutputGenerator(
-            mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock()
+            mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock()
         )
 
         with patch('src.output_generator.read_file_content', return_value='some content'):
@@ -74,10 +76,10 @@ def test_in_memory_generator_memory_threshold_exceeded_no_fallback_with_tokens(
     """When token counting is enabled, memory exceedance raises MemoryThresholdExceededError."""
     memory_monitor = SystemMemoryMonitor(max_memory_mb=500, count_tokens=True)
     with patch.object(psutil.Process, 'memory_info') as mock_memory_info:
-        mock_memory_info.return_value.rss = 600 * 1024 * 1024  # 600MB, above 500MB threshold
+        mock_memory_info.return_value = MagicMock(rss=600 * 1024 * 1024)  # 600MB, above 500MB threshold
 
         generator = InMemoryOutputGenerator(
-            mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock()
+            mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock()
         )
 
         with patch('src.output_generator.read_file_content', return_value='some content'):
@@ -91,11 +93,11 @@ def test_in_memory_generator_memory_threshold_exceeded_no_fallback_with_tokens(
 def test_in_memory_generator_no_memory_limit(mock_files_to_process, mock_root_path, mock_formatter, caplog):
     # Simulate no memory limit (max_memory_mb=0)
     with patch.object(psutil.Process, 'memory_info') as mock_memory_info:
-        mock_memory_info.return_value.rss = 1000 * 1024 * 1024  # 1000MB, very high
+        mock_memory_info.return_value = MagicMock(rss=1000 * 1024 * 1024)  # 1000MB, very high
 
         memory_monitor = SystemMemoryMonitor(max_memory_mb=0, count_tokens=False)
         generator = InMemoryOutputGenerator(
-            mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock()
+            mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock()
         )
 
         with patch('src.output_generator.read_file_content', return_value='some content'):

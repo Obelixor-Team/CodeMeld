@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -98,11 +100,11 @@ class TestBinaryFileFilter:
 
 class TestSymlinkFilter:
     def test_should_process_regular_file(self, temp_dir: Path):
-        filter = SymlinkFilter()
+        filter = SymlinkFilter(follow_symlinks=False)
         assert filter.should_process(temp_dir / "test.py", {})
 
     def test_should_not_process_symlink(self, temp_dir: Path):
-        filter = SymlinkFilter()
+        filter = SymlinkFilter(follow_symlinks=False)
         assert not filter.should_process(temp_dir / "symlink.py", {})
 
 
@@ -174,10 +176,11 @@ class TestFilterChainBuilder:
         config.final_output_format = None
         config.force = False
         config.always_include = []
-        config.token_encoding_model = "cl100k_base"
+        config.token_encoding_model = "gpt-2"
         config.max_memory_mb = 500
         config.custom_file_headers = {}
         config.max_file_size_kb = None
+        config.follow_symlinks = False
 
         safety_chain = FilterChainBuilder.build_safety_chain(config)
         full_chain = FilterChainBuilder.build_full_chain(config, None, safety_chain)
@@ -211,10 +214,11 @@ class TestFilterChainBuilder:
         config.final_output_format = None
         config.force = False
         config.always_include = []
-        config.token_encoding_model = "cl100k_base"
+        config.token_encoding_model = "gpt-2"
         config.max_memory_mb = 500
         config.custom_file_headers = {}
         config.max_file_size_kb = None
+        config.follow_symlinks = False
 
         safety_chain = FilterChainBuilder.build_safety_chain(config)
 
@@ -253,10 +257,11 @@ class TestFilterChainBuilder:
         config.final_output_format = None
         config.force = False
         config.always_include = []
-        config.token_encoding_model = "cl100k_base"
+        config.token_encoding_model = "gpt-2"
         config.max_memory_mb = 500
         config.custom_file_headers = {}
         config.max_file_size_kb = None
+        config.follow_symlinks = False
 
         safety_chain = FilterChainBuilder.build_safety_chain(config)
         assert not safety_chain.should_process(temp_dir / "symlink.py", {"root_path": temp_dir})
@@ -265,14 +270,14 @@ class TestFilterChainBuilder:
 class TestPathResolution:
     def test_absolute_path_resolution(self, temp_dir: Path):
         from src.code_combiner import CodeCombiner
-        mock_config = Mock(spec=CombinerConfig, directory_path=temp_dir, format="text", header_width=80, output=str(temp_dir / "output.txt"), extensions=[], exclude_extensions=[], final_output_format=None, token_encoding_model="cl100k_base", max_memory_mb=500, custom_file_headers={}, max_file_size_kb=None)
+        mock_config = Mock(spec=CombinerConfig, directory_path=temp_dir, format="text", header_width=80, output=str(temp_dir / "output.txt"), extensions=[], exclude_extensions=[], final_output_format=None, token_encoding_model="gpt-2", max_memory_mb=500, custom_file_headers={}, max_file_size_kb=None)
         combiner = CodeCombiner(mock_config)
         abs_path = temp_dir / "test.py"
         assert combiner._resolve_path(abs_path) == abs_path.resolve()
 
     def test_relative_path_resolution(self, temp_dir: Path):
         from src.code_combiner import CodeCombiner
-        mock_config = Mock(spec=CombinerConfig, directory_path=temp_dir, format="text", header_width=80, output=str(temp_dir / "output.txt"), extensions=[], exclude_extensions=[], final_output_format=None, token_encoding_model="cl100k_base", max_memory_mb=500, custom_file_headers={}, max_file_size_kb=None)
+        mock_config = Mock(spec=CombinerConfig, directory_path=temp_dir, format="text", header_width=80, output=str(temp_dir / "output.txt"), extensions=[], exclude_extensions=[], final_output_format=None, token_encoding_model="gpt-2", max_memory_mb=500, custom_file_headers={}, max_file_size_kb=None)
         combiner = CodeCombiner(mock_config)
         rel_path = Path("test.py")
         expected_path = (temp_dir / rel_path).resolve()

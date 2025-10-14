@@ -112,12 +112,17 @@ class LineCounterObserver(Observer):
 
     def __init__(self):
         """Initialize the LineCounterObserver."""
-        self.total_lines = 0
+        self._total_lines: int = 0
+
+    @property
+    def total_lines(self) -> int:
+        """Return the total number of lines counted."""
+        return self._total_lines
 
     def update(self, event: str, data: Any):
         """Count lines based on the event."""
-        if event == "output_generated":
-            self.total_lines = data.count("\n") + 1 if data else 0
+        if event == "file_content_processed":
+            self._total_lines += data.count("\n") + 1 if data else 0
 
 
 class TelemetryObserver(Observer):

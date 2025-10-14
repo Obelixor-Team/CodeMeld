@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 import logging
 import importlib
 from unittest.mock import MagicMock, patch
@@ -58,15 +60,12 @@ def test_publisher_notify_multiple_observers():
 
 
 def test_line_counter_observer():
-
-
     observer = LineCounterObserver()
-
-
-    observer.update("output_generated", "line 1\nline 2\nline 3")
-
-
+    observer.update("file_content_processed", "line 1\nline 2\nline 3")
     assert observer.total_lines == 3
+
+    observer.update("file_content_processed", "line 4\nline 5")
+    assert observer.total_lines == 5
 
 
 

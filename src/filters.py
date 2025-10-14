@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 """Defines the filter chain for selecting files to be combined."""
 
 from __future__ import annotations
@@ -122,9 +124,16 @@ class BinaryFileFilter(FileFilter):
 
 
 class SymlinkFilter(FileFilter):
-    """Filter symbolic links."""
+    """Filter symbolic links, with an option to follow them."""
+
+    def __init__(self, follow_symlinks: bool):
+        """Initialize the SymlinkFilter."""
+        super().__init__()
+        self.follow_symlinks = follow_symlinks
 
     def _check(self, file_path: Path, context: dict) -> bool:
+        if self.follow_symlinks:
+            return True  # If following symlinks, don't filter them out
 
         import logging
 
@@ -215,7 +224,7 @@ class FilterChainBuilder:
         output_path = FilterChainBuilder._resolve_output_path(config)
         filters: list[FileFilter] = [
             SecurityFilter(),
-            SymlinkFilter(),
+            SymlinkFilter(config.follow_symlinks),
             BinaryFileFilter(),
         ]
         if config.max_file_size_kb is not None and config.max_file_size_kb > 0:

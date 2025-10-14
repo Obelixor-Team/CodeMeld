@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 """Defines strategies for formatting combined code output."""
 
 from __future__ import annotations
@@ -198,12 +200,12 @@ class XMLFormatter(OutputFormatter):
         return "</codebase>"
 
     def format_file_stream(self, relative_path: Path, file_path: Path, outfile):
-        """Format a single file's content from a stream for XML output."""
+        """Stream XML content directly without building tree."""
         outfile.write(f"  <file>\n    <path>{relative_path}</path>\n    <content>")
         try:
             with open(file_path, encoding="utf-8") as f:
-                for line in f:
-                    outfile.write(xml.sax.saxutils.escape(line))
+                for chunk in iter(lambda: f.read(8192), ""):
+                    outfile.write(xml.sax.saxutils.escape(chunk))
         except Exception as e:
             from .utils import log_file_read_error
 
@@ -257,7 +259,7 @@ class FormatterFactory:
     def create(
         cls,
         format_type: FormatType,
-        custom_file_headers: dict[str, str] | None = None,
+        custom_file_headers: dict[str, str] | str | None = None,
         **kwargs,
     ) -> OutputFormatter:
         """Create an OutputFormatter instance based on the format type."""
@@ -266,11 +268,20 @@ class FormatterFactory:
         if not formatter_class:
             raise ValueError(f"Unknown format: {format_type}")
 
+        parsed_custom_headers: dict[str, str] | None = None
+        if isinstance(custom_file_headers, str):
+            try:
+                parsed_custom_headers = json.loads(custom_file_headers)
+            except json.JSONDecodeError as e:
+                raise ValueError("Invalid JSON for custom file headers") from e
+        elif isinstance(custom_file_headers, dict):
+            parsed_custom_headers = custom_file_headers
+
         # Let formatters handle their own parameter validation
         try:
             return cast(
                 OutputFormatter,
-                formatter_class(custom_file_headers=custom_file_headers, **kwargs),
+                formatter_class(custom_file_headers=parsed_custom_headers, **kwargs),
             )
         except TypeError as e:
             raise TypeError(

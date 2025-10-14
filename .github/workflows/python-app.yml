@@ -75,11 +75,30 @@ jobs:
           pip install -r requirements-dev.txt
       - name: Test with pytest
         run: |
-          PYTHONPATH=. pytest --cov=src --cov-report=xml
+          PYTHONPATH=. pytest --cov=src --cov-report=xml --cov-fail-under=95
       - name: Upload coverage report
         uses: codecov/codecov-action@v3
         with:
           file: ./coverage.xml
+
+  complexity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          pip install radon
+      - name: Run Radon complexity analysis
+        run: |
+          radon cc src -a -nc
 
   audit:
     runs-on: ubuntu-latest

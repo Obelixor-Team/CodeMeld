@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 from pathlib import Path
 import pytest
 from unittest.mock import patch, MagicMock
@@ -208,3 +210,15 @@ def test_formatter_factory_plugin_loading_error(mock_entry_points, caplog):
     with pytest.raises(ValueError):
         FormatterFactory.create("bad_plugin")
     assert "Failed to load formatter plugin bad_plugin: loading error" in caplog.text
+
+def test_formatter_factory_malformed_json_custom_headers():
+    with pytest.raises(ValueError, match="Invalid JSON for custom file headers"):
+        FormatterFactory.create("text", custom_file_headers="{invalid json}")
+
+def test_text_formatter_custom_header_with_invalid_placeholder():
+    custom_headers = {"py": "# Python File: {lang}"}
+    formatter = FormatterFactory.create("text", custom_file_headers=custom_headers)
+    relative_path = Path("my_script.py")
+    content = "print('Hello')"
+    with pytest.raises(KeyError, match="'lang'"):
+        formatter.format_file(relative_path, content)

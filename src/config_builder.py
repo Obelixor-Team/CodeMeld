@@ -1,15 +1,16 @@
+# Copyright (c) 2025 skum
+
 from __future__ import annotations
 
 """Provides a builder for creating CombinerConfig objects."""
 
 import argparse
-import json
 import logging
 import tomllib as _tomllib_impl
 from pathlib import Path
 from typing import Any
 
-from .config import DEFAULT_EXTENSIONS, CodeCombinerError, CombinerConfig
+from .config import DEFAULT_EXTENSIONS, CombinerConfig
 from .config_validator import ConfigValidator
 
 _tomllib: Any
@@ -90,25 +91,32 @@ class CombinerConfigBuilder:
             self._config["force"] = True
         if args.always_include is not None:
             self._config["always_include"] = args.always_include
+        if args.follow_symlinks:
+            self._config["follow_symlinks"] = True
 
         # Safely parse custom_file_headers from CLI
         if (
             hasattr(args, "custom_file_headers")
             and args.custom_file_headers is not None
         ):
-            try:
-                self._config["custom_file_headers"] = json.loads(
-                    args.custom_file_headers
-                )
-            except json.JSONDecodeError as e:
-                raise CodeCombinerError(
-                    f"Invalid JSON in --custom-file-headers: {e}"
-                ) from e
+            self._config["custom_file_headers"] = args.custom_file_headers
 
         if hasattr(args, "verbose") and args.verbose:
             self._config["verbose"] = True
         if hasattr(args, "list_files") and args.list_files:
             self._config["list_files"] = True
+        if hasattr(args, "summary") and args.summary:
+            self._config["summary"] = True
+        if hasattr(args, "dry_run_output") and args.dry_run_output is not None:
+            self._config["dry_run_output"] = args.dry_run_output
+        if hasattr(args, "progress_style") and args.progress_style is not None:
+            self._config["progress_style"] = args.progress_style
+
+        if hasattr(args, "max_file_size_kb"):
+            self._config["max_file_size_kb"] = args.max_file_size_kb
+
+        if hasattr(args, "token_encoding_model"):
+            self._config["token_encoding_model"] = args.token_encoding_model
 
         return self
 

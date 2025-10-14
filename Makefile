@@ -38,7 +38,7 @@ test:
 	PYTHONPATH=. .venv/bin/pytest tests/
 
 coverage:
-	PYTHONPATH=. .venv/bin/pytest --cov=src --cov-report=term-missing tests/
+	PYTHONPATH=. .venv/bin/pytest --cov=src --cov-report=term-missing --cov-fail-under=95 tests/
 
 radon:
 	.venv/bin/radon cc src -a -nc

@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 """Monitors system memory usage and raises an error if a threshold is exceeded."""
 
 from __future__ import annotations
@@ -37,9 +39,8 @@ class SystemMemoryMonitor(MemoryMonitor):
 
         if current_memory_rss_mb > self.max_memory_mb:
             logging.warning(
-                f"High memory usage detected (RSS: "
-                f"{current_memory_rss_mb:.1f}MB). "
-                f"Threshold: {self.max_memory_mb}MB."
+                f"High memory usage detected (RSS: {current_memory_rss_mb:.1f}MB). "
+                f"Threshold: {self.max_memory_mb}MB. Falling back to streaming."
             )
             raise MemoryThresholdExceededError(
                 f"Memory usage exceeded {self.max_memory_mb}MB. "

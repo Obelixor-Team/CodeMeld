@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 """Provides abstract and concrete classes for generating combined code output."""
 
 from __future__ import annotations
@@ -6,38 +8,40 @@ import json
 import logging
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
+from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 
 from .formatters import JSONFormatter, OutputFormatter, XMLFormatter
 from .memory_monitor import MemoryMonitor
-from .observers import Publisher, TokenCounterObserver
+from .observers import LineCounterObserver, Publisher, TokenCounterObserver
 from .ui import LiveUI
 from .utils import is_likely_binary, log_file_read_error
 
 
-def read_file_content(file_path: Path) -> str | None:
-    """Read file content with proper error handling."""
+def read_file_content(
+    file_path: Path, chunk_size: int = 65536
+) -> Generator[str, None, None]:
+    """Read file content in chunks with proper error handling."""
     if is_likely_binary(file_path):
-        return None
+        return
     try:
         with open(file_path, encoding="utf-8") as f:
-            return f.read()
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                yield chunk
     except UnicodeDecodeError as e:
         log_file_read_error(file_path, e)
-        return None
     except FileNotFoundError as e:
         log_file_read_error(file_path, e)
-        return None
     except PermissionError as e:
         log_file_read_error(file_path, e)
-        return None
     except IsADirectoryError as e:
         log_file_read_error(file_path, e)
-        return None
     except Exception as e:
         log_file_read_error(file_path, e)
-        return None
 
 
 class OutputGenerator(ABC):
@@ -80,6 +84,7 @@ class InMemoryOutputGenerator(OutputGenerator):
         output_path: Path,
         ui: LiveUI,
         token_counter_observer: TokenCounterObserver | None,
+        line_counter_observer: LineCounterObserver | None,
     ):
         """Initialize the InMemoryOutputGenerator."""
         super().__init__(files_to_process, root_path, formatter, publisher)
@@ -94,6 +99,7 @@ class InMemoryOutputGenerator(OutputGenerator):
         self.output_path = output_path
         self.ui = ui
         self.token_counter_observer = token_counter_observer
+        self.line_counter_observer = line_counter_observer
 
     def generate(self) -> tuple[str, str]:
         """Generate output in memory."""
@@ -121,12 +127,21 @@ class InMemoryOutputGenerator(OutputGenerator):
             except ValueError:
                 relative_path = file_path  # Use full path if not relative to root
 
-            content = read_file_content(file_path)
+            content_generator = read_file_content(file_path)
             self.publisher.notify("file_processed", relative_path)
-            if content is not None:
+            full_content = ""
+            for chunk in content_generator:
+                full_content += chunk
                 self.publisher.notify(
-                    "file_content_processed", content
-                )  # Notify with content
+                    "file_content_processed", chunk
+                )  # Notify with chunk
+
+            if not full_content and not is_likely_binary(file_path):
+                # If content is empty and not binary, it means an error occurred during reading
+                # or the file was genuinely empty. Treat as skipped for UI purposes.
+                content = None
+            else:
+                content = full_content
 
             # Update UI
             tokens = (
@@ -134,7 +149,17 @@ class InMemoryOutputGenerator(OutputGenerator):
                 if self.token_counter_observer
                 else None
             )
-            self.ui.update(str(relative_path), skipped=(content is None), tokens=tokens)
+            lines = (
+                self.line_counter_observer.total_lines
+                if self.line_counter_observer
+                else None
+            )
+            self.ui.update(
+                str(relative_path),
+                skipped=(content is None),
+                tokens=tokens,
+                lines=lines,
+            )
 
             if content is None:
                 continue
@@ -206,14 +231,18 @@ class StreamingOutputGenerator(OutputGenerator):
         publisher: Publisher,
         ui: LiveUI,
         token_counter_observer: TokenCounterObserver | None,
+        line_counter_observer: LineCounterObserver | None,
         dry_run: bool = False,
+        dry_run_output: str | None = None,
     ) -> None:
         """Initialize the StreamingOutputGenerator."""
         super().__init__(files_to_process, root_path, formatter, publisher)
         self.output_path = output_path
         self.dry_run = dry_run
+        self.dry_run_output_path = Path(dry_run_output) if dry_run_output else None
         self.ui = ui
         self.token_counter_observer = token_counter_observer
+        self.line_counter_observer = line_counter_observer
 
     def generate(self) -> None:
         """Generate output by streaming to file or printing to stdout if dry_run."""
@@ -237,11 +266,18 @@ class StreamingOutputGenerator(OutputGenerator):
                     relative_path = file_path  # Use full path if not relative to root
 
                 self.publisher.notify("file_processed", relative_path)
-                content = read_file_content(file_path)
-                if content is not None:
+                content_generator = read_file_content(file_path)
+                full_content = ""
+                for chunk in content_generator:
+                    full_content += chunk
                     self.publisher.notify(
-                        "file_content_processed", content
-                    )  # Notify with content
+                        "file_content_processed", chunk
+                    )  # Notify with chunk
+
+                if not full_content and not is_likely_binary(file_path):
+                    content = None
+                else:
+                    content = full_content
 
                 # Update UI
                 tokens = (
@@ -249,69 +285,110 @@ class StreamingOutputGenerator(OutputGenerator):
                     if self.token_counter_observer
                     else None
                 )
+                lines = (
+                    self.line_counter_observer.total_lines
+                    if self.line_counter_observer
+                    else None
+                )
                 self.ui.update(
-                    str(relative_path), skipped=(content is None), tokens=tokens
+                    str(relative_path),
+                    skipped=(content is None),
+                    tokens=tokens,
+                    lines=lines,
                 )
 
                 if content is not None:
                     sys.stdout.write(self.formatter.format_file(relative_path, content))
             sys.stdout.write(self.formatter.end_output())
             logging.info("--- End Dry Run Output (Streaming) ---")
-        else:
-            # Collect content first to decide if file should be created
-            all_content_parts: list[str] = []
-            for file_path in self.files_to_process:
+            if self.dry_run_output_path:
                 try:
-                    relative_path = file_path.relative_to(self.root_path)
-                except ValueError:
-                    relative_path = file_path  # Use full path if not relative to root
+                    self.dry_run_output_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(
+                        self.dry_run_output_path, "w", encoding="utf-8"
+                    ) as outfile:
+                        # Re-generate content to write to file
+                        outfile.write(self.formatter.begin_output())
+                        for file_path in self.files_to_process:
+                            try:
+                                relative_path = file_path.relative_to(self.root_path)
+                            except ValueError:
+                                relative_path = file_path
+                            content_generator = read_file_content(file_path)
+                            if content_generator is not None:
+                                full_content = ""
+                                for chunk in content_generator:
+                                    full_content += chunk
+                                outfile.write(
+                                    self.formatter.format_file(
+                                        relative_path, full_content
+                                    )
+                                )
+                        outfile.write(self.formatter.end_output())
+                    logging.info(
+                        f"Dry run output also written to: {self.dry_run_output_path}"
+                    )
+                except Exception as e:
+                    logging.error(
+                        f"Error writing dry run output to {self.dry_run_output_path}: {e}"
+                    )
+        else:
+            # Determine if we are using a streaming formatter that writes directly to file
+            is_direct_streaming_formatter = hasattr(
+                self.formatter, "format_file_stream"
+            )
 
-                self.publisher.notify("file_processed", relative_path)
+            if not self.files_to_process and not is_direct_streaming_formatter:
+                logging.info("No content to write. File not created.")
+                self.publisher.notify("processing_complete", None)
+                return
 
-                # Update UI
-                tokens = (
-                    self.token_counter_observer.total_tokens
-                    if self.token_counter_observer
-                    else None
-                )
-                self.ui.update(relative_path.name, skipped=False, tokens=tokens)
+            with open(self.output_path, "w", encoding="utf-8") as outfile:
+                outfile.write(self.formatter.begin_output())
 
-                if hasattr(self.formatter, "format_file_stream"):
-                    # For streaming formatters, we can't pre-collect content easily
-                    # so we'll write directly if there are files to process.
-                    # This path needs careful consideration for empty output.
-                    pass  # Handled below if all_content_parts is empty
-                else:
-                    content = read_file_content(file_path)
-                    if content is not None:
-                        self.publisher.notify(
-                            "file_content_processed", content
-                        )  # Notify with content
-                        all_content_parts.append(
-                            self.formatter.format_file(relative_path, content)
+                for file_path in self.files_to_process:
+                    try:
+                        relative_path = file_path.relative_to(self.root_path)
+                    except ValueError:
+                        relative_path = (
+                            file_path  # Use full path if not relative to root
                         )
 
-            # Only write to file if there is content or if it's a streaming
-            # formatter that doesn't pre-collect
-            if all_content_parts or (
-                hasattr(self.formatter, "format_file_stream") and self.files_to_process
-            ):
-                with open(self.output_path, "w", encoding="utf-8") as outfile:
-                    outfile.write(self.formatter.begin_output())
-                    for content_part in all_content_parts:
-                        outfile.write(content_part)
-                    # If streaming formatter, iterate again to write directly
-                    if hasattr(self.formatter, "format_file_stream"):
-                        for file_path in self.files_to_process:
-                            relative_path = file_path.relative_to(self.root_path)
-                            self.formatter.format_file_stream(
-                                relative_path, file_path, outfile
+                    self.publisher.notify("file_processed", relative_path)
+
+                    # Update UI
+                    tokens = (
+                        self.token_counter_observer.total_tokens
+                        if self.token_counter_observer
+                        else None
+                    )
+                    lines = (
+                        self.line_counter_observer.total_lines
+                        if self.line_counter_observer
+                        else None
+                    )
+                    self.ui.update(
+                        str(relative_path), skipped=False, tokens=tokens, lines=lines
+                    )
+
+                    if isinstance(self.formatter, XMLFormatter):
+                        self.formatter.format_file_stream(
+                            relative_path, file_path, outfile
+                        )
+                    else:
+                        content_generator = read_file_content(file_path)
+                        if content_generator is not None:
+                            full_content = ""
+                            for chunk in content_generator:
+                                full_content += chunk
+                                self.publisher.notify(
+                                    "file_content_processed", chunk
+                                )  # Notify with chunk
+                            outfile.write(
+                                self.formatter.format_file(relative_path, full_content)
                             )
-                    outfile.write(self.formatter.end_output())
-            else:
-                logging.info(
-                    f"No content to write to {self.output_path}. File not created."
-                )
+
+                outfile.write(self.formatter.end_output())
 
         self.publisher.notify("processing_complete", None)
         return None

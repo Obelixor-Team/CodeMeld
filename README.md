@@ -20,7 +20,7 @@ A Python script to scan a specified directory, identify code files based on thei
 -   `tiktoken`: For counting tokens in the output file.
 -   `pathspec`: For handling `.gitignore` patterns.
 -   `tqdm`: For showing progress.
--   `toml`: For reading `pyproject.toml` configuration file.
+-   `toml`: For reading `pyproject.toml` configuration file. (Note: `tomllib` is used for Python 3.11+; `toml` is a fallback for older versions.)
 
 ### Development Dependencies
 
@@ -209,15 +209,29 @@ The primary goal of this script is to generate a single file that can be easily 
 
 ### Extending with Custom Formatters
 
-The Code Combiner can be extended with custom formatters using a plugin-based architecture. If you have a specific output format you need, you can create a custom formatter and make it available to the script via entry points.
+The Code Combiner can be extended with custom formatters using a plugin-based architecture. This allows you to define your own output formats and integrate them seamlessly with the `main.py` script.
 
-To create a custom formatter:
+#### Creating a Custom Formatter Package
 
-1.  **Implement the `OutputFormatter` interface**:
+To create a custom formatter, you'll typically set up a small Python package.
+
+1.  **Project Structure**:
+    Organize your custom formatter in a dedicated directory, for example:
+
+    ```
+    my_custom_formatter_package/
+    ├── pyproject.toml
+    └── src/
+        └── my_custom_formatter/
+            ├── __init__.py
+            └── formatter.py
+    ```
+
+2.  **Implement the `OutputFormatter` interface** (`src/my_custom_formatter/formatter.py`):
     Create a class that inherits from `OutputFormatter` and implements the required methods (`format_name`, `format_file`, `begin_output`, `end_output`, `supports_streaming`).
 
     ```python
-    # my_custom_formatter.py
+    # src/my_custom_formatter/formatter.py
     from src.formatters import OutputFormatter
     from pathlib import Path
 
@@ -226,7 +240,9 @@ To create a custom formatter:
 
         def format_file(self, relative_path: Path, content: str) -> str:
             # Simple YAML-like output
-            return f'  - file: "{relative_path}"\n    content: |\n' + "\n".join(f"      {line}" for line in content.splitlines())
+            # Indent content to fit under the 'content:' key
+            indented_content = "\n".join(f"      {line}" for line in content.splitlines())
+            return f'  - file: "{relative_path}"\n    content: |\n{indented_content}\n'
 
         def begin_output(self) -> str:
             return "files:\n"
@@ -238,19 +254,41 @@ To create a custom formatter:
             return True
     ```
 
-2.  **Register the formatter using an entry point**:
-    In your project's `pyproject.toml`, add an entry point under the `code_combiner.formatters` group.
+3.  **Configure `pyproject.toml` for Entry Point**:
+    In your custom formatter package's `pyproject.toml`, add an entry point under the `[project.entry-points."code_combiner.formatters"]` group. This tells the Code Combiner where to find your custom formatter.
 
     ```toml
+    # pyproject.toml in my_custom_formatter_package/
+    [project]
+    name = "my-custom-formatter"
+    version = "0.1.0"
+    dependencies = [
+        "code-combiner", # Or your main project's name if it's a dependency
+    ]
+
     [project.entry-points."code_combiner.formatters"]
-    yaml = "my_project.formatters:YAMLFormatter"
+    yaml = "my_custom_formatter.formatter:YAMLFormatter"
     ```
 
-Once your package is installed (e.g., with `pip install .`), the Code Combiner will automatically discover and register your custom formatter. You can then use it with the `--format` option:
+#### Installing and Using Your Custom Formatter
 
-```bash
-.venv/bin/python main.py . --format yaml -o combined.yaml
-```
+1.  **Install your custom formatter package**:
+    Navigate to your `my_custom_formatter_package` directory and install it in editable mode into your Code Combiner's virtual environment:
+
+    ```bash
+    cd my_custom_formatter_package
+    .venv/bin/pip install -e .
+    ```
+    (Make sure you have activated the Code Combiner's virtual environment first.)
+
+2.  **Use with `main.py`**:
+    Once installed, the Code Combiner will automatically discover and register your custom formatter. You can then use it with the `--format` option:
+
+    ```bash
+    .venv/bin/python main.py . --format yaml -o combined.yaml
+    ```
+
+This setup allows for a clean separation of concerns, making your custom formatters reusable and easy to manage.
 
 ## Architecture
 
@@ -302,6 +340,15 @@ pip install tiktoken
 ```
 
 If you do not need token counting, you can safely ignore this warning.
+
+### Handling Large Repositories
+
+For very large projects, you might encounter performance or memory issues. Here are some tips:
+
+-   **Use `--no-tokens`**: Disabling token counting (`--no-tokens`) can significantly reduce memory usage and speed up processing, especially for projects with many files.
+-   **Set `--max-memory-mb`**: You can set a lower memory threshold (e.g., `--max-memory-mb 100`) to force the script to use streaming output earlier, which is more memory-efficient. Setting it to `0` disables the memory limit entirely.
+-   **Exclude large files**: Use `--max-file-size-kb` to skip very large files that might consume excessive memory or processing time.
+-   **Optimize `.gitignore`**: Ensure your `.gitignore` file is comprehensive to exclude irrelevant files and directories, reducing the number of files the script needs to process.
 
 
 ## Development
