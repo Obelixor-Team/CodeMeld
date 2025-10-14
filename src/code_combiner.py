@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 """A script to combine code files from a directory into a single output file."""
 
 from __future__ import annotations
@@ -9,6 +11,7 @@ from pathlib import Path
 import pathspec
 
 from .config import CodeCombinerError, CombinerConfig, MemoryThresholdExceededError
+from .config_builder import load_and_merge_config
 from .filters import FileFilter, FilterChainBuilder
 from .formatters import FormatterFactory
 from .memory_monitor import SystemMemoryMonitor
@@ -23,13 +26,27 @@ from .ui import LiveUI
 
 
 def write_output(
-    output_path: Path, output_content: str, force: bool, dry_run: bool = False
+    output_path: Path,
+    output_content: str,
+    force: bool,
+    dry_run: bool = False,
+    dry_run_output_path: Path | None = None,
 ) -> None:
     """Write the combined output content to the specified file."""
     if dry_run:
         logging.info("\n--- Dry Run Output ---")
         print(output_content)
         logging.info("--- End Dry Run Output ---")
+        if dry_run_output_path:
+            try:
+                dry_run_output_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(dry_run_output_path, "w", encoding="utf-8") as outfile:
+                    outfile.write(output_content)
+                logging.info(f"Dry run output also written to: {dry_run_output_path}")
+            except Exception as e:
+                logging.error(
+                    f"Error writing dry run output to {dry_run_output_path}: {e}"
+                )
         return
 
     if output_path.exists() and not force:
@@ -131,6 +148,11 @@ def parse_arguments() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--follow-symlinks",
+        action="store_true",
+        help="Follow symbolic links when scanning directories.",
+    )
+    parser.add_argument(
         "--token-encoding",
         default="cl100k_base",
         help="The token encoding model to use for token counting "
@@ -147,8 +169,8 @@ def parse_arguments() -> argparse.Namespace:
         "--custom-file-headers",
         default="{}",
         help=(
-            """JSON string of custom file headers per extension (e.g., """
-            """'{"py": "# FILE: {path}", "js": "// FILE: {path}"}'"""
+            """JSON string of custom file headers per extension (e.g., "
+            "'{\"py\": \"# FILE: {path}\", \"js\": \"// FILE: {path}\"}'"""
         ),
     )
     parser.add_argument(
@@ -174,12 +196,26 @@ def parse_arguments() -> argparse.Namespace:
         action="store_true",
         help="List all files that were added to the output file.",
     )
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="Print a summary of the processing results.",
+    )
+    parser.add_argument(
+        "--dry-run-output",
+        type=str,
+        help="Optional: write the list of files processed during a dry run to this file.",
+    )
+    parser.add_argument(
+        "--progress-style",
+        type=str,
+        help="Customize the progress bar style (e.g., 'ascii', 'block'). Set to 'none' to disable.",
+    )
     return parser.parse_args()
 
 
 def run_code_combiner(config: CombinerConfig) -> None:
     """Run the code combiner with the given configuration."""
-
     combiner = CodeCombiner(config)
     combiner.execute()
 
@@ -213,32 +249,37 @@ class CodeCombiner:
         return FilterChainBuilder.build_full_chain(self.config, spec, safety_chain_head)
 
     def _get_gitignore_spec(self) -> pathspec.PathSpec | None:
+        """
+        Search for and parse a .gitignore file.
+
+        Searches for a .gitignore file in the current directory or any parent directory
+        up to the root. If found, it parses the file and returns a PathSpec object
+        for matching. This allows respecting gitignore rules for file filtering.
+        """
         current_path: Path = self.config.directory_path.resolve()
+        # Traverse up the directory tree to find a .gitignore file
         while current_path != current_path.parent:
             gitignore_path: Path = current_path / ".gitignore"
             if gitignore_path.is_file():
+                # If a .gitignore is found, read its contents and create a PathSpec
                 with open(gitignore_path, encoding="utf-8") as f:
                     return pathspec.PathSpec.from_lines("gitwildmatch", f)
+            # Move to the parent directory
             current_path = current_path.parent
+        # If no .gitignore file is found after traversing to the root, return None
         return None
 
     def _iter_files(self):
         """Iterate over files in the directory using pathlib.Path.rglob()."""
         # rglob will traverse all directories, including hidden ones.
-        # The HiddenFileFilter will then handle filtering based on
-        # self.config.include_hidden.
+        # The HiddenFileFilter will then handle filtering of hidden files/directories
+        # based on self.config.include_hidden in the filter chain.
         for path in self.root_path.rglob("*"):
             if path.is_file():
                 yield path
 
-    def _get_filtered_files(self) -> list[Path]:
-        """
-        Get a list of files to be processed after applying all filters.
-
-        Returns:
-            A sorted list of file paths.
-
-        """
+    def _collect_all_files(self) -> list[Path]:
+        """Collect all files from the root directory, handling potential errors."""
         all_files: list[Path] = []
         try:
             all_files = list(self._iter_files())
@@ -248,14 +289,29 @@ class CodeCombiner:
             ) from e
         except OSError as e:
             raise CodeCombinerError(f"File system error: {e}") from e
+        return all_files
 
+    def _apply_filters_to_files(self, files: list[Path]) -> list[Path]:
+        """Apply the full filter chain to a list of files."""
         filtered_files = [
             file
-            for file in all_files
+            for file in files
             if self.full_filter_chain.should_process(
                 file, {"root_path": self.root_path}
             )
         ]
+        return filtered_files
+
+    def _get_filtered_files(self) -> list[Path]:
+        """
+        Get a list of files to be processed after applying all filters.
+
+        Returns:
+            A sorted list of file paths.
+
+        """
+        all_files = self._collect_all_files()
+        filtered_files = self._apply_filters_to_files(all_files)
         return sorted(filtered_files)
 
     def _resolve_path(self, path: Path) -> Path:
@@ -291,7 +347,7 @@ class CodeCombiner:
             always_included_files.append(resolved_path)
 
         # Combine filtered files and always_included_files, ensuring no duplicates
-        all_files_to_process = sorted(list(set(files + always_included_files)))
+        all_files_to_process = sorted(set(files + always_included_files))
 
         if not all_files_to_process:
             logging.info("No files found to process. Exiting.")
@@ -307,55 +363,77 @@ class CodeCombiner:
         memory_monitor = SystemMemoryMonitor(
             self.config.max_memory_mb, self.config.count_tokens
         )
-        publisher = Publisher()
-        token_counter_observer = None
-        if self.config.count_tokens:
-            token_counter_observer = TokenCounterObserver(
-                self.config.token_encoding_model
-            )
-            publisher.subscribe(token_counter_observer)
-        publisher.subscribe(TelemetryObserver())
-        publisher.subscribe(LineCounterObserver())
 
-        output_written_by_streaming = False
-        try:
-            generator = InMemoryOutputGenerator(
-                all_files_to_process,
-                self.config.directory_path,
-                self.formatter,
-                memory_monitor,
-                publisher,
-                Path(self.config.output),
-                ui,  # Pass ui to InMemoryOutputGenerator
-                token_counter_observer,  # Pass token_counter_observer
-            )
-            output_content, raw_content = generator.generate()
-        except MemoryThresholdExceededError:
-            if not self.config.count_tokens and self.formatter.supports_streaming():
-                logging.warning("Falling back to streaming due to memory constraints.")
-                streaming_generator = StreamingOutputGenerator(
+        with Publisher(total_files=len(all_files_to_process)) as publisher:
+            token_counter_observer = None
+            if self.config.count_tokens:
+                token_counter_observer = TokenCounterObserver(
+                    self.config.token_encoding_model
+                )
+                publisher.subscribe(token_counter_observer)
+            line_counter_observer = LineCounterObserver()
+            publisher.subscribe(line_counter_observer)
+            publisher.subscribe(TelemetryObserver())
+
+            output_written_by_streaming = False
+            try:
+                generator = InMemoryOutputGenerator(
                     all_files_to_process,
                     self.config.directory_path,
                     self.formatter,
-                    Path(self.config.output),
+                    memory_monitor,
                     publisher,
-                    ui,  # Pass ui to StreamingOutputGenerator
+                    Path(self.config.output),
+                    ui,  # Pass ui to InMemoryOutputGenerator
                     token_counter_observer,  # Pass token_counter_observer
-                    dry_run=self.config.dry_run,
+                    line_counter_observer,  # Pass line_counter_observer
                 )
-                streaming_generator.generate()
-                output_written_by_streaming = True
-                output_content = ""  # Clear content as it's already written
-            else:
-                raise  # Re-raise if fallback is not allowed
+                output_content, raw_content = generator.generate()
+                # publisher.notify("processing_complete", (output_content, raw_content)) # Handled by __exit__
+            except MemoryThresholdExceededError:
+                if not self.config.count_tokens and self.formatter.supports_streaming():
+                    logging.warning(
+                        "Falling back to streaming due to memory constraints."
+                    )
+                    streaming_generator = StreamingOutputGenerator(
+                        all_files_to_process,
+                        self.config.directory_path,
+                        self.formatter,
+                        Path(self.config.output),
+                        publisher,
+                        ui,  # Pass ui to StreamingOutputGenerator
+                        token_counter_observer,  # Pass token_counter_observer
+                        line_counter_observer,  # Pass line_counter_observer
+                        dry_run=self.config.dry_run,
+                        dry_run_output=self.config.dry_run_output,
+                    )
+                    streaming_generator.generate()
+                    output_written_by_streaming = True
+                    output_content = ""  # Clear content as it's already written
+                else:
+                    raise  # Re-raise if fallback is not allowed
 
-        if not output_written_by_streaming and output_content:
-            write_output(
-                Path(self.config.output),
-                output_content,
-                self.config.force,
-                self.config.dry_run,
-            )
-
+            if not output_written_by_streaming and output_content:
+                write_output(
+                    Path(self.config.output),
+                    output_content,
+                    self.config.force,
+                    self.config.dry_run,
+                    (
+                        Path(self.config.dry_run_output)
+                        if self.config.dry_run_output
+                        else None
+                    ),
+                )
         ui.finish()  # Finalize UI and print summary
-        publisher.notify("processing_complete", None)
+
+
+def main():
+    """Run the code combiner from the command line."""
+    args = parse_arguments()
+    config = load_and_merge_config(args)
+    run_code_combiner(config)
+
+
+if __name__ == "__main__":
+    main()
