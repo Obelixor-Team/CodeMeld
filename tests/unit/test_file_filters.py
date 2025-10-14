@@ -34,32 +34,32 @@ def temp_dir(tmp_path: Path) -> Path:
 
 class TestExtensionFilter:
     def test_should_process_included_extension(self, temp_dir: Path):
-        filter = ExtensionFilter(extensions=[".py"], exclude=[])
-        assert filter.should_process(temp_dir / "test.py", {})
+        file_filter = ExtensionFilter(extensions=[".py"], exclude=[])
+        assert file_filter.should_process(temp_dir / "test.py", {})
 
     def test_should_not_process_excluded_extension(self, temp_dir: Path):
-        filter = ExtensionFilter(extensions=[".py", ".js"], exclude=[".js"])
-        assert not filter.should_process(temp_dir / "test.js", {})
+        file_filter = ExtensionFilter(extensions=[".py", ".js"], exclude=[".js"])
+        assert not file_filter.should_process(temp_dir / "test.js", {})
 
     def test_should_not_process_other_extension(self, temp_dir: Path):
-        filter = ExtensionFilter(extensions=[".py"], exclude=[])
-        assert not filter.should_process(temp_dir / "test.js", {})
+        file_filter = ExtensionFilter(extensions=[".py"], exclude=[])
+        assert not file_filter.should_process(temp_dir / "test.js", {})
 
 
 class TestHiddenFileFilter:
     def test_should_process_hidden_files_when_included(self, temp_dir: Path):
-        filter = HiddenFileFilter(include_hidden=True)
-        assert filter.should_process(temp_dir / ".hidden", {"root_path": temp_dir})
+        file_filter = HiddenFileFilter(include_hidden=True)
+        assert file_filter.should_process(temp_dir / ".hidden", {"root_path": temp_dir})
 
     def test_should_not_process_hidden_files_when_not_included(self, temp_dir: Path):
-        filter = HiddenFileFilter(include_hidden=False)
-        assert not filter.should_process(temp_dir / ".hidden", {"root_path": temp_dir})
+        file_filter = HiddenFileFilter(include_hidden=False)
+        assert not file_filter.should_process(temp_dir / ".hidden", {"root_path": temp_dir})
 
     def test_should_not_process_files_in_hidden_dirs_when_not_included(
         self, temp_dir: Path
     ):
-        filter = HiddenFileFilter(include_hidden=False)
-        assert not filter.should_process(
+        file_filter = HiddenFileFilter(include_hidden=False)
+        assert not file_filter.should_process(
             temp_dir / "sub" / ".subhidden" / "test.ts", {"root_path": temp_dir}
         )
 
@@ -68,97 +68,96 @@ class TestGitignoreFilter:
     def test_should_process_file_not_in_gitignore(self, temp_dir: Path):
         spec = Mock()
         spec.match_file.return_value = False
-        filter = GitignoreFilter(spec=spec)
-        assert filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
+        file_filter = GitignoreFilter(spec=spec)
+        assert file_filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
 
     def test_should_not_process_file_in_gitignore(self, temp_dir: Path):
         spec = Mock()
         spec.match_file.return_value = True
-        filter = GitignoreFilter(spec=spec)
-        assert not filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
+        file_filter = GitignoreFilter(spec=spec)
+        assert not file_filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
 
 
 class TestOutputFilePathFilter:
     def test_should_process_other_files(self, temp_dir: Path):
-        filter = OutputFilePathFilter(output_path=temp_dir / "output.txt")
-        assert filter.should_process(temp_dir / "test.py", {})
+        file_filter = OutputFilePathFilter(output_path=temp_dir / "output.txt")
+        assert file_filter.should_process(temp_dir / "test.py", {})
 
     def test_should_not_process_output_file(self, temp_dir: Path):
-        filter = OutputFilePathFilter(output_path=temp_dir / "output.txt")
-        assert not filter.should_process(temp_dir / "output.txt", {})
+        file_filter = OutputFilePathFilter(output_path=temp_dir / "output.txt")
+        assert not file_filter.should_process(temp_dir / "output.txt", {})
 
 
 class TestBinaryFileFilter:
     def test_should_process_text_file(self, temp_dir: Path):
-        filter = BinaryFileFilter()
-        assert filter.should_process(temp_dir / "test.py", {})
+        file_filter = BinaryFileFilter()
+        assert file_filter.should_process(temp_dir / "test.py", {})
 
     def test_should_not_process_binary_file(self, temp_dir: Path):
-        filter = BinaryFileFilter()
-        assert not filter.should_process(temp_dir / "binary.bin", {})
+        file_filter = BinaryFileFilter()
+        assert not file_filter.should_process(temp_dir / "binary.bin", {})
 
 
 class TestSymlinkFilter:
     def test_should_process_regular_file(self, temp_dir: Path):
-        filter = SymlinkFilter(follow_symlinks=False)
-        assert filter.should_process(temp_dir / "test.py", {})
+        file_filter = SymlinkFilter(follow_symlinks=False)
+        assert file_filter.should_process(temp_dir / "test.py", {})
 
     def test_should_not_process_symlink(self, temp_dir: Path):
-        filter = SymlinkFilter(follow_symlinks=False)
-        assert not filter.should_process(temp_dir / "symlink.py", {})
+        file_filter = SymlinkFilter(follow_symlinks=False)
+        assert not file_filter.should_process(temp_dir / "symlink.py", {})
 
 
 class TestSecurityFilter:
     def test_should_process_path_inside_root(self, temp_dir: Path):
-        filter = SecurityFilter()
-        assert filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
+        file_filter = SecurityFilter()
+        assert file_filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
 
     def test_should_not_process_path_outside_root(self, temp_dir: Path):
-        filter = SecurityFilter()
+        file_filter = SecurityFilter()
         # Create a file outside the temp_dir to simulate path traversal
         outside_dir = temp_dir.parent / "outside_file.txt"
         outside_dir.touch()
-        assert not filter.should_process(outside_dir, {"root_path": temp_dir})
+        assert not file_filter.should_process(outside_dir, {"root_path": temp_dir})
 
-    def test_should_not_process_path_traversal_attempt(self, temp_dir: Path):
-        filter = SecurityFilter()
+        file_filter = SecurityFilter()
         # Simulate a path traversal attempt using '..'
         traversal_path = temp_dir / ".." / "outside_file.txt"
         # Create the file to be able to resolve the path
         (temp_dir.parent / "outside_file.txt").touch()
-        assert not filter.should_process(traversal_path, {"root_path": temp_dir})
+        assert not file_filter.should_process(traversal_path, {"root_path": temp_dir})
 
     def test_should_not_process_path_with_multiple_traversal_attempts(self, temp_dir: Path):
-        filter = SecurityFilter()
+        file_filter = SecurityFilter()
         # Simulate a path traversal attempt using multiple '..'
         traversal_path = temp_dir / "sub" / ".." / ".." / "outside_file.txt"
         (temp_dir.parent / "outside_file.txt").touch()
-        assert not filter.should_process(traversal_path, {"root_path": temp_dir})
+        assert not file_filter.should_process(traversal_path, {"root_path": temp_dir})
 
 
 class TestFileSizeFilter:
     def test_should_process_small_file(self, temp_dir: Path):
         small_file = temp_dir / "small.txt"
         small_file.write_text("a" * 100) # 100 bytes
-        filter = FileSizeFilter(max_file_size_kb=1) # 1 KB limit
-        assert filter.should_process(small_file, {})
+        file_filter = FileSizeFilter(max_file_size_kb=1) # 1 KB limit
+        assert file_filter.should_process(small_file, {})
 
     def test_should_not_process_large_file(self, temp_dir: Path):
         large_file = temp_dir / "large.txt"
         large_file.write_text("a" * 2000) # 2000 bytes
-        filter = FileSizeFilter(max_file_size_kb=1) # 1 KB limit
-        assert not filter.should_process(large_file, {})
+        file_filter = FileSizeFilter(max_file_size_kb=1) # 1 KB limit
+        assert not file_filter.should_process(large_file, {})
 
     def test_should_not_process_non_existent_file(self, temp_dir: Path):
         non_existent_file = temp_dir / "non_existent.txt"
-        filter = FileSizeFilter(max_file_size_kb=1)
-        assert not filter.should_process(non_existent_file, {})
+        file_filter = FileSizeFilter(max_file_size_kb=1)
+        assert not file_filter.should_process(non_existent_file, {})
 
     def test_should_process_file_at_exact_limit(self, temp_dir: Path):
         exact_file = temp_dir / "exact.txt"
         exact_file.write_text("a" * 1024) # 1 KB
-        filter = FileSizeFilter(max_file_size_kb=1) # 1 KB limit
-        assert filter.should_process(exact_file, {})
+        file_filter = FileSizeFilter(max_file_size_kb=1) # 1 KB limit
+        assert file_filter.should_process(exact_file, {})
 
 
 class TestFilterChainBuilder:

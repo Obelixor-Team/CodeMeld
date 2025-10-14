@@ -31,7 +31,7 @@ def test_cli_basic_run(tmp_path):
 
     # Execute the command in a pseudo-terminal
     result = subprocess.run(command, capture_output=True, text=True, check=True)
-    output = result.stdout + result.stderr
+
 
     # Assertions
     assert result.returncode == 0

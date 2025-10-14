@@ -131,19 +131,7 @@ def test_iter_files_rglob_include_hidden(mock_config):
     assert mock_file2 in files
     assert mock_hidden_dir_file in files
 
-    def test_execute_memory_threshold_exceeded_fallback_streaming(mock_config):
-        mock_config.count_tokens = False
-        mock_config.output = "output.txt"
-        mock_config.formatter = MagicMock()
-        mock_config.formatter.supports_streaming.return_value = True
 
-        combiner = CodeCombiner(mock_config)
-
-        with patch('src.formatters.FormatterFactory.create', return_value=mock_config.formatter):
-            with patch('src.output_generator.InMemoryOutputGenerator.generate', side_effect=MemoryThresholdExceededError("Memory exceeded")):
-                with patch('src.output_generator.StreamingOutputGenerator') as MockStreamingOutputGenerator:
-                    combiner.execute()
-                    MockStreamingOutputGenerator.assert_called_once()
 def test_execute_output_written_by_streaming_path(mock_config):
     mock_config.count_tokens = False
     mock_config.output = "output.txt"
@@ -171,7 +159,7 @@ def test_execute_processing_complete_notification(mock_config, caplog):
 
     # 👇 PATCH is_likely_binary to avoid MagicMock/int comparison error
     with patch('src.output_generator.is_likely_binary', return_value=False):
-        with patch.object(src.code_combiner.CodeCombiner, '_get_filtered_files', return_value=[create_mock_path('/mock/dir/file1.py')]) as mock_get_filtered_files:
+        with patch.object(src.code_combiner.CodeCombiner, '_get_filtered_files', return_value=[create_mock_path('/mock/dir/file1.py')]) as _mock_get_filtered_files:
             with patch('builtins.open', MagicMock(return_value=MagicMock(__enter__=lambda self: MagicMock(read=MagicMock(side_effect=["file content", ""])), __exit__=MagicMock()))):
                 with patch('src.code_combiner.InMemoryOutputGenerator') as MockInMemoryOutputGeneratorClass:
                     mock_in_memory_generator_instance = MockInMemoryOutputGeneratorClass.return_value
@@ -218,7 +206,7 @@ def test_execute_write_output_called_when_not_streaming(mock_config):
 
     combiner = CodeCombiner(mock_config)
 
-    with patch.object(src.code_combiner.CodeCombiner, '_get_filtered_files', return_value=[create_mock_path('/mock/dir/file1.py')]) as mock_get_filtered_files:
+    with patch.object(src.code_combiner.CodeCombiner, '_get_filtered_files', return_value=[create_mock_path('/mock/dir/file1.py')]) as _mock_get_filtered_files:
         with patch('src.code_combiner.InMemoryOutputGenerator') as MockInMemoryOutputGeneratorClass:
             mock_in_memory_generator_instance = MockInMemoryOutputGeneratorClass.return_value
             mock_in_memory_generator_instance.generate.return_value = ("some content", "raw content")

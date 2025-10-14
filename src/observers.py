@@ -139,6 +139,8 @@ class TelemetryObserver(Observer):
             self.start_time = time.time()
             self.total_files_processed = data.get("total_files", 0)
         elif event == "processing_complete" and self.start_time is not None:
+            # Telemetry data can be logged here if needed, but for now, it's intentionally empty.
+            # For example: logging.info(f"Processing complete. Duration: {time.time() - self.start_time:.2f}s")
             pass
 
 

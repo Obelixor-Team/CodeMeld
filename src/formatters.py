@@ -110,7 +110,6 @@ class MarkdownFormatter(OutputFormatter):
     def __init__(self, **kwargs):
         """Initialize the MarkdownFormatter."""
         super().__init__(**kwargs)
-        pass
 
     def format_file(self, relative_path: Path, content: str) -> str:
         """Format a single file's content for Markdown output."""
@@ -179,7 +178,6 @@ class XMLFormatter(OutputFormatter):
     def __init__(self, **kwargs):
         """Initialize the XMLFormatter."""
         super().__init__(**kwargs)
-        pass
 
     def format_file(self, relative_path: Path, content: str) -> str:
         """Format a single file's content for XML output."""

@@ -71,8 +71,6 @@ class LiveUI:
         separator = "─" * width
         label_width = 18
 
-        label_width = 18
-
         labels = {
             "Input Directory": self.directory,
             "Output File": self.output_file,
