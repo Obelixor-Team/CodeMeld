@@ -217,9 +217,8 @@ class TelemetryObserver(Observer[ProcessingStartedData | None]):
         elif (
             event == ProcessingEvent.PROCESSING_COMPLETE and self.start_time is not None
         ):
-            # Telemetry data can be logged here if needed, but for now, it's intentionally empty.
-            # For example: logging.info(f"Processing complete. Duration: {time.time() - self.start_time:.2f}s")
-            pass
+            duration = time.time() - self.start_time
+            logging.info(f"Processing complete. Duration: {duration:.2f}s")
 
 
 class TokenCounterObserver(Observer[FileContentProcessedData]):

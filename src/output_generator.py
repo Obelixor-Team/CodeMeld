@@ -12,19 +12,16 @@ from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 
+from .context import GeneratorContext
 from .formatters import JSONFormatter, OutputFormatter, XMLFormatter
-from .memory_monitor import MemoryMonitor
 from .observers import (
     FileContentProcessedData,
     FileProcessedData,
-    LineCounterObserver,
     OutputGeneratedData,
     ProcessingEvent,
     ProcessingStartedData,
     Publisher,
-    TokenCounterObserver,
 )
-from .ui import LiveUI
 from .utils import is_likely_binary, log_file_read_error
 
 
@@ -83,32 +80,26 @@ class OutputGenerator(ABC):
 class InMemoryOutputGenerator(OutputGenerator):
     """Generates the combined output content in memory."""
 
-    def __init__(
-        self,
-        files_to_process: list[Path],
-        root_path: Path,
-        formatter: OutputFormatter,
-        memory_monitor: MemoryMonitor,
-        publisher: Publisher,
-        output_path: Path,
-        ui: LiveUI,
-        token_counter_observer: TokenCounterObserver | None,
-        line_counter_observer: LineCounterObserver | None,
-    ):
+    def __init__(self, context: GeneratorContext):
         """Initialize the InMemoryOutputGenerator."""
-        super().__init__(files_to_process, root_path, formatter, publisher)
+        super().__init__(
+            context.files_to_process,
+            context.root_path,
+            context.formatter,
+            context.publisher,
+        )
         self.output_content = ""
         self.raw_combined_content = ""
         self.raw_content_parts: list[str] = []
         self.formatted_content_parts: list[str] = []
         self.json_data: dict[str, str] = {}
         self.xml_root_element: ET.Element | None = None
-        self.memory_monitor = memory_monitor
-        self.publisher = publisher
-        self.output_path = output_path
-        self.ui = ui
-        self.token_counter_observer = token_counter_observer
-        self.line_counter_observer = line_counter_observer
+        self.memory_monitor = context.memory_monitor
+        self.publisher = context.publisher
+        self.output_path = context.output_path
+        self.ui = context.ui
+        self.token_counter_observer = context.token_counter_observer
+        self.line_counter_observer = context.line_counter_observer
 
     def generate(self) -> tuple[str, str]:
         """Generate output in memory."""
@@ -236,7 +227,8 @@ class InMemoryOutputGenerator(OutputGenerator):
         """Process a single file within the main loop."""
         # Sample memory usage instead of checking every file
         if i % check_interval == 0:
-            self.memory_monitor.check_memory_usage()
+            if self.memory_monitor:
+                self.memory_monitor.check_memory_usage()
 
         relative_path = self._get_relative_path(file_path)
         content = self._read_and_notify_content(file_path)
@@ -255,27 +247,22 @@ class InMemoryOutputGenerator(OutputGenerator):
 class StreamingOutputGenerator(OutputGenerator):
     """Streams the combined output content directly to a file."""
 
-    def __init__(
-        self,
-        files_to_process: list[Path],
-        root_path: Path,
-        formatter: OutputFormatter,
-        output_path: Path,
-        publisher: Publisher,
-        ui: LiveUI,
-        token_counter_observer: TokenCounterObserver | None,
-        line_counter_observer: LineCounterObserver | None,
-        dry_run: bool = False,
-        dry_run_output: str | None = None,
-    ) -> None:
+    def __init__(self, context: GeneratorContext):
         """Initialize the StreamingOutputGenerator."""
-        super().__init__(files_to_process, root_path, formatter, publisher)
-        self.output_path = output_path
-        self.dry_run = dry_run
-        self.dry_run_output_path = Path(dry_run_output) if dry_run_output else None
-        self.ui = ui
-        self.token_counter_observer = token_counter_observer
-        self.line_counter_observer = line_counter_observer
+        super().__init__(
+            context.files_to_process,
+            context.root_path,
+            context.formatter,
+            context.publisher,
+        )
+        self.output_path = context.output_path
+        self.dry_run = context.dry_run
+        self.dry_run_output_path = (
+            Path(context.dry_run_output) if context.dry_run_output else None
+        )
+        self.ui = context.ui
+        self.token_counter_observer = context.token_counter_observer
+        self.line_counter_observer = context.line_counter_observer
 
     def _get_progress_bar_description(self) -> str:
         """Return the description for the progress bar."""

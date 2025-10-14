@@ -12,6 +12,7 @@ import pathspec
 
 from .config import CodeCombinerError, CombinerConfig, MemoryThresholdExceededError
 from .config_builder import load_and_merge_config
+from .context import GeneratorContext
 from .filters import FileFilter, FilterChainBuilder
 from .formatters import FormatterFactory
 from .memory_monitor import SystemMemoryMonitor
@@ -380,18 +381,21 @@ class CodeCombiner:
             publisher.subscribe(TelemetryObserver())
 
             output_written_by_streaming = False
+            context = GeneratorContext(
+                files_to_process=all_files_to_process,
+                root_path=self.config.directory_path,
+                formatter=self.formatter,
+                publisher=publisher,
+                output_path=Path(self.config.output),
+                ui=ui,
+                token_counter_observer=token_counter_observer,
+                line_counter_observer=line_counter_observer,
+                memory_monitor=memory_monitor,
+                dry_run=self.config.dry_run,
+                dry_run_output=self.config.dry_run_output,
+            )
             try:
-                generator = InMemoryOutputGenerator(
-                    all_files_to_process,
-                    self.config.directory_path,
-                    self.formatter,
-                    memory_monitor,
-                    publisher,
-                    Path(self.config.output),
-                    ui,  # Pass ui to InMemoryOutputGenerator
-                    token_counter_observer,  # Pass token_counter_observer
-                    line_counter_observer,  # Pass line_counter_observer
-                )
+                generator = InMemoryOutputGenerator(context)
                 output_content, _ = generator.generate()
                 # publisher.notify("processing_complete", (output_content, raw_content)) # Handled by __exit__
             except MemoryThresholdExceededError:
@@ -399,18 +403,7 @@ class CodeCombiner:
                     logging.warning(
                         "Falling back to streaming due to memory constraints."
                     )
-                    streaming_generator = StreamingOutputGenerator(
-                        all_files_to_process,
-                        self.config.directory_path,
-                        self.formatter,
-                        Path(self.config.output),
-                        publisher,
-                        ui,  # Pass ui to StreamingOutputGenerator
-                        token_counter_observer,  # Pass token_counter_observer
-                        line_counter_observer,  # Pass line_counter_observer
-                        dry_run=self.config.dry_run,
-                        dry_run_output=self.config.dry_run_output,
-                    )
+                    streaming_generator = StreamingOutputGenerator(context)
                     streaming_generator.generate()
                     output_written_by_streaming = True
                     output_content = ""  # Clear content as it's already written

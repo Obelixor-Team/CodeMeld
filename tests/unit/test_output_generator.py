@@ -7,6 +7,7 @@ import logging
 import psutil
 
 from src.output_generator import InMemoryOutputGenerator, read_file_content
+from src.context import GeneratorContext
 from src.formatters import TextFormatter
 from src.config import MemoryThresholdExceededError
 from src.memory_monitor import SystemMemoryMonitor
@@ -33,8 +34,17 @@ def test_in_memory_generator_memory_warning(mock_files_to_process, mock_root_pat
 
 
         with patch('src.output_generator.read_file_content', return_value='some content'):
-            generator = InMemoryOutputGenerator(
-                mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock() # /tmp is used for testing temporary file creation
+            context = GeneratorContext(
+                files_to_process=mock_files_to_process,
+                root_path=mock_root_path,
+                formatter=mock_formatter,
+                memory_monitor=memory_monitor,
+                publisher=MagicMock(),
+                output_path=Path("/tmp/output.txt"),
+                ui=MagicMock(),
+                token_counter_observer=MagicMock(),
+                line_counter_observer=MagicMock(),
             )
+            generator = InMemoryOutputGenerator(context)
             with pytest.raises(MemoryThresholdExceededError):
                 generator.generate()
