@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 import time
 from enum import Enum, auto
 from types import ModuleType
@@ -186,6 +187,7 @@ class LineCounterObserver(Observer[FileContentProcessedData]):
     def __init__(self):
         """Initialize the LineCounterObserver."""
         self._total_lines: int = 0
+        self._lock = threading.Lock()
 
     @property
     def total_lines(self) -> int:
@@ -195,9 +197,10 @@ class LineCounterObserver(Observer[FileContentProcessedData]):
     def update(self, event: ProcessingEvent, data: FileContentProcessedData):
         """Count lines based on the event."""
         if event == ProcessingEvent.FILE_CONTENT_PROCESSED:
-            self._total_lines += (
-                data["content_chunk"].count("\n") + 1 if data["content_chunk"] else 0
-            )
+            with self._lock:
+                self._total_lines += (
+                    data["content_chunk"].count("\n") + 1 if data["content_chunk"] else 0
+                )
 
 
 class TelemetryObserver(Observer[ProcessingStartedData | None]):
@@ -228,6 +231,7 @@ class TokenCounterObserver(Observer[FileContentProcessedData]):
         """Initialize the TokenCounterObserver."""
         self.total_tokens = 0
         self.token_encoding_model = token_encoding_model
+        self._lock = threading.Lock()
         try:
             import tiktoken
 
@@ -246,10 +250,7 @@ class TokenCounterObserver(Observer[FileContentProcessedData]):
             try:
                 encoding = self.tiktoken_module.get_encoding(self.token_encoding_model)
                 tokens: list[int] = encoding.encode(content)
-                self.total_tokens += len(tokens)
+                with self._lock:
+                    self.total_tokens += len(tokens)
             except ValueError as e:
                 logging.error(f"Error counting tokens for file content: {e}")
-        elif event == ProcessingEvent.OUTPUT_GENERATED:
-            # This event is now redundant for total_tokens, but can be used for
-            # final validation if needed.
-            pass

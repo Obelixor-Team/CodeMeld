@@ -9,6 +9,7 @@ import logging
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -101,6 +102,20 @@ class InMemoryOutputGenerator(OutputGenerator):
         self.token_counter_observer = context.token_counter_observer
         self.line_counter_observer = context.line_counter_observer
 
+    def _read_file_and_notify(self, file_path: Path) -> tuple[Path, str | None]:
+        """Read a file's content and notify observers."""
+        content_chunks = list(read_file_content(file_path))
+        if not content_chunks and not is_likely_binary(file_path):
+            return file_path, None
+
+        full_content = "".join(content_chunks)
+        for chunk in content_chunks:
+            self.publisher.notify(
+                ProcessingEvent.FILE_CONTENT_PROCESSED,
+                FileContentProcessedData(content_chunk=chunk),
+            )
+        return file_path, full_content
+
     def generate(self) -> tuple[str, str]:
         """Generate output in memory."""
         self.publisher.notify(
@@ -110,10 +125,26 @@ class InMemoryOutputGenerator(OutputGenerator):
 
         self._begin_output()
 
+        file_contents = {}
+        with ThreadPoolExecutor() as executor:
+            future_to_path = {
+                executor.submit(self._read_file_and_notify, path): path
+                for path in self.files_to_process
+            }
+            for future in as_completed(future_to_path):
+                path = future_to_path[future]
+                try:
+                    _, content = future.result()
+                    file_contents[path] = content
+                except Exception as e:
+                    log_file_read_error(path, e)
+                    file_contents[path] = None
+
         check_interval = max(1, min(10, len(self.files_to_process) // 20))
 
         for i, file_path in enumerate(self.files_to_process):
-            self._process_single_file(i, file_path, check_interval)
+            content = file_contents.get(file_path)
+            self._process_single_file(i, file_path, content, check_interval)
 
         result = self._end_output()
         self.publisher.notify(
@@ -187,23 +218,7 @@ class InMemoryOutputGenerator(OutputGenerator):
         except ValueError:
             return file_path
 
-    def _read_and_notify_content(self, file_path: Path) -> str | None:
-        content_chunks = list(read_file_content(file_path))
-        if not content_chunks and not is_likely_binary(file_path):
-            return None
-
-        full_content = "".join(content_chunks)
-        for chunk in content_chunks:
-            self.publisher.notify(
-                ProcessingEvent.FILE_CONTENT_PROCESSED,
-                FileContentProcessedData(content_chunk=chunk),
-            )
-
-        return full_content
-
-    def _update_ui(
-        self, relative_path: Path, skipped: bool, content: str | None
-    ) -> None:
+    def _update_ui(self, relative_path: Path, skipped: bool) -> None:
         tokens = (
             self.token_counter_observer.total_tokens
             if self.token_counter_observer
@@ -222,7 +237,7 @@ class InMemoryOutputGenerator(OutputGenerator):
         )
 
     def _process_single_file(
-        self, i: int, file_path: Path, check_interval: int
+        self, i: int, file_path: Path, content: str | None, check_interval: int
     ) -> None:
         """Process a single file within the main loop."""
         # Sample memory usage instead of checking every file
@@ -231,16 +246,15 @@ class InMemoryOutputGenerator(OutputGenerator):
                 self.memory_monitor.check_memory_usage()
 
         relative_path = self._get_relative_path(file_path)
-        content = self._read_and_notify_content(file_path)
 
         self.publisher.notify(
             ProcessingEvent.FILE_PROCESSED, FileProcessedData(path=str(relative_path))
         )
 
-        self._update_ui(relative_path, content is None, content)
+        self._update_ui(relative_path, content is None)
 
         if content is None:
-            return  # Changed from continue to return as it's a separate function
+            return
         self._process_file(relative_path, content)
 
 
