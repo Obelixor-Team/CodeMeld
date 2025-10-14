@@ -131,6 +131,7 @@ class InMemoryOutputGenerator(OutputGenerator):
                 executor.submit(self._read_file_and_notify, path): path
                 for path in self.files_to_process
             }
+            failed_files = []
             for future in as_completed(future_to_path):
                 path = future_to_path[future]
                 try:
@@ -139,6 +140,10 @@ class InMemoryOutputGenerator(OutputGenerator):
                 except Exception as e:
                     log_file_read_error(path, e)
                     file_contents[path] = None
+                    failed_files.append(path)
+
+            if failed_files:
+                logging.warning(f"Failed to read {len(failed_files)} files. See log for details.")
 
         check_interval = max(1, min(10, len(self.files_to_process) // 20))
 
