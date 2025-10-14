@@ -39,15 +39,7 @@ def read_file_content(
                 if not chunk:
                     break
                 yield chunk
-    except UnicodeDecodeError as e:
-        log_file_read_error(file_path, e)
-    except FileNotFoundError as e:
-        log_file_read_error(file_path, e)
-    except PermissionError as e:
-        log_file_read_error(file_path, e)
-    except IsADirectoryError as e:
-        log_file_read_error(file_path, e)
-    except Exception as e:
+    except (UnicodeDecodeError, FileNotFoundError, PermissionError, IsADirectoryError, Exception) as e:
         log_file_read_error(file_path, e)
 
 
