@@ -47,46 +47,46 @@ def mock_file_path():
 
 class TestExtensionFilter:
     def test_include_extension(self, mock_file_path):
-        filter = ExtensionFilter([".py"], [])
-        assert filter.should_process(mock_file_path, {})
+        extension_filter = ExtensionFilter([".py"], [])
+        assert extension_filter.should_process(mock_file_path, {})
 
     def test_exclude_extension(self, mock_file_path):
-        filter = ExtensionFilter([".js"], [".py"])
-        assert not filter.should_process(mock_file_path, {})
+        extension_filter = ExtensionFilter([".js"], [".py"])
+        assert not extension_filter.should_process(mock_file_path, {})
 
     def test_no_match(self, mock_file_path):
-        filter = ExtensionFilter([".js"], [])
-        assert not filter.should_process(mock_file_path, {})
+        extension_filter = ExtensionFilter([".js"], [])
+        assert not extension_filter.should_process(mock_file_path, {})
 
     def test_case_insensitivity(self):
-        filter = ExtensionFilter([".PY"], [])
-        assert filter.should_process(Path("file.py"), {})
+        extension_filter = ExtensionFilter([".PY"], [])
+        assert extension_filter.should_process(Path("file.py"), {})
 
     def test_empty_extensions_list(self):
-        filter = ExtensionFilter([], [])
-        assert not filter.should_process(Path("file.py"), {})
+        extension_filter = ExtensionFilter([], [])
+        assert not extension_filter.should_process(Path("file.py"), {})
 
 
 class TestHiddenFileFilter:
     def test_include_hidden_true(self, mock_file_path):
-        filter = HiddenFileFilter(include_hidden=True)
-        assert filter.should_process(Path("/mock/root/.hidden_file"), {"root_path": Path("/mock/root")})
+        hidden_file_filter = HiddenFileFilter(include_hidden=True)
+        assert hidden_file_filter.should_process(Path("/mock/root/.hidden_file"), {"root_path": Path("/mock/root")})
 
     def test_include_hidden_false_visible_file(self, mock_file_path):
-        filter = HiddenFileFilter(include_hidden=False)
-        assert filter.should_process(Path("/mock/root/visible_file.py"), {"root_path": Path("/mock/root")})
+        hidden_file_filter = HiddenFileFilter(include_hidden=False)
+        assert hidden_file_filter.should_process(Path("/mock/root/visible_file.py"), {"root_path": Path("/mock/root")})
 
     def test_include_hidden_false_hidden_file(self, mock_file_path):
-        filter = HiddenFileFilter(include_hidden=False)
-        assert not filter.should_process(Path("/mock/root/.hidden_file"), {"root_path": Path("/mock/root")})
+        hidden_file_filter = HiddenFileFilter(include_hidden=False)
+        assert not hidden_file_filter.should_process(Path("/mock/root/.hidden_file"), {"root_path": Path("/mock/root")})
 
     def test_include_hidden_false_hidden_dir(self, mock_file_path):
-        filter = HiddenFileFilter(include_hidden=False)
-        assert not filter.should_process(Path("/mock/root/.hidden_dir/file.py"), {"root_path": Path("/mock/root")})
+        hidden_file_filter = HiddenFileFilter(include_hidden=False)
+        assert not hidden_file_filter.should_process(Path("/mock/root/.hidden_dir/file.py"), {"root_path": Path("/mock/root")})
 
     def test_no_root_path_context(self):
-        filter = HiddenFileFilter(include_hidden=False)
-        assert filter.should_process(Path("/mock/root/.hidden_file"), {})
+        hidden_file_filter = HiddenFileFilter(include_hidden=False)
+        assert hidden_file_filter.should_process(Path("/mock/root/.hidden_file"), {})
 
 
 @pytest.fixture
@@ -99,45 +99,45 @@ def mock_spec():
 class TestGitignoreFilter:
 
     def test_file_ignored(self, mock_spec):
-        filter = GitignoreFilter(mock_spec)
-        assert not filter.should_process(Path("/mock/root/ignored.py"), {"root_path": Path("/mock/root")})
+        gitignore_filter = GitignoreFilter(mock_spec)
+        assert not gitignore_filter.should_process(Path("/mock/root/ignored.py"), {"root_path": Path("/mock/root")})
 
     def test_file_not_ignored(self, mock_spec):
-        filter = GitignoreFilter(mock_spec)
-        assert filter.should_process(Path("/mock/root/not_ignored.py"), {"root_path": Path("/mock/root")})
+        gitignore_filter = GitignoreFilter(mock_spec)
+        assert gitignore_filter.should_process(Path("/mock/root/not_ignored.py"), {"root_path": Path("/mock/root")})
 
     def test_no_spec(self):
-        filter = GitignoreFilter(None)
-        assert filter.should_process(Path("/mock/root/test.py"), {})
+        gitignore_filter = GitignoreFilter(None)
+        assert gitignore_filter.should_process(Path("/mock/root/test.py"), {})
 
     def test_no_root_path_context(self, mock_spec):
-        filter = GitignoreFilter(mock_spec)
-        assert filter.should_process(Path("/mock/root/ignored.py"), {})
+        gitignore_filter = GitignoreFilter(mock_spec)
+        assert gitignore_filter.should_process(Path("/mock/root/ignored.py"), {})
 
 
 class TestOutputFilePathFilter:
     def test_output_file_is_filtered(self, tmp_path):
         output_file = tmp_path / "output.txt"
-        filter = OutputFilePathFilter(output_file)
-        assert not filter.should_process(output_file, {})
+        output_filter = OutputFilePathFilter(output_file)
+        assert not output_filter.should_process(output_file, {})
 
     def test_other_file_is_not_filtered(self, tmp_path):
         output_file = tmp_path / "output.txt"
         other_file = tmp_path / "other.py"
-        filter = OutputFilePathFilter(output_file)
-        assert filter.should_process(other_file, {})
+        output_filter = OutputFilePathFilter(output_file)
+        assert output_filter.should_process(other_file, {})
 
 
 class TestBinaryFileFilter:
     @patch("src.filters.is_likely_binary", return_value=True)
     def test_binary_file_is_filtered(self, mock_is_likely_binary):
-        filter = BinaryFileFilter()
-        assert not filter.should_process(Path("binary.bin"), {})
+        binary_filter = BinaryFileFilter()
+        assert not binary_filter.should_process(Path("binary.bin"), {})
 
     @patch("src.filters.is_likely_binary", return_value=False)
     def test_text_file_is_not_filtered(self, mock_is_likely_binary):
-        filter = BinaryFileFilter()
-        assert filter.should_process(Path("text.txt"), {})
+        binary_filter = BinaryFileFilter()
+        assert binary_filter.should_process(Path("text.txt"), {})
 
 
 class TestSymlinkFilter:
@@ -150,18 +150,18 @@ class TestSymlinkFilter:
         return symlink
 
     def test_symlink_filtered_when_not_following(self, mock_symlink_file):
-        filter = SymlinkFilter(follow_symlinks=False)
-        assert not filter.should_process(mock_symlink_file, {})
+        symlink_filter = SymlinkFilter(follow_symlinks=False)
+        assert not symlink_filter.should_process(mock_symlink_file, {})
 
     def test_symlink_not_filtered_when_following(self, mock_symlink_file):
-        filter = SymlinkFilter(follow_symlinks=True)
-        assert filter.should_process(mock_symlink_file, {})
+        symlink_filter = SymlinkFilter(follow_symlinks=True)
+        assert symlink_filter.should_process(mock_symlink_file, {})
 
     def test_non_symlink_not_filtered(self, tmp_path):
         non_symlink = tmp_path / "regular.txt"
         non_symlink.write_text("regular content")
-        filter = SymlinkFilter(follow_symlinks=False)
-        assert filter.should_process(non_symlink, {})
+        symlink_filter = SymlinkFilter(follow_symlinks=False)
+        assert symlink_filter.should_process(non_symlink, {})
 
 
 class TestSecurityFilter:
@@ -170,40 +170,40 @@ class TestSecurityFilter:
         root.mkdir()
         file_path = root / "file.txt"
         file_path.write_text("content")
-        filter = SecurityFilter()
-        assert filter.should_process(file_path, {"root_path": root})
+        security_filter = SecurityFilter()
+        assert security_filter.should_process(file_path, {"root_path": root})
 
     def test_file_outside_root(self, tmp_path):
         root = tmp_path / "project"
         root.mkdir()
         file_path = tmp_path / "outside.txt"
         file_path.write_text("content")
-        filter = SecurityFilter()
-        assert not filter.should_process(file_path, {"root_path": root})
+        security_filter = SecurityFilter()
+        assert not security_filter.should_process(file_path, {"root_path": root})
 
     def test_no_root_path_context(self, tmp_path):
         file_path = tmp_path / "file.txt"
         file_path.write_text("content")
-        filter = SecurityFilter()
-        assert filter.should_process(file_path, {})
+        security_filter = SecurityFilter()
+        assert security_filter.should_process(file_path, {})
 
 
 class TestFileSizeFilter:
     def test_file_within_size_limit(self, tmp_path):
         file_path = tmp_path / "small.txt"
         file_path.write_text("a" * 50 * 1024)  # 50KB
-        filter = FileSizeFilter(max_file_size_kb=100)
-        assert filter.should_process(file_path, {})
+        file_size_filter = FileSizeFilter(max_file_size_kb=100)
+        assert file_size_filter.should_process(file_path, {})
 
     def test_file_exceeds_size_limit(self, tmp_path):
         file_path = tmp_path / "large.txt"
         file_path.write_text("a" * 150 * 1024)  # 150KB
-        filter = FileSizeFilter(max_file_size_kb=100)
-        assert not filter.should_process(file_path, {})
+        file_size_filter = FileSizeFilter(max_file_size_kb=100)
+        assert not file_size_filter.should_process(file_path, {})
 
     def test_file_not_found(self):
-        filter = FileSizeFilter(max_file_size_kb=100)
-        assert not filter.should_process(Path("non_existent.txt"), {})
+        file_size_filter = FileSizeFilter(max_file_size_kb=100)
+        assert not file_size_filter.should_process(Path("non_existent.txt"), {})
 
 
 class TestCompositeFilter:
