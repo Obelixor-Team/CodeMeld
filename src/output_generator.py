@@ -173,7 +173,9 @@ class InMemoryOutputGenerator(OutputGenerator):
         """Return the description for the progress bar."""
         return f"Processing files ({self.formatter.format_name})"
 
-    def _process_single_file(self, i: int, file_path: Path, check_interval: int) -> None:
+    def _process_single_file(
+        self, i: int, file_path: Path, check_interval: int
+    ) -> None:
         """Process a single file within the main loop."""
         # Sample memory usage instead of checking every file
         if i % check_interval == 0:
@@ -189,9 +191,7 @@ class InMemoryOutputGenerator(OutputGenerator):
         full_content = ""
         for chunk in content_generator:
             full_content += chunk
-            self.publisher.notify(
-                "file_content_processed", chunk
-            )  # Notify with chunk
+            self.publisher.notify("file_content_processed", chunk)  # Notify with chunk
 
         if not full_content and not is_likely_binary(file_path):
             # If content is empty and not binary, it means an error occurred during reading
@@ -219,7 +219,7 @@ class InMemoryOutputGenerator(OutputGenerator):
         )
 
         if content is None:
-            return # Changed from continue to return as it's a separate function
+            return  # Changed from continue to return as it's a separate function
         self._process_file(relative_path, content)
 
 
@@ -252,7 +252,9 @@ class StreamingOutputGenerator(OutputGenerator):
         """Return the description for the progress bar."""
         return "Processing files (Streaming)"
 
-    def _process_file_streaming(self, file_path: Path, outfile: Any | None = None) -> None:
+    def _process_file_streaming(
+        self, file_path: Path, outfile: Any | None = None
+    ) -> None:
         try:
             relative_path = file_path.relative_to(self.root_path)
         except ValueError:
@@ -263,9 +265,7 @@ class StreamingOutputGenerator(OutputGenerator):
         full_content = ""
         for chunk in content_generator:
             full_content += chunk
-            self.publisher.notify(
-                "file_content_processed", chunk
-            )  # Notify with chunk
+            self.publisher.notify("file_content_processed", chunk)  # Notify with chunk
 
         if not full_content and not is_likely_binary(file_path):
             content = None
@@ -292,17 +292,13 @@ class StreamingOutputGenerator(OutputGenerator):
 
         if content is not None and outfile is not None:
             if isinstance(self.formatter, XMLFormatter):
-                self.formatter.format_file_stream(
-                    relative_path, file_path, outfile
-                )
+                self.formatter.format_file_stream(relative_path, file_path, outfile)
             else:
-                outfile.write(
-                    self.formatter.format_file(relative_path, full_content)
-                )
+                outfile.write(self.formatter.format_file(relative_path, full_content))
         elif content is not None and outfile is None and self.dry_run:
             import sys
-            sys.stdout.write(self.formatter.format_file(relative_path, content))
 
+            sys.stdout.write(self.formatter.format_file(relative_path, content))
 
     def generate(self) -> None:
         """Generate output by streaming to file or printing to stdout if dry_run."""
@@ -332,9 +328,7 @@ class StreamingOutputGenerator(OutputGenerator):
         if self.dry_run_output_path:
             try:
                 self.dry_run_output_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(
-                    self.dry_run_output_path, "w", encoding="utf-8"
-                ) as outfile:
+                with open(self.dry_run_output_path, "w", encoding="utf-8") as outfile:
                     self._write_stream_to_file(outfile, is_dry_run=True)
                 logging.info(
                     f"Dry run output also written to: {self.dry_run_output_path}"
@@ -346,9 +340,7 @@ class StreamingOutputGenerator(OutputGenerator):
 
     def _handle_actual_streaming(self) -> None:
         # Determine if we are using a streaming formatter that writes directly to file
-        is_direct_streaming_formatter = hasattr(
-            self.formatter, "format_file_stream"
-        )
+        is_direct_streaming_formatter = hasattr(self.formatter, "format_file_stream")
 
         if not self.files_to_process and not is_direct_streaming_formatter:
             logging.info("No content to write. File not created.")
@@ -357,4 +349,3 @@ class StreamingOutputGenerator(OutputGenerator):
 
         with open(self.output_path, "w", encoding="utf-8") as outfile:
             self._write_stream_to_file(outfile, is_dry_run=False)
-

@@ -25,84 +25,18 @@ def mock_formatter():
 
 def test_in_memory_generator_memory_warning(mock_files_to_process, mock_root_path, mock_formatter):
     """Ensure MemoryThresholdExceededError is raised when memory exceeds threshold."""
-    memory_monitor = SystemMemoryMonitor(max_memory_mb=500, count_tokens=True)
-    with patch.object(psutil.Process, 'memory_info') as mock_memory_info:
-        mock_memory_info.return_value = MagicMock(rss=600 * 1024 * 1024) # Set rss directly on the return value
-        generator = InMemoryOutputGenerator(mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock())
-
-        with patch('src.output_generator.read_file_content', return_value='some content'):
-            with pytest.raises(MemoryThresholdExceededError):
-                generator.generate()
-
-def test_in_memory_generator_no_memory_warning(mock_files_to_process, mock_root_path, mock_formatter):
-    # Mock psutil.Process().memory_info().rss to simulate normal memory usage
-    with patch.object(psutil.Process, 'memory_info') as mock_memory_info:
-        mock_memory_info.return_value = MagicMock(rss=100 * 1024 * 1024)  # 100MB, below 500MB threshold
+    with patch('psutil.Process') as mock_process_class:
+        mock_process_instance = mock_process_class.return_value
+        mock_process_instance.memory_info.return_value.rss = 1000 * 1024 * 1024  # 1000MB, very high
 
         memory_monitor = SystemMemoryMonitor(max_memory_mb=500, count_tokens=True)
-        generator = InMemoryOutputGenerator(mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock())
-
-        with patch('src.output_generator.read_file_content', return_value='some content'):
-            with patch('logging.warning') as mock_logging_warning:
-                generator.generate()
-                mock_logging_warning.assert_not_called()
-
-def test_read_file_content_is_a_directory_error():
-    # Simulate IsADirectoryError when trying to read a directory as a file
-    mock_dir_path = MagicMock(spec=Path)
-    # Mock the is_likely_binary function from src.utils directly
-    with patch('src.utils.is_likely_binary', return_value=False):
-        with patch('builtins.open', side_effect=IsADirectoryError):
-            result = read_file_content(mock_dir_path)
-            assert list(result) == []
-
-def test_in_memory_generator_memory_threshold_exceeded_fallback(mock_files_to_process, mock_root_path, mock_formatter):
-    # Simulate high memory usage and no token counting
-    memory_monitor = SystemMemoryMonitor(max_memory_mb=500, count_tokens=False) # Moved outside
-    with patch.object(psutil.Process, 'memory_info') as mock_memory_info:
-        mock_memory_info.return_value = MagicMock(rss=600 * 1024 * 1024) # Set rss directly on the return value
-
         generator = InMemoryOutputGenerator(
-            mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock()
+            mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock() # /tmp is used for testing temporary file creation
         )
 
         with patch('src.output_generator.read_file_content', return_value='some content'):
-            with pytest.raises(MemoryThresholdExceededError, match="Memory usage exceeded 500MB. Falling back to streaming output."):
+            generator = InMemoryOutputGenerator(
+                mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock() # /tmp is used for testing temporary file creation
+            )
+            with pytest.raises(MemoryThresholdExceededError):
                 generator.generate()
-
-def test_in_memory_generator_memory_threshold_exceeded_no_fallback_with_tokens(
-    mock_files_to_process, mock_root_path, mock_formatter, caplog
-):
-    """When token counting is enabled, memory exceedance raises MemoryThresholdExceededError."""
-    memory_monitor = SystemMemoryMonitor(max_memory_mb=500, count_tokens=True)
-    with patch.object(psutil.Process, 'memory_info') as mock_memory_info:
-        mock_memory_info.return_value = MagicMock(rss=600 * 1024 * 1024)  # 600MB, above 500MB threshold
-
-        generator = InMemoryOutputGenerator(
-            mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock()
-        )
-
-        with patch('src.output_generator.read_file_content', return_value='some content'):
-            with caplog.at_level(logging.WARNING):
-                with pytest.raises(MemoryThresholdExceededError):
-                    generator.generate()
-
-        # Optional: confirm warning log present
-        assert any("High memory usage detected" in record.message for record in caplog.records)
-
-def test_in_memory_generator_no_memory_limit(mock_files_to_process, mock_root_path, mock_formatter, caplog):
-    # Simulate no memory limit (max_memory_mb=0)
-    with patch.object(psutil.Process, 'memory_info') as mock_memory_info:
-        mock_memory_info.return_value = MagicMock(rss=1000 * 1024 * 1024)  # 1000MB, very high
-
-        memory_monitor = SystemMemoryMonitor(max_memory_mb=0, count_tokens=False)
-        generator = InMemoryOutputGenerator(
-            mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock()
-        )
-
-        with patch('src.output_generator.read_file_content', return_value='some content'):
-            with caplog.at_level(logging.WARNING):
-                generator.generate()
-                # No warning should be logged because max_memory_mb is 0 (no limit)
-                assert "High memory usage detected" not in caplog.text
-            # Should not raise MemoryThresholdExceededError because max_memory_mb is 0

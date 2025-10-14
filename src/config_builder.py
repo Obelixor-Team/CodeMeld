@@ -74,7 +74,7 @@ class CombinerConfigBuilder:
         args: argparse.Namespace,
         arg_name: str,
         config_key: str | None = None,
-        transform_func: Callable | None = None
+        transform_func: Callable | None = None,
     ) -> None:
         if config_key is None:
             config_key = arg_name
@@ -94,7 +94,9 @@ class CombinerConfigBuilder:
         self._apply_arg_if_present(args, "include_hidden")
         if hasattr(args, "no_tokens") and args.no_tokens:
             self._config["count_tokens"] = False
-        if hasattr(args, "header_width") and args.header_width != 80:  # Check against default
+        if (
+            hasattr(args, "header_width") and args.header_width != 80
+        ):  # Check against default
             self._config["header_width"] = args.header_width
         self._apply_arg_if_present(args, "format")
         self._apply_arg_if_present(args, "convert_to", "final_output_format")
