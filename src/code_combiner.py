@@ -320,11 +320,8 @@ class CodeCombiner:
             return path.resolve()
         return (self.config.directory_path / path).resolve()
 
-    def execute(self) -> None:
-        """Execute the combining process."""
-        files = self._get_filtered_files()
-
-        # Process --always-include files with safety checks
+    def _process_always_include_files(self, files: list[Path]) -> list[Path]:
+        """Process --always-include files with safety checks."""
         always_included_files: list[Path] = []
         for path_str in self.config.always_include:
             path = Path(path_str)
@@ -345,6 +342,13 @@ class CodeCombiner:
                 )
                 continue
             always_included_files.append(resolved_path)
+        return always_included_files
+
+    def execute(self) -> None:
+        """Execute the combining process."""
+        files = self._get_filtered_files()
+
+        always_included_files = self._process_always_include_files(files)
 
         # Combine filtered files and always_included_files, ensuring no duplicates
         all_files_to_process = sorted(set(files + always_included_files))
