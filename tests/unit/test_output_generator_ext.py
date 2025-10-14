@@ -53,6 +53,25 @@ class TestReadFileContent:
             assert not content
             assert "Is a directory" in caplog.text
 
+    def test_read_unicode_decode_error(self, tmp_path, caplog):
+        with caplog.at_level(logging.WARNING):
+            file_path = tmp_path / "unicode_error.txt"
+            file_path.write_bytes(b'\x80')  # Invalid UTF-8 byte
+            with patch('src.output_generator.is_likely_binary', return_value=False):
+                with patch("builtins.open", side_effect=UnicodeDecodeError("utf-8", b'', 0, 1, "invalid start byte")):
+                    content = list(read_file_content(file_path))
+                    assert not content
+            assert "UnicodeDecodeError" in caplog.text
+
+    def test_read_general_exception(self, tmp_path, caplog):
+        with caplog.at_level(logging.WARNING):
+            file_path = tmp_path / "general_error.txt"
+            file_path.write_text("test")
+            with patch("builtins.open", side_effect=Exception("General error")):
+                content = list(read_file_content(file_path))
+                assert not content
+            assert "General error" in caplog.text
+
 
 class TestInMemoryOutputGenerator:
     def test_xml_formatter(self, mock_files_to_process, mock_root_path, tmp_path):

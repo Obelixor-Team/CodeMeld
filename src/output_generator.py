@@ -126,7 +126,10 @@ class InMemoryOutputGenerator(OutputGenerator):
         self._begin_output()
 
         file_contents = {}
-        with ThreadPoolExecutor() as executor:
+        import os
+
+        max_workers = min(32, (os.cpu_count() or 1) + 4)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_path = {
                 executor.submit(self._read_file_and_notify, path): path
                 for path in self.files_to_process
@@ -143,7 +146,9 @@ class InMemoryOutputGenerator(OutputGenerator):
                     failed_files.append(path)
 
             if failed_files:
-                logging.warning(f"Failed to read {len(failed_files)} files. See log for details.")
+                logging.warning(
+                    f"Failed to read {len(failed_files)} files. See log for details."
+                )
 
         check_interval = max(1, min(10, len(self.files_to_process) // 20))
 
