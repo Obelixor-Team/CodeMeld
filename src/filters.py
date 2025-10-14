@@ -18,26 +18,13 @@ from .utils import is_likely_binary
 class FileFilter(ABC):
     """Base class for file filters."""
 
-    def __init__(self):
-        """Initialize the file filter."""
-        self._next_filter: FileFilter | None = None
-
-    def set_next(self, filter: FileFilter) -> FileFilter:
-        """Set the next filter in the chain."""
-        self._next_filter = filter
-        return filter
-
     def should_process(self, file_path: Path, context: dict) -> bool:
         """Return True if file should be processed."""
         result = self._check(file_path, context)
         logging.debug(
             f"{self.__class__.__name__}._check({file_path.name}) returned {result}"
         )
-        if not result:
-            return False
-        if self._next_filter:
-            return self._next_filter.should_process(file_path, context)
-        return True
+        return result
 
     @abstractmethod
     def _check(self, file_path: Path, context: dict) -> bool:
@@ -45,12 +32,26 @@ class FileFilter(ABC):
         pass
 
 
+class CompositeFilter(FileFilter):
+    """A filter that is composed of other filters."""
+
+    def __init__(self, filters: list[FileFilter]):
+        """Initialize the composite filter."""
+        self.filters = filters
+
+    def _check(self, file_path: Path, context: dict) -> bool:
+        """Check the file against all filters in the composite."""
+        for f in self.filters:
+            if not f.should_process(file_path, context):
+                return False
+        return True
+
+
 class ExtensionFilter(FileFilter):
     """Filter files based on their extensions."""
 
     def __init__(self, extensions: list[str], exclude: list[str]):
         """Initialize the extension filter."""
-        super().__init__()
         self.extensions = [e.lower() for e in extensions]
         self.exclude = [e.lower() for e in exclude]
 
@@ -66,7 +67,6 @@ class HiddenFileFilter(FileFilter):
 
     def __init__(self, include_hidden: bool):
         """Initialize the hidden file filter."""
-        super().__init__()
         self.include_hidden = include_hidden
 
     def _check(self, file_path: Path, context: dict) -> bool:
@@ -87,7 +87,6 @@ class GitignoreFilter(FileFilter):
 
     def __init__(self, spec: pathspec.PathSpec | None):
         """Initialize the gitignore filter."""
-        super().__init__()
         self.spec = spec
 
     def _check(self, file_path: Path, context: dict) -> bool:
@@ -108,7 +107,6 @@ class OutputFilePathFilter(FileFilter):
 
     def __init__(self, output_path: Path):
         """Initialize the OutputFilePathFilter."""
-        super().__init__()
         self.output_path = output_path.resolve()
 
     def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
@@ -128,7 +126,6 @@ class SymlinkFilter(FileFilter):
 
     def __init__(self, follow_symlinks: bool):
         """Initialize the SymlinkFilter."""
-        super().__init__()
         self.follow_symlinks = follow_symlinks
 
     def _check(self, file_path: Path, context: dict) -> bool:
@@ -191,7 +188,6 @@ class FileSizeFilter(FileFilter):
 
     def __init__(self, max_file_size_kb: int):
         """Initialize the FileSizeFilter."""
-        super().__init__()
         self.max_file_size_bytes = max_file_size_kb * 1024
 
     def _check(self, file_path: Path, context: dict) -> bool:
@@ -226,46 +222,27 @@ class FilterChainBuilder:
             SecurityFilter(),
             SymlinkFilter(config.follow_symlinks),
             BinaryFileFilter(),
+            OutputFilePathFilter(output_path),
         ]
         if config.max_file_size_kb is not None and config.max_file_size_kb > 0:
             filters.append(FileSizeFilter(config.max_file_size_kb))
-
-        # OutputFilePathFilter should always be at the end of the safety chain
-        # to ensure it's not accidentally included.
-        chain = OutputFilePathFilter(output_path)
-        current: FileFilter = chain
-        for f in filters:
-            current = current.set_next(f)
-        return chain
+        return CompositeFilter(filters)
 
     @staticmethod
     def build_full_chain(
         config: CombinerConfig,
         spec: pathspec.PathSpec | None,
-        safety_chain_head: FileFilter,
+        safety_chain: FileFilter,
     ) -> FileFilter:
         """Build a full filter chain including all configured filters."""
-        """
-        Build filter chain in order of execution:
-        1. ExtensionFilter - Fast rejection based on file extension
-        2. HiddenFileFilter - Quick path-based check
-        3. GitignoreFilter - Pattern matching
-        4. Safety chain (Security, Symlink, Binary, OutputFile, FileSize)
-           - Ordered by: Security > Symlink > OutputFile > Binary > FileSize
-        """
-        # Start with the ExtensionFilter as it's a primary filter
-        head_filter: FileFilter = ExtensionFilter(
-            config.extensions, config.exclude_extensions
-        )
-        current: FileFilter = head_filter
-
+        filters: list[FileFilter] = [
+            ExtensionFilter(config.extensions, config.exclude_extensions)
+        ]
         if not config.include_hidden:
-            current = current.set_next(HiddenFileFilter(config.include_hidden))
-
+            filters.append(HiddenFileFilter(config.include_hidden))
         if config.use_gitignore and spec:
-            current = current.set_next(GitignoreFilter(spec))
+            filters.append(GitignoreFilter(spec))
 
-        # Append the safety chain at the end of the full chain
-        current = current.set_next(safety_chain_head)
+        filters.append(safety_chain)
 
-        return head_filter  # Return the head of the newly built full chain
+        return CompositeFilter(filters)
