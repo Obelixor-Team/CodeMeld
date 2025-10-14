@@ -352,27 +352,22 @@ class CodeMeld:
             always_included_files.append(resolved_path)
         return always_included_files
 
-    def execute(self) -> None:
-        """Execute the combining process."""
+    def _prepare_files(self) -> list[Path]:
         all_files = self._collect_all_files()
-
-        # Combine all files and always_included_files, ensuring no duplicates
         combined_files = sorted(set(all_files + self.always_included_files))
+        return self._get_filtered_files(combined_files)
 
-        # Apply filters to the combined list
-        all_files_to_process = self._get_filtered_files(combined_files)
-
-        if not all_files_to_process:
-            logging.info("No files found to process. Exiting.")
-            return
-
-        # Initialize UI
-        ui = LiveUI(total_files=len(all_files_to_process))
+    def _setup_ui(self, total_files: int) -> LiveUI:
+        ui = LiveUI(total_files=total_files)
         ui.apply_config(self.config)
         ui.print_header()
         ui.print_config()
         ui.start()
+        return ui
 
+
+
+    def _run_generation(self, all_files_to_process: list[Path], ui: LiveUI) -> None:
         memory_monitor = SystemMemoryMonitor(
             self.config.max_memory_mb, self.config.count_tokens
         )
@@ -430,7 +425,17 @@ class CodeMeld:
                         else None
                     ),
                 )
-        ui.finish()  # Finalize UI and print summary
+
+    def execute(self) -> None:
+        """Execute the combining process."""
+        all_files_to_process = self._prepare_files()
+        if not all_files_to_process:
+            logging.info("No files found to process. Exiting.")
+            return
+
+        ui = self._setup_ui(len(all_files_to_process))
+        self._run_generation(all_files_to_process, ui)
+        ui.finish()
 
 
 def main():
