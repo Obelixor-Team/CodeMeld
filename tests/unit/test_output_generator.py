@@ -24,7 +24,7 @@ def mock_root_path():
 def mock_formatter():
     return TextFormatter()
 
-def test_in_memory_generator_memory_warning(mock_files_to_process, mock_root_path, mock_formatter):
+def test_in_memory_generator_memory_warning(mock_files_to_process, mock_root_path, mock_formatter, tmp_path):
     """Ensure MemoryThresholdExceededError is raised when memory exceeds threshold."""
     with patch('psutil.Process') as mock_process_class:
         mock_process_instance = mock_process_class.return_value
@@ -40,7 +40,7 @@ def test_in_memory_generator_memory_warning(mock_files_to_process, mock_root_pat
                 formatter=mock_formatter,
                 memory_monitor=memory_monitor,
                 publisher=MagicMock(),
-                output_path=Path("/tmp/output.txt"),
+                output_path=tmp_path / "output.txt",
                 ui=MagicMock(),
                 token_counter_observer=MagicMock(),
                 line_counter_observer=MagicMock(),
