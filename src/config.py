@@ -1,3 +1,5 @@
+# Copyright (c) 2025 skum
+
 """Defines the configuration for the code combiner."""
 
 from __future__ import annotations
@@ -61,6 +63,7 @@ class CombinerConfig:
     final_output_format: ConvertType | None = None
     force: bool = False
     always_include: list[str] = field(default_factory=list)
+    follow_symlinks: bool = False
     token_encoding_model: str = "cl100k_base"
     max_memory_mb: int | None = 500
     custom_file_headers: dict[str, str] = field(default_factory=dict)
@@ -68,3 +71,6 @@ class CombinerConfig:
     max_file_size_kb: int | None = None
     verbose: bool = False
     list_files: bool = False
+    summary: bool = True
+    dry_run_output: str | None = None
+    progress_style: str | None = None
