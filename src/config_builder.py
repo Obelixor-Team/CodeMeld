@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import logging
 import tomllib as _tomllib_impl
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -68,55 +69,48 @@ class CombinerConfigBuilder:
                 self._config[key] = value
         return self
 
+    def _apply_arg_if_present(
+        self,
+        args: argparse.Namespace,
+        arg_name: str,
+        config_key: str | None = None,
+        transform_func: Callable | None = None
+    ) -> None:
+        if config_key is None:
+            config_key = arg_name
+        if hasattr(args, arg_name) and getattr(args, arg_name) is not None:
+            value = getattr(args, arg_name)
+            if transform_func:
+                self._config[config_key] = transform_func(value)
+            else:
+                self._config[config_key] = value
+
     def with_cli_args(self, args: argparse.Namespace) -> CombinerConfigBuilder:
         """Apply CLI arguments (highest precedence)."""
-        # Only override if explicitly provided (not None)
-        if args.extensions is not None:
-            self._config["extensions"] = args.extensions
-        if args.exclude is not None:
-            self._config["exclude_extensions"] = args.exclude
-        if args.no_gitignore:
+        self._apply_arg_if_present(args, "extensions")
+        self._apply_arg_if_present(args, "exclude", "exclude_extensions")
+        if hasattr(args, "no_gitignore") and args.no_gitignore:
             self._config["use_gitignore"] = False
-        if args.include_hidden:
-            self._config["include_hidden"] = True
-        if args.no_tokens:
+        self._apply_arg_if_present(args, "include_hidden")
+        if hasattr(args, "no_tokens") and args.no_tokens:
             self._config["count_tokens"] = False
-        if args.header_width != 80:  # Check against default
+        if hasattr(args, "header_width") and args.header_width != 80:  # Check against default
             self._config["header_width"] = args.header_width
-        if args.format != "text":
-            self._config["format"] = args.format
-        if args.convert_to:
-            self._config["final_output_format"] = args.convert_to
-        if args.force:
-            self._config["force"] = True
-        if args.always_include is not None:
-            self._config["always_include"] = args.always_include
-        if args.follow_symlinks:
-            self._config["follow_symlinks"] = True
-
-        # Safely parse custom_file_headers from CLI
-        if (
-            hasattr(args, "custom_file_headers")
-            and args.custom_file_headers is not None
-        ):
-            self._config["custom_file_headers"] = args.custom_file_headers
-
-        if hasattr(args, "verbose") and args.verbose:
-            self._config["verbose"] = True
-        if hasattr(args, "list_files") and args.list_files:
-            self._config["list_files"] = True
-        if hasattr(args, "summary") and args.summary:
-            self._config["summary"] = True
-        if hasattr(args, "dry_run_output") and args.dry_run_output is not None:
-            self._config["dry_run_output"] = args.dry_run_output
-        if hasattr(args, "progress_style") and args.progress_style is not None:
-            self._config["progress_style"] = args.progress_style
-
-        if hasattr(args, "max_file_size_kb"):
-            self._config["max_file_size_kb"] = args.max_file_size_kb
-
-        if hasattr(args, "token_encoding_model"):
-            self._config["token_encoding_model"] = args.token_encoding_model
+        self._apply_arg_if_present(args, "format")
+        self._apply_arg_if_present(args, "convert_to", "final_output_format")
+        self._apply_arg_if_present(args, "force")
+        self._apply_arg_if_present(args, "always_include")
+        self._apply_arg_if_present(args, "follow_symlinks")
+        self._apply_arg_if_present(args, "token_encoding_model")
+        self._apply_arg_if_present(args, "max_memory_mb")
+        self._apply_arg_if_present(args, "custom_file_headers")
+        self._apply_arg_if_present(args, "dry_run")
+        self._apply_arg_if_present(args, "max_file_size_kb")
+        self._apply_arg_if_present(args, "verbose")
+        self._apply_arg_if_present(args, "list_files")
+        self._apply_arg_if_present(args, "summary")
+        self._apply_arg_if_present(args, "dry_run_output")
+        self._apply_arg_if_present(args, "progress_style")
 
         return self
 

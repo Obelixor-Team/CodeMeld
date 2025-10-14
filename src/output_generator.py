@@ -118,52 +118,7 @@ class InMemoryOutputGenerator(OutputGenerator):
         )  # Check 10 times total
 
         for i, file_path in enumerate(self.files_to_process):
-            # Sample memory usage instead of checking every file
-            if i % check_interval == 0:
-                self.memory_monitor.check_memory_usage()
-
-            try:
-                relative_path = file_path.relative_to(self.root_path)
-            except ValueError:
-                relative_path = file_path  # Use full path if not relative to root
-
-            content_generator = read_file_content(file_path)
-            self.publisher.notify("file_processed", relative_path)
-            full_content = ""
-            for chunk in content_generator:
-                full_content += chunk
-                self.publisher.notify(
-                    "file_content_processed", chunk
-                )  # Notify with chunk
-
-            if not full_content and not is_likely_binary(file_path):
-                # If content is empty and not binary, it means an error occurred during reading
-                # or the file was genuinely empty. Treat as skipped for UI purposes.
-                content = None
-            else:
-                content = full_content
-
-            # Update UI
-            tokens = (
-                self.token_counter_observer.total_tokens
-                if self.token_counter_observer
-                else None
-            )
-            lines = (
-                self.line_counter_observer.total_lines
-                if self.line_counter_observer
-                else None
-            )
-            self.ui.update(
-                str(relative_path),
-                skipped=(content is None),
-                tokens=tokens,
-                lines=lines,
-            )
-
-            if content is None:
-                continue
-            self._process_file(relative_path, content)
+            self._process_single_file(i, file_path, check_interval)
 
         result = self._end_output()
         self.publisher.notify(
@@ -217,6 +172,55 @@ class InMemoryOutputGenerator(OutputGenerator):
     def _get_progress_bar_description(self) -> str:
         """Return the description for the progress bar."""
         return f"Processing files ({self.formatter.format_name})"
+
+    def _process_single_file(self, i: int, file_path: Path, check_interval: int) -> None:
+        """Process a single file within the main loop."""
+        # Sample memory usage instead of checking every file
+        if i % check_interval == 0:
+            self.memory_monitor.check_memory_usage()
+
+        try:
+            relative_path = file_path.relative_to(self.root_path)
+        except ValueError:
+            relative_path = file_path  # Use full path if not relative to root
+
+        content_generator = read_file_content(file_path)
+        self.publisher.notify("file_processed", relative_path)
+        full_content = ""
+        for chunk in content_generator:
+            full_content += chunk
+            self.publisher.notify(
+                "file_content_processed", chunk
+            )  # Notify with chunk
+
+        if not full_content and not is_likely_binary(file_path):
+            # If content is empty and not binary, it means an error occurred during reading
+            # or the file was genuinely empty. Treat as skipped for UI purposes.
+            content = None
+        else:
+            content = full_content
+
+        # Update UI
+        tokens = (
+            self.token_counter_observer.total_tokens
+            if self.token_counter_observer
+            else None
+        )
+        lines = (
+            self.line_counter_observer.total_lines
+            if self.line_counter_observer
+            else None
+        )
+        self.ui.update(
+            str(relative_path),
+            skipped=(content is None),
+            tokens=tokens,
+            lines=lines,
+        )
+
+        if content is None:
+            return # Changed from continue to return as it's a separate function
+        self._process_file(relative_path, content)
 
 
 class StreamingOutputGenerator(OutputGenerator):
