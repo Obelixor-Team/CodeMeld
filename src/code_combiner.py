@@ -365,8 +365,6 @@ class CodeMeld:
         ui.start()
         return ui
 
-
-
     def _run_generation(self, all_files_to_process: list[Path], ui: LiveUI) -> None:
         memory_monitor = SystemMemoryMonitor(
             self.config.max_memory_mb, self.config.count_tokens
