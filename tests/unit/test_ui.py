@@ -68,10 +68,11 @@ class TestLiveUIFinish:
     def test_finish_list_files(self, capsys):
         ui = LiveUI()
         ui.list_files = True
+        ui._included_files_set = {"file1.txt", "file2.txt"}
         ui.included_files = ["file1.txt", "file2.txt"]
         ui.finish()
         captured = capsys.readouterr()
-        assert "Included Files:" in captured.out
+        assert "Included files:" in captured.out
         assert "- file1.txt" in captured.out
         assert "- file2.txt" in captured.out
 

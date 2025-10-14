@@ -48,6 +48,7 @@ class LiveUI:
         self.format = "text"
         self.directory = "."
         self.verbose = False
+        self._included_files_set: set[str] = set()
         self.included_files: list[str] = []
         self.list_files: bool = False
         self.summary: bool = False
@@ -122,7 +123,7 @@ class LiveUI:
 
     def update(
         self,
-        filename: str,
+        file_path: str | None = None,
         skipped: bool = False,
         tokens: int | None = None,
         lines: int | None = None,
@@ -141,18 +142,20 @@ class LiveUI:
             self._progress_bar.update(1)
             self._progress_bar.set_postfix(
                 {
-                    "file": filename,
+                    "file": file_path,
                     "mem": f"{self.memory_mb:.0f} MB",
                     "tokens": f"{self.tokens:,}",
                 }
             )
         elif self.verbose:
-            print(f"Processed: {filename}")
+            print(f"Processed: {file_path}")
 
         if not skipped:
-            self.included_files.append(filename)
+            if file_path and file_path not in self._included_files_set:
+                self._included_files_set.add(file_path)
+                self.included_files.append(file_path)
             logging.debug(
-                f"LiveUI.update: Added {filename}. Count: {len(self.included_files)}"
+                f"LiveUI.update: Added {file_path}. Count: {len(self.included_files)}"
             )
 
     # ───────────────────────────────
@@ -173,10 +176,9 @@ class LiveUI:
         )
 
         if self.list_files and self.included_files:
-            print(f"\n{separator}")
-            print("Included Files:")
-            for f in sorted(self.included_files):
-                print(f"  - {f}")
+            print("Included files:")
+            for path in sorted(self._included_files_set):
+                print(f"  - {path}")
 
         if self.summary:
             summary_items = {
