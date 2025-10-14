@@ -77,7 +77,7 @@ jobs:
         run: |
           PYTHONPATH=. pytest --cov=src --cov-report=xml --cov-fail-under=95
       - name: Upload coverage report
-        uses: codecov/codecov-action@5a10915 # TODO: Verify this SHA is the correct one for v3
+        uses: codecov/codecov-action@5a10915
         with:
           file: ./coverage.xml
 
