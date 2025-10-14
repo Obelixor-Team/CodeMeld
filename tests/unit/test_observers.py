@@ -235,9 +235,7 @@ def test_token_counter_observer_no_tiktoken(caplog):
 
 
 
-            assert "tiktoken not found. Token counting will be skipped." in caplog.text
-
-
+            assert caplog.records[0].message == "tiktoken not found. Token counting will be skipped."
 
 
 
