@@ -314,13 +314,16 @@ class StreamingOutputGenerator(OutputGenerator):
         self.publisher.notify("processing_complete", None)
         return None
 
+    def _stream_files_to_output(self, outfile: Any, is_dry_run: bool) -> None:
+        for file_path in self.files_to_process:
+            self._process_file_streaming(file_path, outfile if not is_dry_run else None)
+
     def _handle_dry_run_streaming(self) -> None:
         import sys
 
         logging.info("--- Dry Run Output (Streaming) ---")
         sys.stdout.write(self.formatter.begin_output())
-        for file_path in self.files_to_process:
-            self._process_file_streaming(file_path)
+        self._stream_files_to_output(sys.stdout, is_dry_run=True)
         sys.stdout.write(self.formatter.end_output())
         logging.info("--- End Dry Run Output (Streaming) ---")
         if self.dry_run_output_path:
@@ -330,8 +333,7 @@ class StreamingOutputGenerator(OutputGenerator):
                     self.dry_run_output_path, "w", encoding="utf-8"
                 ) as outfile:
                     outfile.write(self.formatter.begin_output())
-                    for file_path in self.files_to_process:
-                        self._process_file_streaming(file_path, outfile)
+                    self._stream_files_to_output(outfile, is_dry_run=True)
                     outfile.write(self.formatter.end_output())
                 logging.info(
                     f"Dry run output also written to: {self.dry_run_output_path}"
@@ -355,8 +357,7 @@ class StreamingOutputGenerator(OutputGenerator):
         with open(self.output_path, "w", encoding="utf-8") as outfile:
             outfile.write(self.formatter.begin_output())
 
-            for file_path in self.files_to_process:
-                self._process_file_streaming(file_path, outfile)
+            self._stream_files_to_output(outfile, is_dry_run=False)
 
             outfile.write(self.formatter.end_output())
 
