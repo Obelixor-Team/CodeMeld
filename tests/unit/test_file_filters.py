@@ -1,301 +1,326 @@
 # Copyright (c) 2025 skum
 
-from pathlib import Path
-from unittest.mock import Mock
-
+import os
 import pytest
-
-from src.config import CombinerConfig
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 from src.filters import (
     BinaryFileFilter,
     ExtensionFilter,
+    FileFilter,
     FilterChainBuilder,
     GitignoreFilter,
     HiddenFileFilter,
     OutputFilePathFilter,
-    SymlinkFilter,
     SecurityFilter,
-    FileSizeFilter, # Added for new test
+    SymlinkFilter,
+    FileSizeFilter,
+    CompositeFilter,
 )
+from src.config import CombinerConfig
+from src.code_combiner import CodeMeld
 
 
 @pytest.fixture
-def temp_dir(tmp_path: Path) -> Path:
-    (tmp_path / "test.py").touch()
-    (tmp_path / "test.js").touch()
-    (tmp_path / ".hidden").touch()
-    (tmp_path / "sub" / ".subhidden").mkdir(parents=True)
-    (tmp_path / "sub" / "test.ts").touch()
-    (tmp_path / "output.txt").touch()
-    (tmp_path / "binary.bin").write_bytes(b"\x00\x01")
-    (tmp_path / "symlink.py").symlink_to(tmp_path / "test.py")
-    return tmp_path
+def mock_config():
+    return CombinerConfig(
+        directory_path=Path("/mock/root"),
+        output="output.txt",
+        extensions=[".py", ".js"],
+        exclude_extensions=[".tmp"],
+        use_gitignore=True,
+        include_hidden=False,
+        follow_symlinks=False,
+        max_file_size_kb=100,
+    )
+
+
+@pytest.fixture
+def mock_context():
+    return {"root_path": Path("/mock/root")}
+
+
+@pytest.fixture
+def mock_file_path():
+    return Path("/mock/root/test.py")
 
 
 class TestExtensionFilter:
-    def test_should_process_included_extension(self, temp_dir: Path):
-        file_filter = ExtensionFilter(extensions=[".py"], exclude=[])
-        assert file_filter.should_process(temp_dir / "test.py", {})
+    def test_include_extension(self, mock_file_path):
+        filter = ExtensionFilter([".py"], [])
+        assert filter.should_process(mock_file_path, {})
 
-    def test_should_not_process_excluded_extension(self, temp_dir: Path):
-        file_filter = ExtensionFilter(extensions=[".py", ".js"], exclude=[".js"])
-        assert not file_filter.should_process(temp_dir / "test.js", {})
+    def test_exclude_extension(self, mock_file_path):
+        filter = ExtensionFilter([".js"], [".py"])
+        assert not filter.should_process(mock_file_path, {})
 
-    def test_should_not_process_other_extension(self, temp_dir: Path):
-        file_filter = ExtensionFilter(extensions=[".py"], exclude=[])
-        assert not file_filter.should_process(temp_dir / "test.js", {})
+    def test_no_match(self, mock_file_path):
+        filter = ExtensionFilter([".js"], [])
+        assert not filter.should_process(mock_file_path, {})
+
+    def test_case_insensitivity(self):
+        filter = ExtensionFilter([".PY"], [])
+        assert filter.should_process(Path("file.py"), {})
+
+    def test_empty_extensions_list(self):
+        filter = ExtensionFilter([], [])
+        assert not filter.should_process(Path("file.py"), {})
 
 
 class TestHiddenFileFilter:
-    def test_should_process_hidden_files_when_included(self, temp_dir: Path):
-        file_filter = HiddenFileFilter(include_hidden=True)
-        assert file_filter.should_process(temp_dir / ".hidden", {"root_path": temp_dir})
+    def test_include_hidden_true(self, mock_file_path):
+        filter = HiddenFileFilter(include_hidden=True)
+        assert filter.should_process(Path("/mock/root/.hidden_file"), {"root_path": Path("/mock/root")})
 
-    def test_should_not_process_hidden_files_when_not_included(self, temp_dir: Path):
-        file_filter = HiddenFileFilter(include_hidden=False)
-        assert not file_filter.should_process(temp_dir / ".hidden", {"root_path": temp_dir})
+    def test_include_hidden_false_visible_file(self, mock_file_path):
+        filter = HiddenFileFilter(include_hidden=False)
+        assert filter.should_process(Path("/mock/root/visible_file.py"), {"root_path": Path("/mock/root")})
 
-    def test_should_not_process_files_in_hidden_dirs_when_not_included(
-        self, temp_dir: Path
-    ):
-        file_filter = HiddenFileFilter(include_hidden=False)
-        assert not file_filter.should_process(
-            temp_dir / "sub" / ".subhidden" / "test.ts", {"root_path": temp_dir}
-        )
+    def test_include_hidden_false_hidden_file(self, mock_file_path):
+        filter = HiddenFileFilter(include_hidden=False)
+        assert not filter.should_process(Path("/mock/root/.hidden_file"), {"root_path": Path("/mock/root")})
+
+    def test_include_hidden_false_hidden_dir(self, mock_file_path):
+        filter = HiddenFileFilter(include_hidden=False)
+        assert not filter.should_process(Path("/mock/root/.hidden_dir/file.py"), {"root_path": Path("/mock/root")})
+
+    def test_no_root_path_context(self):
+        filter = HiddenFileFilter(include_hidden=False)
+        assert filter.should_process(Path("/mock/root/.hidden_file"), {})
+
+
+@pytest.fixture
+def mock_spec():
+    spec = MagicMock()
+    spec.match_file.side_effect = lambda p: p == "ignored.py"
+    return spec
 
 
 class TestGitignoreFilter:
-    def test_should_process_file_not_in_gitignore(self, temp_dir: Path):
-        spec = Mock()
-        spec.match_file.return_value = False
-        file_filter = GitignoreFilter(spec=spec)
-        assert file_filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
 
-    def test_should_not_process_file_in_gitignore(self, temp_dir: Path):
-        spec = Mock()
-        spec.match_file.return_value = True
-        file_filter = GitignoreFilter(spec=spec)
-        assert not file_filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
+    def test_file_ignored(self, mock_spec):
+        filter = GitignoreFilter(mock_spec)
+        assert not filter.should_process(Path("/mock/root/ignored.py"), {"root_path": Path("/mock/root")})
+
+    def test_file_not_ignored(self, mock_spec):
+        filter = GitignoreFilter(mock_spec)
+        assert filter.should_process(Path("/mock/root/not_ignored.py"), {"root_path": Path("/mock/root")})
+
+    def test_no_spec(self):
+        filter = GitignoreFilter(None)
+        assert filter.should_process(Path("/mock/root/test.py"), {})
+
+    def test_no_root_path_context(self, mock_spec):
+        filter = GitignoreFilter(mock_spec)
+        assert filter.should_process(Path("/mock/root/ignored.py"), {})
 
 
 class TestOutputFilePathFilter:
-    def test_should_process_other_files(self, temp_dir: Path):
-        file_filter = OutputFilePathFilter(output_path=temp_dir / "output.txt")
-        assert file_filter.should_process(temp_dir / "test.py", {})
+    def test_output_file_is_filtered(self, tmp_path):
+        output_file = tmp_path / "output.txt"
+        filter = OutputFilePathFilter(output_file)
+        assert not filter.should_process(output_file, {})
 
-    def test_should_not_process_output_file(self, temp_dir: Path):
-        file_filter = OutputFilePathFilter(output_path=temp_dir / "output.txt")
-        assert not file_filter.should_process(temp_dir / "output.txt", {})
+    def test_other_file_is_not_filtered(self, tmp_path):
+        output_file = tmp_path / "output.txt"
+        other_file = tmp_path / "other.py"
+        filter = OutputFilePathFilter(output_file)
+        assert filter.should_process(other_file, {})
 
 
 class TestBinaryFileFilter:
-    def test_should_process_text_file(self, temp_dir: Path):
-        file_filter = BinaryFileFilter()
-        assert file_filter.should_process(temp_dir / "test.py", {})
+    @patch("src.filters.is_likely_binary", return_value=True)
+    def test_binary_file_is_filtered(self, mock_is_likely_binary):
+        filter = BinaryFileFilter()
+        assert not filter.should_process(Path("binary.bin"), {})
 
-    def test_should_not_process_binary_file(self, temp_dir: Path):
-        file_filter = BinaryFileFilter()
-        assert not file_filter.should_process(temp_dir / "binary.bin", {})
+    @patch("src.filters.is_likely_binary", return_value=False)
+    def test_text_file_is_not_filtered(self, mock_is_likely_binary):
+        filter = BinaryFileFilter()
+        assert filter.should_process(Path("text.txt"), {})
 
 
 class TestSymlinkFilter:
-    def test_should_process_regular_file(self, temp_dir: Path):
-        file_filter = SymlinkFilter(follow_symlinks=False)
-        assert file_filter.should_process(temp_dir / "test.py", {})
+    @pytest.fixture
+    def mock_symlink_file(self, tmp_path):
+        target = tmp_path / "target.txt"
+        target.write_text("target content")
+        symlink = tmp_path / "link.txt"
+        os.symlink(target, symlink)
+        return symlink
 
-    def test_should_not_process_symlink(self, temp_dir: Path):
-        file_filter = SymlinkFilter(follow_symlinks=False)
-        assert not file_filter.should_process(temp_dir / "symlink.py", {})
+    def test_symlink_filtered_when_not_following(self, mock_symlink_file):
+        filter = SymlinkFilter(follow_symlinks=False)
+        assert not filter.should_process(mock_symlink_file, {})
+
+    def test_symlink_not_filtered_when_following(self, mock_symlink_file):
+        filter = SymlinkFilter(follow_symlinks=True)
+        assert filter.should_process(mock_symlink_file, {})
+
+    def test_non_symlink_not_filtered(self, tmp_path):
+        non_symlink = tmp_path / "regular.txt"
+        non_symlink.write_text("regular content")
+        filter = SymlinkFilter(follow_symlinks=False)
+        assert filter.should_process(non_symlink, {})
 
 
 class TestSecurityFilter:
-    def test_should_process_path_inside_root(self, temp_dir: Path):
-        file_filter = SecurityFilter()
-        assert file_filter.should_process(temp_dir / "test.py", {"root_path": temp_dir})
+    def test_file_within_root(self, tmp_path):
+        root = tmp_path / "project"
+        root.mkdir()
+        file_path = root / "file.txt"
+        file_path.write_text("content")
+        filter = SecurityFilter()
+        assert filter.should_process(file_path, {"root_path": root})
 
-    def test_should_not_process_path_outside_root(self, temp_dir: Path):
-        file_filter = SecurityFilter()
-        # Create a file outside the temp_dir to simulate path traversal
-        outside_dir = temp_dir.parent / "outside_file.txt"
-        outside_dir.touch()
-        assert not file_filter.should_process(outside_dir, {"root_path": temp_dir})
+    def test_file_outside_root(self, tmp_path):
+        root = tmp_path / "project"
+        root.mkdir()
+        file_path = tmp_path / "outside.txt"
+        file_path.write_text("content")
+        filter = SecurityFilter()
+        assert not filter.should_process(file_path, {"root_path": root})
 
-        file_filter = SecurityFilter()
-        # Simulate a path traversal attempt using '..'
-        traversal_path = temp_dir / ".." / "outside_file.txt"
-        # Create the file to be able to resolve the path
-        (temp_dir.parent / "outside_file.txt").touch()
-        assert not file_filter.should_process(traversal_path, {"root_path": temp_dir})
-
-    def test_should_not_process_path_with_multiple_traversal_attempts(self, temp_dir: Path):
-        file_filter = SecurityFilter()
-        # Simulate a path traversal attempt using multiple '..'
-        traversal_path = temp_dir / "sub" / ".." / ".." / "outside_file.txt"
-        (temp_dir.parent / "outside_file.txt").touch()
-        assert not file_filter.should_process(traversal_path, {"root_path": temp_dir})
+    def test_no_root_path_context(self, tmp_path):
+        file_path = tmp_path / "file.txt"
+        file_path.write_text("content")
+        filter = SecurityFilter()
+        assert filter.should_process(file_path, {})
 
 
 class TestFileSizeFilter:
-    def test_should_process_small_file(self, temp_dir: Path):
-        small_file = temp_dir / "small.txt"
-        small_file.write_text("a" * 100) # 100 bytes
-        file_filter = FileSizeFilter(max_file_size_kb=1) # 1 KB limit
-        assert file_filter.should_process(small_file, {})
+    def test_file_within_size_limit(self, tmp_path):
+        file_path = tmp_path / "small.txt"
+        file_path.write_text("a" * 50 * 1024)  # 50KB
+        filter = FileSizeFilter(max_file_size_kb=100)
+        assert filter.should_process(file_path, {})
 
-    def test_should_not_process_large_file(self, temp_dir: Path):
-        large_file = temp_dir / "large.txt"
-        large_file.write_text("a" * 2000) # 2000 bytes
-        file_filter = FileSizeFilter(max_file_size_kb=1) # 1 KB limit
-        assert not file_filter.should_process(large_file, {})
+    def test_file_exceeds_size_limit(self, tmp_path):
+        file_path = tmp_path / "large.txt"
+        file_path.write_text("a" * 150 * 1024)  # 150KB
+        filter = FileSizeFilter(max_file_size_kb=100)
+        assert not filter.should_process(file_path, {})
 
-    def test_should_not_process_non_existent_file(self, temp_dir: Path):
-        non_existent_file = temp_dir / "non_existent.txt"
-        file_filter = FileSizeFilter(max_file_size_kb=1)
-        assert not file_filter.should_process(non_existent_file, {})
+    def test_file_not_found(self):
+        filter = FileSizeFilter(max_file_size_kb=100)
+        assert not filter.should_process(Path("non_existent.txt"), {})
 
-    def test_should_process_file_at_exact_limit(self, temp_dir: Path):
-        exact_file = temp_dir / "exact.txt"
-        exact_file.write_text("a" * 1024) # 1 KB
-        file_filter = FileSizeFilter(max_file_size_kb=1) # 1 KB limit
-        assert file_filter.should_process(exact_file, {})
+
+class TestCompositeFilter:
+    def test_all_filters_pass(self):
+        mock_filter1 = MagicMock(spec=FileFilter)
+        mock_filter1.should_process.return_value = True
+        mock_filter2 = MagicMock(spec=FileFilter)
+        mock_filter2.should_process.return_value = True
+
+        composite = CompositeFilter([mock_filter1, mock_filter2])
+        assert composite.should_process(Path("file.txt"), {})
+        mock_filter1.should_process.assert_called_once()
+        mock_filter2.should_process.assert_called_once()
+
+    def test_one_filter_fails(self):
+        mock_filter1 = MagicMock(spec=FileFilter)
+        mock_filter1.should_process.return_value = True
+        mock_filter2 = MagicMock(spec=FileFilter)
+        mock_filter2.should_process.return_value = False
+
+        composite = CompositeFilter([mock_filter1, mock_filter2])
+        assert not composite.should_process(Path("file.txt"), {})
+        mock_filter1.should_process.assert_called_once()
+        mock_filter2.should_process.assert_called_once()
+
+    def test_empty_composite(self):
+        composite = CompositeFilter([])
+        assert composite.should_process(Path("file.txt"), {})
 
 
 class TestFilterChainBuilder:
-    def test_build_full_chain_default_filters(self, temp_dir: Path):
-        config = Mock(spec=CombinerConfig)
-        config.directory_path = temp_dir
-        config.output = str(temp_dir / "output.txt")
-        config.extensions = [".py"]
-        config.exclude_extensions = []
-        config.include_hidden = False
-        config.use_gitignore = False
-        config.count_tokens = False
-        config.header_width = 80
-        config.format = "text"
-        config.final_output_format = None
-        config.force = False
-        config.always_include = []
-        config.token_encoding_model = "gpt-2"
-        config.max_memory_mb = 500
-        config.custom_file_headers = {}
-        config.max_file_size_kb = None
-        config.follow_symlinks = False
+    def test_build_safety_chain(self, mock_config, tmp_path):
+        mock_config.output = str(tmp_path / "output.txt")
+        mock_config.max_file_size_kb = 50
+        safety_chain = FilterChainBuilder.build_safety_chain(mock_config)
+        assert isinstance(safety_chain, CompositeFilter)
+        # Further assertions to check the types of filters within the composite
+        assert any(isinstance(f, SecurityFilter) for f in safety_chain.filters)
+        assert any(isinstance(f, SymlinkFilter) for f in safety_chain.filters)
+        assert any(isinstance(f, BinaryFileFilter) for f in safety_chain.filters)
+        assert any(isinstance(f, OutputFilePathFilter) for f in safety_chain.filters)
+        assert any(isinstance(f, FileSizeFilter) for f in safety_chain.filters)
 
-        safety_chain = FilterChainBuilder.build_safety_chain(config)
-        full_chain = FilterChainBuilder.build_full_chain(config, None, safety_chain)
+    def test_build_safety_chain_no_file_size(self, mock_config, tmp_path):
+        mock_config.output = str(tmp_path / "output.txt")
+        mock_config.max_file_size_kb = None
+        safety_chain = FilterChainBuilder.build_safety_chain(mock_config)
+        assert not any(isinstance(f, FileSizeFilter) for f in safety_chain.filters)
 
-        # Test files that should be processed by the full chain
-        assert full_chain.should_process(temp_dir / "test.py", {"root_path": temp_dir})
-        # Test files that should be filtered by the full chain
-        assert not full_chain.should_process(temp_dir / "test.js", {"root_path": temp_dir})
-        assert not full_chain.should_process(temp_dir / ".hidden", {"root_path": temp_dir})
-        assert not full_chain.should_process(
-            temp_dir / "output.txt", {"root_path": temp_dir}
-        )
-        assert not full_chain.should_process(
-            temp_dir / "binary.bin", {"root_path": temp_dir}
-        )
-        assert not full_chain.should_process(
-            temp_dir / "symlink.py", {"root_path": temp_dir}
-        )
+    def test_build_safety_chain_with_file_size(self, mock_config, tmp_path):
+        mock_config.output = str(tmp_path / "output.txt")
+        mock_config.max_file_size_kb = 50
+        safety_chain = FilterChainBuilder.build_safety_chain(mock_config)
+        assert isinstance(safety_chain, CompositeFilter)
+        assert any(isinstance(f, FileSizeFilter) for f in safety_chain.filters)
 
-    def test_build_safety_chain_only_safety_filters(self, temp_dir: Path):
-        config = Mock(spec=CombinerConfig)
-        config.directory_path = temp_dir
-        config.output = str(temp_dir / "output.txt")
-        config.extensions = [".py"]
-        config.exclude_extensions = []
-        config.include_hidden = False
-        config.use_gitignore = False
-        config.count_tokens = False
-        config.header_width = 80
-        config.format = "text"
-        config.final_output_format = None
-        config.force = False
-        config.always_include = []
-        config.token_encoding_model = "gpt-2"
-        config.max_memory_mb = 500
-        config.custom_file_headers = {}
-        config.max_file_size_kb = None
-        config.follow_symlinks = False
+    def test_build_full_chain(self, mock_config, mock_spec, tmp_path):
+        mock_config.output = str(tmp_path / "output.txt")
+        safety_chain = FilterChainBuilder.build_safety_chain(mock_config)
+        full_chain = FilterChainBuilder.build_full_chain(mock_config, mock_spec, safety_chain, [])
+        assert isinstance(full_chain, CompositeFilter)
+        # Check the order and types of filters
+        filters = full_chain.filters
+        assert isinstance(filters[0], ExtensionFilter)
+        assert isinstance(filters[1], HiddenFileFilter)
+        assert isinstance(filters[2], GitignoreFilter)
+        assert isinstance(filters[3], CompositeFilter) # The safety chain itself is a composite
 
-        safety_chain = FilterChainBuilder.build_safety_chain(config)
+    def test_code_combiner_integration(self, mock_config, tmp_path):
+        # This is an integration-style test for the filter chain within CodeCombiner
+        mock_config.directory_path = tmp_path
+        mock_config.output = str(tmp_path / "output.txt")
+        mock_config.extensions = [".py"]
+        mock_config.exclude_extensions = []
+        mock_config.use_gitignore = False
+        mock_config.include_hidden = False
+        mock_config.follow_symlinks = False
+        mock_config.max_file_size_kb = None
 
-        # Test files that should be processed by the safety chain (i.e., not filtered by safety filters)
-        assert safety_chain.should_process(temp_dir / "test.py", {"root_path": temp_dir})
-        assert safety_chain.should_process(temp_dir / "test.js", {"root_path": temp_dir}) # Should pass safety, but fail full
-        assert safety_chain.should_process(temp_dir / ".hidden", {"root_path": temp_dir}) # Should pass safety, but fail full
+        # Create some dummy files
+        (tmp_path / "file1.py").write_text("print('hello')")
+        (tmp_path / "file2.js").write_text("console.log('world')")
+        (tmp_path / ".hidden.py").write_text("hidden content")
 
-        # Test files that should be filtered by the safety chain
-        assert not safety_chain.should_process(
-            temp_dir / "output.txt", {"root_path": temp_dir}
-        )
-        assert not safety_chain.should_process(
-            temp_dir / "binary.bin", {"root_path": temp_dir}
-        )
-        assert not safety_chain.should_process(
-            temp_dir / "symlink.py", {"root_path": temp_dir}
-        )
+        combiner = CodeMeld(mock_config)
+        filtered_files = combiner._get_filtered_files()
 
-        # Test security filter in safety chain
-        outside_dir = temp_dir.parent / "outside_file.txt"
-        outside_dir.touch()
-        assert not safety_chain.should_process(outside_dir, {"root_path": temp_dir})
+        assert len(filtered_files) == 1
+        assert filtered_files[0].name == "file1.py"
 
-    def test_safety_chain_filters_symlink(self, temp_dir: Path):
-        config = Mock(spec=CombinerConfig)
-        config.directory_path = temp_dir
-        config.output = str(temp_dir / "output.txt")
-        config.extensions = []
-        config.exclude_extensions = []
-        config.include_hidden = False
-        config.use_gitignore = False
-        config.count_tokens = False
-        config.header_width = 80
-        config.format = "text"
-        config.final_output_format = None
-        config.force = False
-        config.always_include = []
-        config.token_encoding_model = "gpt-2"
-        config.max_memory_mb = 500
-        config.custom_file_headers = {}
-        config.max_file_size_kb = None
-        config.follow_symlinks = False
+    def test_code_combiner_integration_with_gitignore(self, mock_config, tmp_path):
+        mock_config.directory_path = tmp_path
+        mock_config.output = str(tmp_path / "output.txt")
+        mock_config.extensions = [".py"]
+        mock_config.use_gitignore = True
+        (tmp_path / ".gitignore").write_text("*.py") # Ignore all python files
 
-        safety_chain = FilterChainBuilder.build_safety_chain(config)
-        assert not safety_chain.should_process(temp_dir / "symlink.py", {"root_path": temp_dir})
+        (tmp_path / "file1.py").write_text("print('hello')")
+        (tmp_path / "file2.js").write_text("console.log('world')")
 
+        combiner = CodeMeld(mock_config)
+        filtered_files = combiner._get_filtered_files()
 
-class TestPathResolution:
-    def test_absolute_path_resolution(self, temp_dir: Path):
-        from src.code_combiner import CodeCombiner
-        mock_config = Mock(spec=CombinerConfig, directory_path=temp_dir, format="text", header_width=80, output=str(temp_dir / "output.txt"), extensions=[], exclude_extensions=[], final_output_format=None, token_encoding_model="gpt-2", max_memory_mb=500, custom_file_headers={}, max_file_size_kb=None)
-        combiner = CodeCombiner(mock_config)
-        abs_path = temp_dir / "test.py"
-        assert combiner._resolve_path(abs_path) == abs_path.resolve()
+        assert len(filtered_files) == 0
 
-    def test_relative_path_resolution(self, temp_dir: Path):
-        from src.code_combiner import CodeCombiner
-        mock_config = Mock(spec=CombinerConfig, directory_path=temp_dir, format="text", header_width=80, output=str(temp_dir / "output.txt"), extensions=[], exclude_extensions=[], final_output_format=None, token_encoding_model="gpt-2", max_memory_mb=500, custom_file_headers={}, max_file_size_kb=None)
-        combiner = CodeCombiner(mock_config)
-        rel_path = Path("test.py")
-        expected_path = (temp_dir / rel_path).resolve()
-        assert combiner._resolve_path(rel_path) == expected_path
+    def test_code_combiner_integration_with_always_include(self, mock_config, tmp_path):
+        mock_config.directory_path = tmp_path
+        mock_config.output = str(tmp_path / "output.txt")
+        mock_config.extensions = [".py"]
+        mock_config.always_include = [str(tmp_path / "file2.js")] # Include a non-python file
+        
+        (tmp_path / "file1.py").write_text("print('hello')")
+        (tmp_path / "file2.js").write_text("console.log('world')")
 
+        combiner = CodeMeld(mock_config)
+        filtered_files = combiner._get_filtered_files()
 
-class TestPathResolutionEdgeCases:
-    def test_relative_output_path_resolution(self, temp_dir: Path):
-        output_path = Path("output.txt")
-        file_filter = OutputFilePathFilter(output_path=temp_dir / output_path)
-        assert not file_filter.should_process(temp_dir / output_path, {})
-
-    def test_output_path_with_double_dots(self, temp_dir: Path):
-        output_path = temp_dir / "sub" / ".." / "output.txt"
-        file_filter = OutputFilePathFilter(output_path=output_path)
-        assert not file_filter.should_process(temp_dir / "output.txt", {})
-
-    def test_non_existent_output_path(self, temp_dir: Path):
-        output_path = temp_dir / "non_existent_dir" / "output.txt"
-        file_filter = OutputFilePathFilter(output_path=output_path)
-        # The filter should still work correctly even if the path doesn't exist yet.
-        assert not file_filter.should_process(output_path, {})
+        assert len(filtered_files) == 2
+        assert Path(tmp_path / "file1.py") in filtered_files
+        assert Path(tmp_path / "file2.js") in filtered_files

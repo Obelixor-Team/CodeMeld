@@ -41,9 +41,22 @@ class CompositeFilter(FileFilter):
 
     def _check(self, file_path: Path, context: dict) -> bool:
         """Check the file against all filters in the composite."""
+        always_include_filter = None
         for f in self.filters:
-            if not f.should_process(file_path, context):
-                return False
+            if isinstance(f, AlwaysIncludeFilter):
+                always_include_filter = f
+                break
+
+        if always_include_filter and always_include_filter.should_process(
+            file_path, context
+        ):
+            return True
+
+        for f in self.filters:
+            if not isinstance(f, AlwaysIncludeFilter):
+                if not f.should_process(file_path, context):
+                    return False
+
         return True
 
 
@@ -183,6 +196,17 @@ class SecurityFilter(FileFilter):
             return False
 
 
+class AlwaysIncludeFilter(FileFilter):
+    """Filter for files that should always be included."""
+
+    def __init__(self, always_include_paths: list[Path]):
+        """Initialize the AlwaysIncludeFilter."""
+        self.always_include_paths = {p.resolve() for p in always_include_paths}
+
+    def _check(self, file_path: Path, context: dict) -> bool:
+        return file_path.resolve() in self.always_include_paths
+
+
 class FileSizeFilter(FileFilter):
     """Filter files based on their size."""
 
@@ -233,11 +257,13 @@ class FilterChainBuilder:
         config: CombinerConfig,
         spec: pathspec.PathSpec | None,
         safety_chain: FileFilter,
+        always_include_paths: list[Path],
     ) -> FileFilter:
         """Build a full filter chain including all configured filters."""
-        filters: list[FileFilter] = [
-            ExtensionFilter(config.extensions, config.exclude_extensions)
-        ]
+        filters: list[FileFilter] = []
+        if always_include_paths:
+            filters.append(AlwaysIncludeFilter(always_include_paths))
+        filters.append(ExtensionFilter(config.extensions, config.exclude_extensions))
         if not config.include_hidden:
             filters.append(HiddenFileFilter(config.include_hidden))
         if config.use_gitignore and spec:

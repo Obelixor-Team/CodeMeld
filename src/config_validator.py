@@ -11,7 +11,7 @@ from typing import Any
 
 import tiktoken
 
-from .config import CodeCombinerError
+from .config import CodeMeldError
 
 
 class ConfigValidator:
@@ -37,18 +37,16 @@ class ConfigValidator:
     def _validate_directory(self) -> None:
         directory_path = Path(self._directory)
         if not directory_path.is_dir():
-            raise CodeCombinerError(
-                f"Error: Directory '{self._directory}' does not exist."
-            )
+            raise CodeMeldError(f"Error: Directory '{self._directory}' does not exist.")
 
     def _validate_extensions(self) -> None:
         if not self._config["extensions"]:
-            raise CodeCombinerError("Error: Extension list cannot be empty.")
+            raise CodeMeldError("Error: Extension list cannot be empty.")
 
         for i, ext in enumerate(self._config["extensions"]):
             if not ext.startswith("."):
                 suggested_ext = f".{ext.lower()}"
-                raise CodeCombinerError(
+                raise CodeMeldError(
                     f"Error: Extension '{ext}' must start with '.'. "
                     f"Did you mean '{suggested_ext}'?"
                 )
@@ -56,7 +54,7 @@ class ConfigValidator:
 
     def _validate_header_width(self) -> None:
         if self._config["header_width"] <= 0:
-            raise CodeCombinerError("Header width must be positive")
+            raise CodeMeldError("Header width must be positive")
 
     def _validate_output_path(self) -> None:
         output_path = Path(self._output)
@@ -68,11 +66,11 @@ class ConfigValidator:
     def _validate_conversion(self) -> None:
         if self._config["final_output_format"]:
             if self._config["format"] not in ["json", "xml"]:
-                raise CodeCombinerError(
+                raise CodeMeldError(
                     "--convert-to can only be used when --format is 'json' or 'xml'"
                 )
             if self._config["format"] == self._config["final_output_format"]:
-                raise CodeCombinerError(
+                raise CodeMeldError(
                     f"Error: Cannot convert format '{self._config['format']}' "
                     f"to itself."
                 )
@@ -80,7 +78,7 @@ class ConfigValidator:
     def _validate_max_file_size_kb(self) -> None:
         max_size = self._config.get("max_file_size_kb")
         if max_size is not None and (not isinstance(max_size, int) or max_size <= 0):
-            raise CodeCombinerError("Max file size must be a positive integer.")
+            raise CodeMeldError("Max file size must be a positive integer.")
 
     def _validate_token_encoding_model(self) -> None:
         if self._config.get("count_tokens"):
@@ -89,7 +87,7 @@ class ConfigValidator:
                 try:
                     tiktoken.encoding_for_model(token_encoding_model)
                 except KeyError as e:
-                    raise CodeCombinerError(
+                    raise CodeMeldError(
                         f"Invalid token encoding model: {token_encoding_model}"
                     ) from e
 
@@ -111,12 +109,12 @@ class ConfigValidator:
                 # If validation passes, store the parsed dictionary back in _config
                 self._config["custom_file_headers"] = parsed_headers
             except json.JSONDecodeError as e:
-                raise CodeCombinerError(
+                raise CodeMeldError(
                     f"Invalid JSON in custom_file_headers: {e}\n"
-                    f'Example: \'{{"py": "# Python: {{path}}"}}\''
+                    """Example: '{"py": "# Python: {path}"}"""
                 ) from e
             except ValueError as e:
-                raise CodeCombinerError(
+                raise CodeMeldError(
                     f"Invalid custom_file_headers format: {e}\n"
-                    f'Example: \'{{"py": "# Python: {{path}}"}}\''
+                    """Example: '{"py": "# Python: {path}"}"""
                 ) from e

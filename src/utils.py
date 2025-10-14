@@ -1,6 +1,6 @@
 # Copyright (c) 2025 skum
 
-"""Utility functions for the code combiner."""
+"""Utility functions for the CodeMeld tool."""
 
 from __future__ import annotations
 

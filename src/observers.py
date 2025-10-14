@@ -96,35 +96,34 @@ class Publisher:
 
     @overload
     def notify(
-        self, event: Literal[ProcessingEvent.PROCESSING_STARTED], data: ProcessingStartedData
-    ) -> None:
-        ...
+        self,
+        event: Literal[ProcessingEvent.PROCESSING_STARTED],
+        data: ProcessingStartedData,
+    ) -> None: ...
 
     @overload
     def notify(
         self, event: Literal[ProcessingEvent.FILE_PROCESSED], data: FileProcessedData
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def notify(
         self,
         event: Literal[ProcessingEvent.FILE_CONTENT_PROCESSED],
         data: FileContentProcessedData,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def notify(
         self, event: Literal[ProcessingEvent.PROCESSING_COMPLETE], data: None
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def notify(
-        self, event: Literal[ProcessingEvent.OUTPUT_GENERATED], data: OutputGeneratedData
-    ) -> None:
-        ...
+        self,
+        event: Literal[ProcessingEvent.OUTPUT_GENERATED],
+        data: OutputGeneratedData,
+    ) -> None: ...
 
     def notify(self, event: ProcessingEvent, data: Any) -> None:
         """
@@ -199,7 +198,9 @@ class LineCounterObserver(Observer[FileContentProcessedData]):
         if event == ProcessingEvent.FILE_CONTENT_PROCESSED:
             with self._lock:
                 self._total_lines += (
-                    data["content_chunk"].count("\n") + 1 if data["content_chunk"] else 0
+                    data["content_chunk"].count("\n") + 1
+                    if data["content_chunk"]
+                    else 0
                 )
 
 
@@ -232,13 +233,19 @@ class TokenCounterObserver(Observer[FileContentProcessedData]):
         self.total_tokens = 0
         self.token_encoding_model = token_encoding_model
         self._lock = threading.Lock()
-        try:
-            import tiktoken
+        self._tiktoken_module: ModuleType | None = None
 
-            self.tiktoken_module: ModuleType | None = tiktoken
-        except ImportError:
-            self.tiktoken_module = None
-            logging.warning("tiktoken not found. Token counting will be skipped.")
+    @property
+    def tiktoken_module(self) -> ModuleType | None:
+        """Lazily import and return the tiktoken module."""
+        if self._tiktoken_module is None:
+            try:
+                import tiktoken
+
+                self._tiktoken_module = tiktoken
+            except ImportError:
+                logging.warning("tiktoken not found. Token counting will be skipped.")
+        return self._tiktoken_module
 
     def update(self, event: ProcessingEvent, data: FileContentProcessedData):
         """Count tokens based on the event."""

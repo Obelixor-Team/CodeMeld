@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from src.code_combiner import CodeCombiner
+from src.code_combiner import CodeMeld
 from src.config import CombinerConfig
 
 def test_processing_speed_benchmark(benchmark, tmp_path):
@@ -20,7 +20,7 @@ def test_processing_speed_benchmark(benchmark, tmp_path):
     )
     
     # Benchmark the execute method
-    benchmark(CodeCombiner(config).execute)
+    benchmark(CodeMeld(config).execute)
     
     # Assert that the output file exists
     output_path = tmp_path / "output.txt"

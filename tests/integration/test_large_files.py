@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from src.code_combiner import CodeCombiner
+from src.code_combiner import CodeMeld
 from src.config import CombinerConfig
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def test_large_file_processing(tmp_path: Path, large_file: Path):
         extensions=[".txt"],
         count_tokens=False,  # Disable token counting for large files
     )
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     combiner.execute()
 
     assert output_path.exists()
@@ -45,7 +45,7 @@ def test_large_xml_file_streaming(tmp_path: Path, large_xml_file: Path):
         count_tokens=False,
         max_memory_mb=1, # Force streaming
     )
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     combiner.execute()
 
     assert output_path.exists()

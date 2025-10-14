@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pathspec
 
-from .config import CodeCombinerError, CombinerConfig, MemoryThresholdExceededError
+from .config import CodeMeldError, CombinerConfig, MemoryThresholdExceededError
 from .config_builder import load_and_merge_config
 from .context import GeneratorContext
 from .filters import FileFilter, FilterChainBuilder
@@ -78,7 +78,7 @@ def write_output(
 
 
 def parse_arguments() -> argparse.Namespace:
-    """Parse command-line arguments for the code combiner script."""
+    """Parse command-line arguments for the CodeMeld script."""
     parser = argparse.ArgumentParser(
         description="Combine code files from a directory into a single file."
     )
@@ -216,18 +216,21 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def run_code_combiner(config: CombinerConfig) -> None:
-    """Run the code combiner with the given configuration."""
-    combiner = CodeCombiner(config)
+    """Run CodeMeld with the given configuration."""
+    combiner = CodeMeld(config)
     combiner.execute()
 
 
-class CodeCombiner:
+class CodeMeld:
     """Orchestrates the code combining process."""
 
     def __init__(self, config: CombinerConfig):
-        """Initialize the CodeCombiner."""
+        """Initialize CodeMeld."""
         self.config = config
         self.root_path = self.config.directory_path.resolve()
+        self.safety_filter_chain = FilterChainBuilder.build_safety_chain(self.config)
+        self.always_included_files = self._process_always_include_files()
+
         # Determine the effective format based on --convert-to
         effective_format = (
             config.final_output_format if config.final_output_format else config.format
@@ -242,12 +245,13 @@ class CodeCombiner:
             custom_file_headers=self.config.custom_file_headers,
             **formatter_kwargs,
         )
-        self.safety_filter_chain = FilterChainBuilder.build_safety_chain(self.config)
         self.full_filter_chain = self._build_full_filter_chain(self.safety_filter_chain)
 
     def _build_full_filter_chain(self, safety_chain_head: FileFilter) -> FileFilter:
         spec = self._get_gitignore_spec() if self.config.use_gitignore else None
-        return FilterChainBuilder.build_full_chain(self.config, spec, safety_chain_head)
+        return FilterChainBuilder.build_full_chain(
+            self.config, spec, safety_chain_head, self.always_included_files
+        )
 
     def _get_gitignore_spec(self) -> pathspec.PathSpec | None:
         """
@@ -285,11 +289,9 @@ class CodeCombiner:
         try:
             all_files = list(self._iter_files())
         except PermissionError as e:
-            raise CodeCombinerError(
-                f"Insufficient permissions to read files: {e}"
-            ) from e
+            raise CodeMeldError(f"Insufficient permissions to read files: {e}") from e
         except OSError as e:
-            raise CodeCombinerError(f"File system error: {e}") from e
+            raise CodeMeldError(f"File system error: {e}") from e
         return all_files
 
     def _apply_filters_to_files(self, files: list[Path]) -> list[Path]:
@@ -303,16 +305,21 @@ class CodeCombiner:
         ]
         return filtered_files
 
-    def _get_filtered_files(self) -> list[Path]:
+    def _get_filtered_files(self, files: list[Path] | None = None) -> list[Path]:
         """
         Get a list of files to be processed after applying all filters.
+
+        Args:
+            files: An optional list of files to filter. If not provided,
+                   all files in the directory will be collected.
 
         Returns:
             A sorted list of file paths.
 
         """
-        all_files = self._collect_all_files()
-        filtered_files = self._apply_filters_to_files(all_files)
+        if files is None:
+            files = self._collect_all_files()
+        filtered_files = self._apply_filters_to_files(files)
         return sorted(filtered_files)
 
     def _resolve_path(self, path: Path) -> Path:
@@ -321,7 +328,7 @@ class CodeCombiner:
             return path.resolve()
         return (self.config.directory_path / path).resolve()
 
-    def _process_always_include_files(self, files: list[Path]) -> list[Path]:
+    def _process_always_include_files(self) -> list[Path]:
         """Process --always-include files with safety checks."""
         always_included_files: list[Path] = []
         for path_str in self.config.always_include:
@@ -347,12 +354,13 @@ class CodeCombiner:
 
     def execute(self) -> None:
         """Execute the combining process."""
-        files = self._get_filtered_files()
+        all_files = self._collect_all_files()
 
-        always_included_files = self._process_always_include_files(files)
+        # Combine all files and always_included_files, ensuring no duplicates
+        combined_files = sorted(set(all_files + self.always_included_files))
 
-        # Combine filtered files and always_included_files, ensuring no duplicates
-        all_files_to_process = sorted(set(files + always_included_files))
+        # Apply filters to the combined list
+        all_files_to_process = self._get_filtered_files(combined_files)
 
         if not all_files_to_process:
             logging.info("No files found to process. Exiting.")
@@ -426,7 +434,7 @@ class CodeCombiner:
 
 
 def main():
-    """Run the code combiner from the command line."""
+    """Run CodeMeld from the command line."""
     args = parse_arguments()
     config = load_and_merge_config(args)
     run_code_combiner(config)

@@ -4,8 +4,8 @@ import logging
 import pytest
 from pathlib import Path
 import os
-from src.code_combiner import CodeCombiner
-from src.config import CombinerConfig, CodeCombinerError
+from src.code_combiner import CodeMeld
+from src.config import CombinerConfig, CodeMeldError
 
 # Helper function to create a dummy binary file
 def create_dummy_binary(file_path: Path):
@@ -32,7 +32,7 @@ def test_always_include_blocks_symlink_outside_root(tmp_path, caplog):
         always_include=[str(symlink_path)],
     )
 
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     with caplog.at_level(logging.WARNING):
         combiner.execute()
 
@@ -54,7 +54,7 @@ def test_always_include_blocks_binary_file(tmp_path, caplog):
         always_include=[str(binary_file)],
     )
 
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     with caplog.at_level(logging.WARNING):
         combiner.execute()
 
@@ -84,7 +84,7 @@ def test_always_include_blocks_path_traversal(tmp_path, caplog):
         always_include=[always_include_path],
     )
 
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     with caplog.at_level(logging.WARNING):
         combiner.execute()
 
@@ -107,7 +107,7 @@ def test_always_include_allows_valid_file(tmp_path, caplog):
         always_include=[str(valid_file)],
     )
 
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     combiner.execute()
 
     assert output_file.exists()
@@ -128,7 +128,7 @@ def test_always_include_non_existent_path(tmp_path, caplog):
         always_include=[str(non_existent_file)],
     )
 
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     with caplog.at_level(logging.WARNING):
         combiner.execute()
 

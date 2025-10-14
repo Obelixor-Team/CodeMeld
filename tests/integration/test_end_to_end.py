@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 import logging
-from src.code_combiner import CodeCombiner
+from src.code_combiner import CodeMeld
 from src.config import CombinerConfig, MemoryThresholdExceededError
 from src.formatters import FormatType
 from src.config import ConvertType
@@ -28,7 +28,7 @@ def test_complete_refactored_flow(tmp_path):
         count_tokens=False,
     )
     
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     combiner.execute()
     
     # Verify
@@ -52,7 +52,7 @@ def test_convert_json_to_markdown(tmp_path):
         final_output_format="markdown",
     )
 
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     combiner.execute()
 
     assert output_file.exists()
@@ -78,7 +78,7 @@ def test_convert_xml_to_text(tmp_path):
         final_output_format="text",
     )
 
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     combiner.execute()
 
     assert output_file.exists()
@@ -104,7 +104,7 @@ def test_dry_run_mode(tmp_path, capsys, caplog):
 
         output=str(output_file),
 
-        extensions=[".py"],
+        extensions=[ ".py"],
 
         dry_run=True,
 
@@ -112,7 +112,7 @@ def test_dry_run_mode(tmp_path, capsys, caplog):
 
 
 
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     
     with caplog.at_level(logging.INFO):
         combiner.execute()
@@ -140,7 +140,6 @@ def test_dry_run_mode(tmp_path, capsys, caplog):
 
 
     assert "print('dry run test')" in captured_stdout
-
 def test_gitignore_precedence(tmp_path):
     """Test that .gitignore rules take precedence over included extensions."""
     # Create a Python file
@@ -153,12 +152,12 @@ def test_gitignore_precedence(tmp_path):
     config = CombinerConfig(
         directory_path=tmp_path,
         output=str(output),
-        extensions=[".py"],  # .py is included
+        extensions=[ ".py"],
         use_gitignore=True,
         count_tokens=False,
     )
 
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     combiner.execute()
 
     # Verify that the output file exists but does NOT contain the ignored Python file
@@ -179,12 +178,12 @@ def test_custom_file_headers_formatting(tmp_path):
     config = CombinerConfig(
         directory_path=tmp_path,
         output=str(output),
-        extensions=[".py", ".js"],
+        extensions=[ ".py", ".js"],
         custom_file_headers=custom_headers,
         count_tokens=False,
     )
 
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     combiner.execute()
 
     assert output.exists()
@@ -205,12 +204,12 @@ def test_memory_threshold_fallback(tmp_path, caplog):
     config = CombinerConfig(
         directory_path=tmp_path,
         output=str(output_file),
-        extensions=[".txt"],
+        extensions=[ ".txt"],
         max_memory_mb=1,  # Intentionally very low
         count_tokens=False,  # Fallback only occurs if token counting is not needed
     )
 
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
 
     with caplog.at_level(logging.WARNING):
         combiner.execute()
@@ -233,13 +232,13 @@ def test_dry_run_mode_with_streaming_fallback(tmp_path, capsys, caplog):
     config = CombinerConfig(
         directory_path=tmp_path,
         output=str(output_file),
-        extensions=[".txt"],
+        extensions=[ ".txt"],
         dry_run=True,
         max_memory_mb=1,  # Force streaming fallback
         count_tokens=False, # Required for streaming fallback
     )
 
-    combiner = CodeCombiner(config)
+    combiner = CodeMeld(config)
     
     with caplog.at_level(logging.INFO):
         combiner.execute()

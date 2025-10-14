@@ -358,13 +358,15 @@ class StreamingOutputGenerator(OutputGenerator):
         import sys
 
         logging.info("--- Dry Run Output (Streaming) ---")
-        self._write_stream_to_file(sys.stdout, is_dry_run=True)
+        for file_path in self.files_to_process:
+            self._process_file_streaming(file_path, sys.stdout)
         logging.info("--- End Dry Run Output (Streaming) ---")
         if self.dry_run_output_path:
             try:
                 self.dry_run_output_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(self.dry_run_output_path, "w", encoding="utf-8") as outfile:
-                    self._write_stream_to_file(outfile, is_dry_run=True)
+                    for file_path in self.files_to_process:
+                        self._process_file_streaming(file_path, outfile)
                 logging.info(
                     f"Dry run output also written to: {self.dry_run_output_path}"
                 )

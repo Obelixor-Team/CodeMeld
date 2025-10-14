@@ -1,4 +1,4 @@
-# Code Combiner
+# CodeMeld
 
 A Python script to scan a specified directory, identify code files based on their extensions, and combine their contents into a single output file. It respects `.gitignore` patterns by default, supports custom file extensions, and can include hidden files. The script also counts tokens in the generated output file.
 
@@ -209,7 +209,7 @@ The primary goal of this script is to generate a single file that can be easily 
 
 ### Extending with Custom Formatters
 
-The Code Combiner can be extended with custom formatters using a plugin-based architecture. This allows you to define your own output formats and integrate them seamlessly with the `main.py` script.
+CodeMeld can be extended with custom formatters using a plugin-based architecture. This allows you to define your own output formats and integrate them seamlessly with the `main.py` script.
 
 #### Creating a Custom Formatter Package
 
@@ -255,7 +255,7 @@ To create a custom formatter, you'll typically set up a small Python package.
     ```
 
 3.  **Configure `pyproject.toml` for Entry Point**:
-    In your custom formatter package's `pyproject.toml`, add an entry point under the `[project.entry-points."code_combiner.formatters"]` group. This tells the Code Combiner where to find your custom formatter.
+    In your custom formatter package's `pyproject.toml`, add an entry point under the `[project.entry-points."codemeld.formatters"]` group. This tells CodeMeld where to find your custom formatter.
 
     ```toml
     # pyproject.toml in my_custom_formatter_package/
@@ -273,16 +273,16 @@ To create a custom formatter, you'll typically set up a small Python package.
 #### Installing and Using Your Custom Formatter
 
 1.  **Install your custom formatter package**:
-    Navigate to your `my_custom_formatter_package` directory and install it in editable mode into your Code Combiner's virtual environment:
+    Navigate to your `my_custom_formatter_package` directory and install it in editable mode into your CodeMeld's virtual environment:
 
     ```bash
     cd my_custom_formatter_package
     .venv/bin/pip install -e .
     ```
-    (Make sure you have activated the Code Combiner's virtual environment first.)
+    (Make sure you have activated CodeMeld's virtual environment first.)
 
 2.  **Use with `main.py`**:
-    Once installed, the Code Combiner will automatically discover and register your custom formatter. You can then use it with the `--format` option:
+    Once installed, CodeMeld will automatically discover and register your custom formatter. You can then use it with the `--format` option:
 
     ```bash
     .venv/bin/python main.py . --format yaml -o combined.yaml
@@ -296,7 +296,7 @@ This setup allows for a clean separation of concerns, making your custom formatt
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     CodeCombiner                         │
+│                     CodeMeld                             │
 │  (Orchestrates the entire process)                       │
 └─────────────────────┬───────────────────────────────────┘
                       │

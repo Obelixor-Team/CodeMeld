@@ -1,6 +1,6 @@
 # Copyright (c) 2025 skum
 
-"""Defines the configuration for the code combiner."""
+"""Defines the configuration for the CodeMeld tool."""
 
 from __future__ import annotations
 
@@ -10,11 +10,11 @@ from pathlib import Path
 from src._types import ConvertType, FormatType
 
 
-class CodeCombinerError(Exception):
-    """Custom exception for CodeCombiner errors."""
+class CodeMeldError(Exception):
+    """Custom exception for CodeMeld errors."""
 
 
-class MemoryThresholdExceededError(CodeCombinerError):
+class MemoryThresholdExceededError(CodeMeldError):
     """Custom exception for when memory threshold is exceeded."""
 
 
@@ -49,7 +49,7 @@ DEFAULT_EXTENSIONS: list[str] = [
 
 @dataclass
 class CombinerConfig:
-    """Configuration for the CodeCombiner tool."""
+    """Configuration for the CodeMeld tool."""
 
     directory_path: Path
     output: str = "combined_code.txt"

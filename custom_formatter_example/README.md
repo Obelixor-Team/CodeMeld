@@ -1,4 +1,4 @@
-# My Code Combiner Formatter
+# My CodeMeld Formatter
 
 This is an example of a custom formatter for the `code-combiner` script, packaged as a separate installable package.
 

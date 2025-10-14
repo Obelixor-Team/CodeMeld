@@ -8,8 +8,8 @@ import os
 
 import src.code_combiner
 
-from src.config import CombinerConfig, CodeCombinerError, MemoryThresholdExceededError
-from src.code_combiner import CodeCombiner
+from src.config import CombinerConfig, CodeMeldError, MemoryThresholdExceededError
+from src.code_combiner import CodeMeld
 from src.filters import FilterChainBuilder
 from src.output_generator import InMemoryOutputGenerator
 
@@ -55,16 +55,16 @@ def test_scan_files_permission_error(mock_config):
     # Simulate PermissionError during Path.rglob() iteration
     mock_config.directory_path.rglob.side_effect = PermissionError("Permission denied")
 
-    combiner = CodeCombiner(mock_config)
-    with pytest.raises(CodeCombinerError, match="Insufficient permissions to read files"):
+    combiner = CodeMeld(mock_config)
+    with pytest.raises(CodeMeldError, match="Insufficient permissions to read files"):
         combiner._get_filtered_files()
 
 def test_scan_files_os_error(mock_config):
     # Simulate OSError during Path.rglob() iteration
     mock_config.directory_path.rglob.side_effect = OSError("OS error occurred")
 
-    combiner = CodeCombiner(mock_config)
-    with pytest.raises(CodeCombinerError, match="File system error: OS error occurred"):
+    combiner = CodeMeld(mock_config)
+    with pytest.raises(CodeMeldError, match="File system error: OS error occurred"):
         combiner._get_filtered_files()
 
 def test_scan_files_no_error(mock_config):
@@ -75,17 +75,17 @@ def test_scan_files_no_error(mock_config):
     # Set the return value for rglob on the mocked directory_path
     mock_config.directory_path.rglob.return_value = [mock_file1, mock_file2]
 
-    with patch.object(CodeCombiner, '_resolve_path', side_effect=lambda p: p):
+    with patch.object(CodeMeld, '_resolve_path', side_effect=lambda p: p):
         with patch.object(FilterChainBuilder, 'build_safety_chain') as mock_build_safety_chain:
             mock_safety_filter_chain = MagicMock()
             mock_safety_filter_chain.should_process.return_value = True
             mock_build_safety_chain.return_value = mock_safety_filter_chain
-            with patch.object(CodeCombiner, '_build_full_filter_chain') as mock_build_full_filter_chain:
+            with patch.object(CodeMeld, '_build_full_filter_chain') as mock_build_full_filter_chain:
                 mock_full_filter_chain = MagicMock()
                 mock_full_filter_chain.should_process.return_value = True
                 mock_build_full_filter_chain.return_value = mock_full_filter_chain
 
-                combiner = CodeCombiner(mock_config)
+                combiner = CodeMeld(mock_config)
                 files = combiner._get_filtered_files()
                 assert len(files) == 2
                 assert mock_file1 in files
@@ -105,7 +105,7 @@ def test_iter_files_rglob_no_hidden(mock_config):
     # rglob will return all files, including hidden ones and those in hidden dirs
     mock_config.directory_path.rglob.return_value = [mock_file1, mock_file2, mock_hidden_file, mock_hidden_dir_file]
 
-    combiner = CodeCombiner(mock_config)
+    combiner = CodeMeld(mock_config)
     files = list(combiner._iter_files())
     # _iter_files itself should only yield files, not filter hidden based on config
     # The filtering of hidden files/dirs is done by HiddenFileFilter
@@ -124,7 +124,7 @@ def test_iter_files_rglob_include_hidden(mock_config):
 
     mock_config.directory_path.rglob.return_value = [mock_file1, mock_file2, mock_hidden_file, mock_hidden_dir_file]
 
-    combiner = CodeCombiner(mock_config)
+    combiner = CodeMeld(mock_config)
     files = list(combiner._iter_files())
     assert len(files) == 4
     assert mock_file1 in files
@@ -135,7 +135,7 @@ def test_iter_files_rglob_include_hidden(mock_config):
 def test_execute_output_written_by_streaming_path(mock_config):
     mock_config.count_tokens = False
     mock_config.output = "output.txt"
-    combiner = CodeCombiner(mock_config)
+    combiner = CodeMeld(mock_config)
 
     with patch('src.output_generator.InMemoryOutputGenerator') as MockInMemoryOutputGenerator:
         mock_in_memory_generator_instance = MockInMemoryOutputGenerator.return_value
@@ -159,7 +159,7 @@ def test_execute_processing_complete_notification(mock_config, caplog):
 
     # 👇 PATCH is_likely_binary to avoid MagicMock/int comparison error
     with patch('src.output_generator.is_likely_binary', return_value=False):
-        with patch.object(src.code_combiner.CodeCombiner, '_get_filtered_files', return_value=[create_mock_path('/mock/dir/file1.py')]) as _mock_get_filtered_files:
+        with patch.object(src.code_combiner.CodeMeld, '_get_filtered_files', return_value=[create_mock_path('/mock/dir/file1.py')]) as _mock_get_filtered_files:
             with patch('builtins.open', MagicMock(return_value=MagicMock(__enter__=lambda self: MagicMock(read=MagicMock(side_effect=["file content", ""])), __exit__=MagicMock()))):
                 with patch('src.code_combiner.InMemoryOutputGenerator') as MockInMemoryOutputGeneratorClass:
                     mock_in_memory_generator_instance = MockInMemoryOutputGeneratorClass.return_value
@@ -174,7 +174,7 @@ def test_execute_processing_complete_notification(mock_config, caplog):
 
                         mock_formatter = MagicMock()
                         mock_formatter.supports_streaming.return_value = True
-                        combiner = CodeCombiner(mock_config)
+                        combiner = CodeMeld(mock_config)
                         with patch('src.formatters.FormatterFactory.create', return_value=mock_formatter):
                             with patch('psutil.Process') as MockProcess:
                                 mock_process_instance = MockProcess.return_value
@@ -188,7 +188,7 @@ def test_execute_processing_complete_notification(mock_config, caplog):
     mock_config.directory_path.rglob.return_value = []  # Simulate empty directory
     mock_config.output = "non_existent_output.txt" # Ensure output file doesn't exist
 
-    combiner = CodeCombiner(mock_config)
+    combiner = CodeMeld(mock_config)
 
     with caplog.at_level(logging.INFO):
         combiner.execute()
@@ -204,9 +204,9 @@ def test_execute_write_output_called_when_not_streaming(mock_config):
     mock_config.dry_run = False
     mock_config.dry_run_output = None
 
-    combiner = CodeCombiner(mock_config)
+    combiner = CodeMeld(mock_config)
 
-    with patch.object(src.code_combiner.CodeCombiner, '_get_filtered_files', return_value=[create_mock_path('/mock/dir/file1.py')]) as _mock_get_filtered_files:
+    with patch.object(src.code_combiner.CodeMeld, '_get_filtered_files', return_value=[create_mock_path('/mock/dir/file1.py')]) as _mock_get_filtered_files:
         with patch('src.code_combiner.InMemoryOutputGenerator') as MockInMemoryOutputGeneratorClass:
             mock_in_memory_generator_instance = MockInMemoryOutputGeneratorClass.return_value
             mock_in_memory_generator_instance.generate.return_value = ("some content", "raw content")
@@ -223,15 +223,15 @@ def test_execute_write_output_called_when_not_streaming(mock_config):
 def test_execute_no_files_to_process(mock_config, caplog):
     mock_config.always_include = []
     # Simulate _get_filtered_files returning an empty list
-    with patch.object(CodeCombiner, '_get_filtered_files', return_value=[]):
-        combiner = CodeCombiner(mock_config)
+    with patch.object(CodeMeld, '_get_filtered_files', return_value=[]):
+        combiner = CodeMeld(mock_config)
         with caplog.at_level(logging.INFO):
             combiner.execute()
         assert "No files found to process. Exiting." in caplog.text
 
 def test_get_filtered_files_always_include_non_existent(mock_config, caplog):
     mock_config.always_include = [Path("/non/existent/file.py")]
-    combiner = CodeCombiner(mock_config)
+    combiner = CodeMeld(mock_config)
     with caplog.at_level(logging.WARNING):
         combiner.execute()
     assert "Warning: --always-include path '/non/existent/file.py' is not a file or does not exist. Skipping." in caplog.text
@@ -239,7 +239,7 @@ def test_get_filtered_files_always_include_non_existent(mock_config, caplog):
 def test_get_filtered_files_always_include_directory(mock_config, caplog):
     mock_dir = create_mock_path("/mock/dir/always_include_dir", is_file=False)
     mock_config.always_include = [mock_dir]
-    combiner = CodeCombiner(mock_config)
+    combiner = CodeMeld(mock_config)
     with caplog.at_level(logging.WARNING):
         combiner.execute()
     assert "Warning: --always-include path '/mock/dir/always_include_dir' is not a file or does not exist. Skipping." in caplog.text
@@ -248,7 +248,7 @@ def test_get_gitignore_spec_found_in_current_dir(mock_config):
     mock_config.directory_path.resolve.return_value = Path("/mock/dir")
     with patch.object(Path, 'is_file', side_effect=lambda: True if str(Path("/mock/dir/.gitignore")) == str(Path("/mock/dir/.gitignore")) else False):
         with patch('builtins.open', MagicMock(return_value=MagicMock(__enter__=lambda self: ["*.pyc"], __exit__=MagicMock()))):
-            combiner = CodeCombiner(mock_config)
+            combiner = CodeMeld(mock_config)
             spec = combiner._get_gitignore_spec()
             assert spec is not None
             assert spec.match_file("test.pyc")
@@ -265,7 +265,7 @@ def test_get_gitignore_spec_found_in_parent_dir(mock_config):
 
     with patch.object(Path, 'is_file', side_effect=is_file_side_effect):
         with patch('builtins.open', MagicMock(return_value=MagicMock(__enter__=lambda self: ["*.log"], __exit__=MagicMock()))):
-            combiner = CodeCombiner(mock_config)
+            combiner = CodeMeld(mock_config)
             spec = combiner._get_gitignore_spec()
             assert spec is not None
             assert spec.match_file("test.log")
@@ -274,7 +274,7 @@ def test_get_gitignore_spec_found_in_parent_dir(mock_config):
 def test_get_gitignore_spec_not_found(mock_config):
     mock_config.directory_path.resolve.return_value = Path("/mock/dir")
     with patch.object(Path, 'is_file', return_value=False):
-        combiner = CodeCombiner(mock_config)
+        combiner = CodeMeld(mock_config)
         spec = combiner._get_gitignore_spec()
         assert spec is None
 
@@ -290,7 +290,7 @@ def test_iter_files_rglob_no_hidden_files(mock_config, tmp_path):
     mock_config.directory_path = tmp_path
     mock_config.include_hidden = False
 
-    combiner = CodeCombiner(mock_config)
+    combiner = CodeMeld(mock_config)
     files = list(combiner._iter_files())
 
     # _iter_files itself should yield all files, filtering happens later
@@ -312,7 +312,7 @@ def test_iter_files_rglob_with_hidden_files(mock_config, tmp_path):
     mock_config.directory_path = tmp_path
     mock_config.include_hidden = True
 
-    combiner = CodeCombiner(mock_config)
+    combiner = CodeMeld(mock_config)
     files = list(combiner._iter_files())
 
     assert len(files) == 4

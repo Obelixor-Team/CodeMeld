@@ -1,6 +1,6 @@
 # Copyright (c) 2025 skum
 
-"""User interface for the Code Combiner, providing live progress and a final summary."""
+"""User interface for CodeMeld, providing live progress and a final summary."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ class LiveUI:
     def __init__(
         self,
         total_files: int = 0,
-        title: str = "CODE COMBINER",
+        title: str = "CODEMELD",
         version: str = "v0.1.0",
     ):
         """Initialize the LiveUI with default values."""

@@ -1,7 +1,7 @@
 # Copyright (c) 2025 skum
 
 import pytest
-from src.config import CodeCombinerError
+from src.config import CodeMeldError
 from src.config_builder import CombinerConfigBuilder, load_and_merge_config
 from argparse import Namespace
 from pathlib import Path
@@ -59,7 +59,7 @@ def test_header_width_validation_zero_raises_error():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match="Header width must be positive"):
+    with pytest.raises(CodeMeldError, match="Header width must be positive"):
         load_and_merge_config(args)
 
 def test_header_width_validation_negative_raises_error():
@@ -87,7 +87,7 @@ def test_header_width_validation_negative_raises_error():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match="Header width must be positive"):
+    with pytest.raises(CodeMeldError, match="Header width must be positive"):
         load_and_merge_config(args)
 
 def test_output_directory_is_not_created_during_config(tmp_path):
@@ -143,7 +143,7 @@ def test_extension_without_dot_raises_error_with_suggestion():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match=r"Error: Extension 'py' must start with '.'. Did you mean '.py'\?"):
+    with pytest.raises(CodeMeldError, match=r"Error: Extension 'py' must start with '.'. Did you mean '.py'\?"):
         load_and_merge_config(args)
 
 def test_extension_with_dot_and_case_conversion(): # This test name is now misleading
@@ -170,7 +170,7 @@ def test_extension_with_dot_and_case_conversion(): # This test name is now misle
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match=r"Error: Extension 'PY' must start with '.'. Did you mean '.py'\?"):
+    with pytest.raises(CodeMeldError, match=r"Error: Extension 'PY' must start with '.'. Did you mean '.py'\?"):
         load_and_merge_config(args)
 
 def test_multiple_extensions_with_one_invalid():
@@ -197,7 +197,7 @@ def test_multiple_extensions_with_one_invalid():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match=r"Error: Extension 'py' must start with '.'. Did you mean '.py'\?"):
+    with pytest.raises(CodeMeldError, match=r"Error: Extension 'py' must start with '.'. Did you mean '.py'\?"):
         load_and_merge_config(args)
 
 def test_convert_to_with_invalid_format_raises_error():
@@ -224,7 +224,7 @@ def test_convert_to_with_invalid_format_raises_error():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match="--convert-to can only be used when --format is 'json' or 'xml'"):
+    with pytest.raises(CodeMeldError, match="--convert-to can only be used when --format is 'json' or 'xml'"):
         load_and_merge_config(args)
 
 def test_convert_to_same_format_raises_error():
@@ -251,7 +251,7 @@ def test_convert_to_same_format_raises_error():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match="Error: Cannot convert format 'json' to itself."):
+    with pytest.raises(CodeMeldError, match="Error: Cannot convert format 'json' to itself."):
         load_and_merge_config(args)
 
 def test_malformed_custom_file_headers_raises_error():
@@ -278,12 +278,12 @@ def test_malformed_custom_file_headers_raises_error():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match="Invalid JSON in custom_file_headers"):
+    with pytest.raises(CodeMeldError, match="Invalid JSON in custom_file_headers"):
         load_and_merge_config(args)
 
 def test_non_existent_directory_raises_error():
     builder = CombinerConfigBuilder()
-    with pytest.raises(CodeCombinerError, match="Error: Directory 'non_existent_dir' does not exist."):
+    with pytest.raises(CodeMeldError, match="Error: Directory 'non_existent_dir' does not exist."):
         builder.validate("non_existent_dir", "output.txt")
 
 def test_max_file_size_kb_validation_zero_raises_error():
@@ -310,7 +310,7 @@ def test_max_file_size_kb_validation_zero_raises_error():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match="Max file size must be a positive integer."):
+    with pytest.raises(CodeMeldError, match="Max file size must be a positive integer."):
         load_and_merge_config(args)
 
 def test_max_file_size_kb_validation_negative_raises_error():
@@ -337,7 +337,7 @@ def test_max_file_size_kb_validation_negative_raises_error():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match="Max file size must be a positive integer."):
+    with pytest.raises(CodeMeldError, match="Max file size must be a positive integer."):
         load_and_merge_config(args)
 
 def test_invalid_token_encoding_raises_error():
@@ -364,5 +364,5 @@ def test_invalid_token_encoding_raises_error():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeCombinerError, match="Invalid token encoding model: invalid_encoding"):
+    with pytest.raises(CodeMeldError, match="Invalid token encoding model: invalid_encoding"):
         load_and_merge_config(args)
