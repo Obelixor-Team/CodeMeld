@@ -392,7 +392,7 @@ class CodeCombiner:
                     token_counter_observer,  # Pass token_counter_observer
                     line_counter_observer,  # Pass line_counter_observer
                 )
-                output_content, raw_content = generator.generate()
+                output_content, _ = generator.generate()
                 # publisher.notify("processing_complete", (output_content, raw_content)) # Handled by __exit__
             except MemoryThresholdExceededError:
                 if not self.config.count_tokens and self.formatter.supports_streaming():
