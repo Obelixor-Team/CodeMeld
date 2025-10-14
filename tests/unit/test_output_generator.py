@@ -30,9 +30,7 @@ def test_in_memory_generator_memory_warning(mock_files_to_process, mock_root_pat
         mock_process_instance.memory_info.return_value.rss = 1000 * 1024 * 1024  # 1000MB, very high
 
         memory_monitor = SystemMemoryMonitor(max_memory_mb=500, count_tokens=True)
-        generator = InMemoryOutputGenerator(
-            mock_files_to_process, mock_root_path, mock_formatter, memory_monitor, MagicMock(), Path("/tmp/output.txt"), MagicMock(), MagicMock(), MagicMock() # /tmp is used for testing temporary file creation
-        )
+
 
         with patch('src.output_generator.read_file_content', return_value='some content'):
             generator = InMemoryOutputGenerator(
