@@ -13,7 +13,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-from .config import MemoryThresholdExceededError
 from .context import GeneratorContext
 from .formatters import JSONFormatter, OutputFormatter, XMLFormatter
 from .observers import (
@@ -152,10 +151,7 @@ class InMemoryOutputGenerator(OutputGenerator):
 
         for i, file_path in enumerate(self.files_to_process):
             content = file_contents.get(file_path)
-            try:
-                self._process_single_file(i, file_path, content, check_interval)
-            except MemoryThresholdExceededError:
-                raise
+            self._process_single_file(i, file_path, content, check_interval)
 
         result = self._end_output()
         self.publisher.notify(
