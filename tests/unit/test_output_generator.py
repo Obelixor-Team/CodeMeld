@@ -388,7 +388,7 @@ def test_streaming_output_generator_dry_run_output_path_exception(mock_files_to_
     mock_logging_error = mocker.patch('logging.error')
 
     # Mock the open function to raise an exception when writing to the dry_run_output_path
-    mock_open = mocker.patch('builtins.open', side_effect=IOError("Permission denied"))
+    _ = mocker.patch('builtins.open', side_effect=IOError("Permission denied"))
 
     generator._handle_dry_run_streaming()
 
