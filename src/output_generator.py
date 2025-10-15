@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
+from .config import MemoryThresholdExceededError
 from .context import GeneratorContext
 from .formatters import JSONFormatter, OutputFormatter, XMLFormatter
 from .observers import (
@@ -39,7 +40,12 @@ def read_file_content(
                 if not chunk:
                     break
                 yield chunk
-    except (UnicodeDecodeError, FileNotFoundError, PermissionError, IsADirectoryError, Exception) as e:
+    except (
+        UnicodeDecodeError,
+        FileNotFoundError,
+        PermissionError,
+        IsADirectoryError,
+    ) as e:
         log_file_read_error(file_path, e)
 
 
@@ -146,7 +152,11 @@ class InMemoryOutputGenerator(OutputGenerator):
 
         for i, file_path in enumerate(self.files_to_process):
             content = file_contents.get(file_path)
-            self._process_single_file(i, file_path, content, check_interval)
+            try:
+                self._process_single_file(i, file_path, content, check_interval)
+            except MemoryThresholdExceededError:
+                # Re-raise the error to stop processing
+                raise
 
         result = self._end_output()
         self.publisher.notify(

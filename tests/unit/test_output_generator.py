@@ -7,6 +7,7 @@ import logging
 import psutil
 
 from src.output_generator import InMemoryOutputGenerator, read_file_content, log_file_read_error, StreamingOutputGenerator
+from src.observers import ProcessingEvent
 from src.context import GeneratorContext
 from src.formatters import TextFormatter
 from src.config import MemoryThresholdExceededError
@@ -158,6 +159,16 @@ def test_in_memory_generator_failed_files_logging(mock_files_to_process, mock_ro
                     f"Failed to read {len(mock_files_to_process)} files. See log for details."
                 )
 
+def test_read_file_content_binary_file(tmp_path, mocker):
+    """Test that read_file_content returns an empty generator for binary files."""
+    binary_file = tmp_path / "binary.bin"
+    binary_file.write_bytes(b"\x00\x01\x02\x03")
+
+    mocker.patch("src.output_generator.is_likely_binary", return_value=True)
+
+    content_generator = read_file_content(binary_file)
+    assert list(content_generator) == []
+
 def test_read_file_content_unicode_decode_error(tmp_path, mocker):
     """Test that read_file_content handles UnicodeDecodeError."""
     bad_encoding_file = tmp_path / "bad_encoding.txt"
@@ -219,22 +230,33 @@ def test_read_file_content_is_a_directory_error(tmp_path, mocker):
     mock_log_file_read_error.assert_called_once()
     assert "Is a directory" in str(mock_log_file_read_error.call_args[0][1])
 
-def test_read_file_content_generic_exception(tmp_path, mocker):
-    """Test that read_file_content handles a generic Exception."""
-    problematic_file = tmp_path / "problem.txt"
-    problematic_file.touch()
+def test_in_memory_generator_file_not_relative_to_root(mock_root_path, mock_formatter, tmp_path, mocker):
+    """Test that _get_relative_path handles files not relative to root_path."""
+    # Create a file outside the mock_root_path
+    external_file = tmp_path / "external_dir" / "external_file.txt"
+    external_file.parent.mkdir()
+    external_file.write_text("external content")
 
-    # Mock open to raise a generic exception
-    mocker.patch("builtins.open", side_effect=Exception("Simulated generic error"))
+    context = GeneratorContext(
+        files_to_process=[external_file],
+        root_path=mock_root_path,
+        formatter=mock_formatter,
+        publisher=MagicMock(),
+        output_path=tmp_path / "output.txt",
+        ui=MagicMock(),
+        token_counter_observer=MagicMock(),
+        line_counter_observer=MagicMock(),
+    )
+    generator = InMemoryOutputGenerator(context)
 
-    mock_log_file_read_error = mocker.patch("src.output_generator.log_file_read_error")
-    mocker.patch("src.output_generator.is_likely_binary", return_value=False)
+    mocker.patch('src.output_generator.read_file_content', return_value=["external content"])
+    mocker.patch('src.output_generator.is_likely_binary', return_value=False)
 
-    for _ in read_file_content(problematic_file):
-        pass
+    output, raw_output = generator.generate()
 
-    mock_log_file_read_error.assert_called_once()
-    assert "Simulated generic error" in str(mock_log_file_read_error.call_args[0][1])
+    # The external file's full path should be used as its relative path
+    assert str(external_file) in output
+    assert "external content" in output
 
 def test_in_memory_generator_xml_indentation(mock_files_to_process, mock_root_path, tmp_path, mocker):
     """Test that ET.indent is called when using XMLFormatter in InMemoryOutputGenerator."""
@@ -267,6 +289,112 @@ def test_in_memory_generator_xml_indentation(mock_files_to_process, mock_root_pa
 
     mock_et_indent.assert_called_once_with(generator.xml_root_element)
 
+def test_streaming_output_generator_no_files_no_direct_streaming_formatter(mock_root_path, mock_formatter, tmp_path, mocker):
+    """Test that _handle_actual_streaming logs info and notifies complete when no files and no direct streaming formatter."""
+    context = GeneratorContext(
+        files_to_process=[],  # Empty list of files
+        root_path=mock_root_path,
+        formatter=mock_formatter,  # TextFormatter is not a direct streaming formatter
+        publisher=MagicMock(),
+        output_path=tmp_path / "output.txt",
+        ui=MagicMock(),
+        token_counter_observer=MagicMock(),
+        line_counter_observer=MagicMock(),
+    )
+    generator = StreamingOutputGenerator(context)
+
+    mock_logging_info = mocker.patch('logging.info')
+    mock_publisher_notify = mocker.patch.object(generator.publisher, 'notify')
+
+    generator.generate()
+
+    mock_logging_info.assert_called_once_with("No content to write. File not created.")
+    mock_publisher_notify.assert_called_with(ProcessingEvent.PROCESSING_COMPLETE, None)
+
+def test_streaming_output_generator_handle_actual_streaming_exception(mock_files_to_process, mock_root_path, mock_formatter, tmp_path, mocker):
+    """Test that _handle_actual_streaming handles exceptions during file writing."""
+    context = GeneratorContext(
+        files_to_process=mock_files_to_process,
+        root_path=mock_root_path,
+        formatter=mock_formatter,
+        publisher=MagicMock(),
+        output_path=tmp_path / "output.txt",
+        ui=MagicMock(),
+        token_counter_observer=MagicMock(),
+        line_counter_observer=MagicMock(),
+    )
+    generator = StreamingOutputGenerator(context)
+
+    mocker.patch('src.output_generator.read_file_content', return_value=["some content"])
+    mocker.patch('src.output_generator.is_likely_binary', return_value=False)
+
+    # Mock the open function to raise an exception when writing to the temporary file
+    mock_open = mocker.patch('builtins.open', mocker.mock_open())
+    mock_open.return_value.__enter__.return_value.write.side_effect = IOError("Disk full")
+
+    with pytest.raises(IOError, match="Disk full"):
+        generator._handle_actual_streaming()
+
+    # Ensure the temporary file is unlinked
+    mock_open.assert_called_with(tmp_path / "output.tmp", "w", encoding="utf-8")
+    assert (tmp_path / "output.tmp").exists() is False # Should be unlinked by the except block
+
+def test_streaming_output_generator_dry_run_output_path_handling(mock_files_to_process, mock_root_path, mock_formatter, tmp_path, mocker):
+    """Test that _handle_dry_run_streaming writes to dry_run_output_path if set."""
+    dry_run_output_file = tmp_path / "dry_run_output.txt"
+    context = GeneratorContext(
+        files_to_process=mock_files_to_process,
+        root_path=mock_root_path,
+        formatter=mock_formatter,
+        publisher=MagicMock(),
+        output_path=tmp_path / "output.txt",
+        dry_run=True,
+        dry_run_output=str(dry_run_output_file),
+        ui=MagicMock(),
+        token_counter_observer=MagicMock(),
+        line_counter_observer=MagicMock(),
+    )
+    generator = StreamingOutputGenerator(context)
+
+    mocker.patch('src.output_generator.read_file_content', return_value=["some content"])
+    mocker.patch('src.output_generator.is_likely_binary', return_value=False)
+    mocker.patch('logging.info') # Mock logging.info to prevent console output during test
+
+    generator._handle_dry_run_streaming()
+
+    assert dry_run_output_file.exists()
+    assert "some content" in dry_run_output_file.read_text()
+
+def test_streaming_output_generator_dry_run_output_path_exception(mock_files_to_process, mock_root_path, mock_formatter, tmp_path, mocker):
+    """Test that _handle_dry_run_streaming handles exceptions when writing to dry_run_output_path."""
+    dry_run_output_file = tmp_path / "dry_run_output.txt"
+    context = GeneratorContext(
+        files_to_process=mock_files_to_process,
+        root_path=mock_root_path,
+        formatter=mock_formatter,
+        publisher=MagicMock(),
+        output_path=tmp_path / "output.txt",
+        dry_run=True,
+        dry_run_output=str(dry_run_output_file),
+        ui=MagicMock(),
+        token_counter_observer=MagicMock(),
+        line_counter_observer=MagicMock(),
+    )
+    generator = StreamingOutputGenerator(context)
+
+    mocker.patch('src.output_generator.read_file_content', return_value=["some content"])
+    mocker.patch('src.output_generator.is_likely_binary', return_value=False)
+    mocker.patch('logging.info') # Mock logging.info to prevent console output during test
+    mock_logging_error = mocker.patch('logging.error')
+
+    # Mock the open function to raise an exception when writing to the dry_run_output_path
+    mock_open = mocker.patch('builtins.open', side_effect=IOError("Permission denied"))
+
+    generator._handle_dry_run_streaming()
+
+    mock_logging_error.assert_called_once()
+    assert "Error writing dry run output to" in mock_logging_error.call_args[0][0]
+    assert "Permission denied" in str(mock_logging_error.call_args[0][0])
 def test_streaming_output_generator_dry_run_output_path(mock_files_to_process, mock_root_path, mock_formatter, tmp_path):
     """Test that dry_run_output_path is correctly set in StreamingOutputGenerator."""
     dry_run_output_path_str = str(tmp_path / "dry_run_output.txt")
