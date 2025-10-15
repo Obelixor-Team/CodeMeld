@@ -252,7 +252,7 @@ def test_in_memory_generator_file_not_relative_to_root(mock_root_path, mock_form
     mocker.patch('src.output_generator.read_file_content', return_value=["external content"])
     mocker.patch('src.output_generator.is_likely_binary', return_value=False)
 
-    output, raw_output = generator.generate()
+    output, _ = generator.generate()
 
     # The external file's full path should be used as its relative path
     assert str(external_file) in output
