@@ -30,3 +30,14 @@ def test_system_memory_monitor_threshold_exceeded(mocker):
         monitor.check_memory_usage()
 
     assert "Memory usage exceeded 100MB" in str(excinfo.value)
+
+from src.memory_monitor import MemoryMonitor
+
+def test_memory_monitor_abstract_pass_statement():
+    """Test that the pass statement in the abstract MemoryMonitor.check_memory_usage is covered."""
+    class ConcreteMemoryMonitor(MemoryMonitor):
+        def check_memory_usage(self) -> None:
+            pass
+
+    monitor = ConcreteMemoryMonitor()
+    monitor.check_memory_usage()
