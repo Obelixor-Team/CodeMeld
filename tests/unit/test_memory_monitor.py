@@ -37,6 +37,9 @@ def test_memory_monitor_abstract_pass_statement():
     """Test that the pass statement in the abstract MemoryMonitor.check_memory_usage is covered."""
     class ConcreteMemoryMonitor(MemoryMonitor):
         def check_memory_usage(self) -> None:
+            # This method is intentionally empty as it's a concrete implementation
+            # of an abstract method, and the test specifically covers the 'pass'
+            # statement in the abstract base class.
             pass
 
     monitor = ConcreteMemoryMonitor()
