@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from pathlib import Path
 import logging
 import psutil
+import collections
 
 from src.output_generator import InMemoryOutputGenerator, read_file_content, log_file_read_error, StreamingOutputGenerator
 from src.observers import ProcessingEvent
@@ -192,8 +193,7 @@ def test_read_file_content_file_not_found_error(tmp_path, mocker):
     mock_log_file_read_error = mocker.patch("src.output_generator.log_file_read_error")
     mocker.patch("src.output_generator.is_likely_binary", return_value=False)
 
-    for _ in read_file_content(non_existent_file):
-        pass
+    collections.deque(read_file_content(non_existent_file), maxlen=0)
 
     mock_log_file_read_error.assert_called_once()
     assert "No such file or directory" in str(mock_log_file_read_error.call_args[0][1])
