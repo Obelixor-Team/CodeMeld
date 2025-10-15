@@ -69,13 +69,3 @@ def test_token_counter_observer_tiktoken_import_error(caplog):
             # Ensure update does nothing if tiktoken_module is None
             observer.update(ProcessingEvent.FILE_CONTENT_PROCESSED, {"content_chunk": "some content"})
 
-    def test_token_counter_observer_value_error(caplog):
-        """Test TokenCounterObserver handles ValueError during token counting."""
-        with patch.object(TokenCounterObserver, 'tiktoken_module', new_callable=PropertyMock) as mock_tiktoken_module_prop:
-            mock_tiktoken_instance = MagicMock()
-            mock_tiktoken_instance.get_encoding.side_effect = ValueError("Test encoding error")
-            mock_tiktoken_module_prop.return_value = mock_tiktoken_instance
-            with caplog.at_level(logging.ERROR):
-                observer = TokenCounterObserver()
-                observer.update(ProcessingEvent.FILE_CONTENT_PROCESSED, FileContentProcessedData(content_chunk="some content"))
-                assert "Error counting tokens for file content: Test encoding error" in caplog.text
