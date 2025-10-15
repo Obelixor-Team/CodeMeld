@@ -155,7 +155,6 @@ class InMemoryOutputGenerator(OutputGenerator):
             try:
                 self._process_single_file(i, file_path, content, check_interval)
             except MemoryThresholdExceededError:
-                # Re-raise the error to stop processing
                 raise
 
         result = self._end_output()
