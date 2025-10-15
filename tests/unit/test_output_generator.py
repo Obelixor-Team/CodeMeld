@@ -207,8 +207,7 @@ def test_read_file_content_permission_error(tmp_path, mocker):
     mock_log_file_read_error = mocker.patch("src.output_generator.log_file_read_error")
     mocker.patch("src.output_generator.is_likely_binary", return_value=False)
 
-    for _ in read_file_content(permission_denied_file):
-        pass
+    collections.deque(read_file_content(permission_denied_file), maxlen=0)
 
     mock_log_file_read_error.assert_called_once()
     assert "Permission denied" in str(mock_log_file_read_error.call_args[0][1])
