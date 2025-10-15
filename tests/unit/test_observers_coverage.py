@@ -73,7 +73,7 @@ def test_token_counter_observer_tiktoken_import_error(caplog):
         """Test TokenCounterObserver handles ValueError during token counting."""
         with patch.object(TokenCounterObserver, 'tiktoken_module', new_callable=PropertyMock) as mock_tiktoken_module_prop:
             mock_tiktoken_instance = MagicMock()
-            mock_tiktoken_instance.get_encoding.side_effect = lambda *args, **kwargs: (_ for _ in ()).throw(ValueError("Test encoding error"))
+            mock_tiktoken_instance.get_encoding.side_effect = ValueError("Test encoding error")
             mock_tiktoken_module_prop.return_value = mock_tiktoken_instance
             with caplog.at_level(logging.ERROR):
                 observer = TokenCounterObserver()
