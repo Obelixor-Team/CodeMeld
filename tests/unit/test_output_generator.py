@@ -180,8 +180,7 @@ def test_read_file_content_unicode_decode_error(tmp_path, mocker):
     mocker.patch("src.output_generator.is_likely_binary", return_value=False)
 
     # Iterate over the generator to trigger the read and potential error
-    for _ in read_file_content(bad_encoding_file):
-        pass
+    collections.deque(read_file_content(bad_encoding_file), maxlen=0)
 
     mock_log_file_read_error.assert_called_once()
     assert "codec can't decode byte" in str(mock_log_file_read_error.call_args[0][1])
