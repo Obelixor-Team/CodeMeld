@@ -32,7 +32,7 @@ class SystemMemoryMonitor(MemoryMonitor):
 
     def check_memory_usage(self) -> None:
         """Check memory usage against threshold; raise error if exceeded."""
-        if self.max_memory_mb is None or self.max_memory_mb <= 0:  # pragma: no cover
+        if self.max_memory_mb is None or self.max_memory_mb <= 0:
             return
 
         process = psutil.Process()

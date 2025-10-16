@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -117,8 +118,11 @@ class OutputFilePathFilter(FileFilter):
 class BinaryFileFilter(FileFilter):
     """Filter binary files."""
 
+    def __init__(self, config: CombinerConfig):
+        self.config = config
+
     def _check(self, file_path: Path, context: dict) -> bool:
-        return not is_likely_binary(file_path)
+        return not is_likely_binary(file_path, self.config)
 
 
 class SymlinkFilter(FileFilter):
@@ -222,8 +226,13 @@ class OrFilter(FileFilter):
         self.filters = filters
 
     def _check(self, file_path: Path, context: dict) -> bool:
+        if not self.filters:
+            logging.debug(f"OrFilter: No filters provided for {file_path}")
+            return False
+        
         for f in self.filters:
             if f.should_process(file_path, context):
+                logging.debug(f"OrFilter: {f.__class__.__name__} accepted {file_path}")
                 return True
         return False
 
@@ -245,7 +254,7 @@ class FilterChainBuilder:
         filters: list[FileFilter] = [
             SecurityFilter(),
             SymlinkFilter(config.follow_symlinks),
-            BinaryFileFilter(),
+            BinaryFileFilter(config),
             OutputFilePathFilter(output_path),
         ]
         if config.max_file_size_kb is not None and config.max_file_size_kb > 0:

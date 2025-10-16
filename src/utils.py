@@ -2,10 +2,9 @@
 
 """Utility functions for the CodeMeld tool."""
 
-from __future__ import annotations
-
 import logging
 from pathlib import Path
+from src.config import CombinerConfig
 
 BINARY_EXTENSIONS = {
     ".bin",
@@ -21,20 +20,6 @@ BINARY_EXTENSIONS = {
     ".pdf",
     ".zip",
 }
-
-# These constants are used in the heuristic to determine if a file is likely binary.
-# Rationale for values:
-# - _SAMPLE_SIZE_BYTES: A common sample size (8KB) for quick content analysis.
-#   It's large enough to detect binary patterns but small enough to be fast.
-# - _LARGE_FILE_THRESHOLD_BYTES: Files larger than 1MB are considered "large"
-#   and only their initial sample is checked to avoid reading entire huge files.
-# - _NON_TEXT_THRESHOLD: A common heuristic threshold (30%) for the proportion
-#   of non-text characters in a sample to classify a file as binary. This value
-#   is a balance between accuracy and avoiding false positives/negatives.
-_SAMPLE_SIZE_BYTES = 8192
-_LARGE_FILE_THRESHOLD_BYTES = 1024 * 1024  # 1MB
-_NON_TEXT_THRESHOLD = 0.30
-
 
 def log_file_read_error(file_path: Path, error: Exception) -> None:
     """Log a warning for file read errors."""
@@ -65,7 +50,7 @@ def log_file_read_error(file_path: Path, error: Exception) -> None:
         )
 
 
-def is_likely_binary(file_path: Path) -> bool:
+def is_likely_binary(file_path: Path, config: CombinerConfig | None = None) -> bool:
     """
     Determine if a file is likely binary.
 
@@ -78,6 +63,11 @@ def is_likely_binary(file_path: Path) -> bool:
     if file_path.suffix.lower() in BINARY_EXTENSIONS:
         return True
 
+    # Use configurable values or defaults
+    sample_size_bytes = config.sample_size_bytes if config else 8192
+    large_file_threshold_bytes = config.large_file_threshold_bytes if config else 1024 * 1024
+    non_text_threshold = config.non_text_threshold if config else 0.30
+
     # 2. Content analysis for other files:
     # For files without a known binary extension, perform a quick content scan.
     try:
@@ -85,8 +75,8 @@ def is_likely_binary(file_path: Path) -> bool:
         # Determine sample size: For very large files (>1MB), only read the first 8KB.
         # Otherwise, read up to 8KB or the entire file if smaller.
         sample_size = (
-            min(_SAMPLE_SIZE_BYTES, file_size)
-            if file_size > _LARGE_FILE_THRESHOLD_BYTES
+            min(sample_size_bytes, file_size)
+            if file_size > large_file_threshold_bytes
             else file_size
         )
 
@@ -107,7 +97,7 @@ def is_likely_binary(file_path: Path) -> bool:
             text_chars = bytes(range(32, 127)) + b"\n\r\t\f\b"
             non_text = sum(1 for byte in chunk if byte not in text_chars)
             # This threshold (0.30) is a common heuristic; it can be tuned.
-            return (non_text / len(chunk)) > _NON_TEXT_THRESHOLD
+            return (non_text / len(chunk)) > non_text_threshold
     except Exception as e:
         # Log any errors during file access or analysis and default to treating as binary
         # to prevent potential issues with processing unreadable or problematic files.

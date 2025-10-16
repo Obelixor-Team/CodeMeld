@@ -74,3 +74,6 @@ class CombinerConfig:
     summary: bool = True
     dry_run_output: str | None = None
     progress_style: str | None = None
+    sample_size_bytes: int = 8192
+    large_file_threshold_bytes: int = 1024 * 1024  # 1MB
+    non_text_threshold: float = 0.30

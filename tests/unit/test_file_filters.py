@@ -131,14 +131,23 @@ class TestOutputFilePathFilter:
 
 
 class TestBinaryFileFilter:
+    @pytest.fixture
+    def binary_filter_config(self):
+        # Create a minimal mock config for BinaryFileFilter
+        mock_config = MagicMock(spec=CombinerConfig)
+        mock_config.sample_size_bytes = 8192
+        mock_config.large_file_threshold_bytes = 1024 * 1024
+        mock_config.non_text_threshold = 0.30
+        return mock_config
+
     @patch("src.filters.is_likely_binary", return_value=True)
-    def test_binary_file_is_filtered(self, mock_is_likely_binary):
-        binary_filter = BinaryFileFilter()
+    def test_binary_file_is_filtered(self, mock_is_likely_binary, binary_filter_config):
+        binary_filter = BinaryFileFilter(binary_filter_config)
         assert not binary_filter.should_process(Path("binary.bin"), {})
 
     @patch("src.filters.is_likely_binary", return_value=False)
-    def test_text_file_is_not_filtered(self, mock_is_likely_binary):
-        binary_filter = BinaryFileFilter()
+    def test_text_file_is_not_filtered(self, mock_is_likely_binary, binary_filter_config):
+        binary_filter = BinaryFileFilter(binary_filter_config)
         assert binary_filter.should_process(Path("text.txt"), {})
 
 
