@@ -9,7 +9,7 @@ import logging
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from collections.abc import Generator
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -126,26 +126,37 @@ class InMemoryOutputGenerator(OutputGenerator):
         import os
 
         max_workers = min(32, (os.cpu_count() or 1) + 4)
+        future_to_path = {}
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_path = {
-                executor.submit(self._read_file_and_notify, path): path
-                for path in self.files_to_process
-            }
-            failed_files = []
-            for future in as_completed(future_to_path):
-                path = future_to_path[future]
-                try:
-                    _, content = future.result()
-                    file_contents[path] = content
-                except Exception as e:
-                    log_file_read_error(path, e)
-                    file_contents[path] = None
-                    failed_files.append(path)
+            try:
+                for path in self.files_to_process:
+                    future = executor.submit(self._read_file_and_notify, path)
+                    future_to_path[future] = path
 
-            if failed_files:
-                logging.warning(
-                    f"Failed to read {len(failed_files)} files. See log for details."
-                )
+                failed_files = []
+                for future in as_completed(future_to_path, timeout=300):
+                    path = future_to_path[future]
+                    try:
+                        _, content = future.result(timeout=10)
+                        file_contents[path] = content
+                    except TimeoutError:
+                        logging.warning(f"Timeout reading {path}")
+                        file_contents[path] = None
+                        failed_files.append(path)
+                    except Exception as e:
+                        log_file_read_error(path, e)
+                        file_contents[path] = None
+                        failed_files.append(path)
+
+                if failed_files:
+                    logging.warning(
+                        f"Failed to read {len(failed_files)} files. See log for details."
+                    )
+
+            except Exception as e:
+                logging.error(f"An error occurred during file processing: {e}")
+                executor.shutdown(wait=False, cancel_futures=True)
+                raise
 
         check_interval = max(1, min(10, len(self.files_to_process) // 20))
 

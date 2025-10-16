@@ -15,7 +15,7 @@ from .config_builder import load_and_merge_config
 from .context import GeneratorContext
 from .filters import FileFilter, FilterChainBuilder
 from .formatters import FormatterFactory
-from .memory_monitor import SystemMemoryMonitor
+from .memory_monitor import TracemallocMemoryMonitor
 from .observers import (
     LineCounterObserver,
     Publisher,
@@ -366,7 +366,7 @@ class CodeMeld:
         return ui
 
     def _run_generation(self, all_files_to_process: list[Path], ui: LiveUI) -> None:
-        memory_monitor = SystemMemoryMonitor(
+        memory_monitor = TracemallocMemoryMonitor(
             self.config.max_memory_mb, self.config.count_tokens
         )
 
