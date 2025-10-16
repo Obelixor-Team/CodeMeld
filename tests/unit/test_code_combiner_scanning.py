@@ -55,20 +55,9 @@ def test_scan_files_no_error(mock_code_combiner_config, tmp_path):
                     assert file2 in files
 
 
-def test_iter_files_rglob_no_hidden(mock_code_combiner_config, tmp_path):
+def test_iter_files_rglob_no_hidden(mock_code_combiner_config, create_common_file_structure):
+    file1, file2, hidden_file, hidden_dir_file, tmp_path = create_common_file_structure
     mock_code_combiner_config.include_hidden = False
-    file1 = tmp_path / "file1.py"
-    file1.touch()
-    subdir = tmp_path / "subdir"
-    subdir.mkdir()
-    file2 = subdir / "file2.js"
-    file2.touch()
-    hidden_file = tmp_path / ".hidden_file.txt"
-    hidden_file.touch()
-    hidden_dir = tmp_path / ".hidden_dir"
-    hidden_dir.mkdir()
-    hidden_dir_file = hidden_dir / "secret.txt"
-    hidden_dir_file.touch()
 
     mock_code_combiner_config.directory_path.resolve.return_value = tmp_path
     mock_code_combiner_config.directory_path.rglob.return_value = [file1, file2, hidden_file, hidden_dir_file]
@@ -82,20 +71,9 @@ def test_iter_files_rglob_no_hidden(mock_code_combiner_config, tmp_path):
     assert hidden_dir_file in files
 
 
-def test_iter_files_rglob_include_hidden(mock_code_combiner_config, tmp_path):
+def test_iter_files_rglob_include_hidden(mock_code_combiner_config, create_common_file_structure):
+    file1, file2, hidden_file, hidden_dir_file, tmp_path = create_common_file_structure
     mock_code_combiner_config.include_hidden = True
-    file1 = tmp_path / "file1.py"
-    file1.touch()
-    subdir = tmp_path / "subdir"
-    subdir.mkdir()
-    file2 = subdir / "file2.js"
-    file2.touch()
-    hidden_file = tmp_path / ".hidden_file.txt"
-    hidden_file.touch()
-    hidden_dir = tmp_path / ".hidden_dir"
-    hidden_dir.mkdir()
-    hidden_dir_file = hidden_dir / "secret.txt"
-    hidden_dir_file.touch()
 
     mock_code_combiner_config.directory_path.resolve.return_value = tmp_path
     mock_code_combiner_config.directory_path.rglob.return_value = [file1, file2, hidden_file, hidden_dir_file]
@@ -108,14 +86,8 @@ def test_iter_files_rglob_include_hidden(mock_code_combiner_config, tmp_path):
     assert hidden_dir_file in files
 
 
-def test_iter_files_rglob_no_hidden_files(mock_code_combiner_config, tmp_path):
-    # Create a temporary directory structure
-    (tmp_path / "file1.py").touch()
-    (tmp_path / "subdir").mkdir()
-    (tmp_path / "subdir" / "file2.js").touch()
-    (tmp_path / ".hidden_file.txt").touch()
-    (tmp_path / ".hidden_dir").mkdir()
-    (tmp_path / ".hidden_dir" / "secret.txt").touch()
+def test_iter_files_rglob_no_hidden_files(mock_code_combiner_config, create_common_file_structure):
+    file1, file2, hidden_file, hidden_dir_file, tmp_path = create_common_file_structure
 
     mock_code_combiner_config.directory_path = tmp_path
     mock_code_combiner_config.include_hidden = False
@@ -125,20 +97,14 @@ def test_iter_files_rglob_no_hidden_files(mock_code_combiner_config, tmp_path):
 
     # _iter_files itself should only yield all files, filtering happens later
     assert len(files) == 4
-    assert (tmp_path / "file1.py") in files
-    assert (tmp_path / "subdir" / "file2.js") in files
-    assert (tmp_path / ".hidden_file.txt") in files
-    assert (tmp_path / ".hidden_dir" / "secret.txt") in files
+    assert file1 in files
+    assert file2 in files
+    assert hidden_file in files
+    assert hidden_dir_file in files
 
 
-def test_iter_files_rglob_with_hidden_files(mock_code_combiner_config, tmp_path):
-    # Create a temporary directory structure
-    (tmp_path / "file1.py").touch()
-    (tmp_path / "subdir").mkdir()
-    (tmp_path / "subdir" / "file2.js").touch()
-    (tmp_path / ".hidden_file.txt").touch()
-    (tmp_path / ".hidden_dir").mkdir()
-    (tmp_path / ".hidden_dir" / "secret.txt").touch()
+def test_iter_files_rglob_with_hidden_files(mock_code_combiner_config, create_common_file_structure):
+    file1, file2, hidden_file, hidden_dir_file, tmp_path = create_common_file_structure
 
     mock_code_combiner_config.directory_path = tmp_path
     mock_code_combiner_config.include_hidden = True
@@ -147,7 +113,7 @@ def test_iter_files_rglob_with_hidden_files(mock_code_combiner_config, tmp_path)
     files = list(combiner._iter_files())
 
     assert len(files) == 4
-    assert (tmp_path / "file1.py") in files
-    assert (tmp_path / "subdir" / "file2.js") in files
-    assert (tmp_path / ".hidden_file.txt") in files
-    assert (tmp_path / ".hidden_dir" / "secret.txt") in files
+    assert file1 in files
+    assert file2 in files
+    assert hidden_file in files
+    assert hidden_dir_file in files

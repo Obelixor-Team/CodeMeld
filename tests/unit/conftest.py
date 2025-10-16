@@ -5,6 +5,22 @@ from pathlib import Path
 from src.config import CombinerConfig
 
 
+@pytest.fixture
+def create_common_file_structure(tmp_path):
+    file1 = tmp_path / "file1.py"
+    file1.touch()
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    file2 = subdir / "file2.js"
+    file2.touch()
+    hidden_file = tmp_path / ".hidden_file.txt"
+    hidden_file.touch()
+    hidden_dir = tmp_path / ".hidden_dir"
+    hidden_dir.mkdir()
+    hidden_dir_file = hidden_dir / "secret.txt"
+    hidden_dir_file.touch()
+    return file1, file2, hidden_file, hidden_dir_file, tmp_path
+
 
 @pytest.fixture
 def mock_code_combiner_config():
