@@ -17,6 +17,7 @@ from src.filters import (
     SymlinkFilter,
     FileSizeFilter,
     CompositeFilter,
+    OrFilter,
 )
 from src.config import CombinerConfig
 from src.code_combiner import CodeMeld
@@ -290,10 +291,20 @@ class TestFilterChainBuilder:
         assert isinstance(full_chain, CompositeFilter)
         # Check the order and types of filters
         filters = full_chain.filters
-        assert isinstance(filters[0], ExtensionFilter)
-        assert isinstance(filters[1], HiddenFileFilter)
-        assert isinstance(filters[2], GitignoreFilter)
-        assert isinstance(filters[3], CompositeFilter) # The safety chain itself is a composite
+        assert len(filters) == 2
+        assert isinstance(filters[0], OrFilter)
+        assert isinstance(filters[1], CompositeFilter) # This is the safety_chain
+
+        or_filters = filters[0].filters
+        assert len(or_filters) == 1 # Only content filters, no always_include_paths
+        content_filters = or_filters[0].filters # Get the CompositeFilter for content filters
+
+        assert any(isinstance(f, ExtensionFilter) for f in content_filters)
+        assert any(isinstance(f, HiddenFileFilter) for f in content_filters)
+        assert any(isinstance(f, GitignoreFilter) for f in content_filters)
+
+        # Verify safety_chain is indeed the safety_chain
+        assert filters[1] is safety_chain
 
     def test_code_combiner_integration(self, mock_config, tmp_path):
         # This is an integration-style test for the filter chain within CodeCombiner
