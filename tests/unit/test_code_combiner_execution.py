@@ -6,13 +6,12 @@ from pathlib import Path
 import logging
 
 from src.config import MemoryThresholdExceededError
-from tests.unit.conftest import create_mock_path
 from src.code_combiner import CodeMeld
 
 
-def test_execute_output_written_by_streaming_path(mock_code_combiner_config):
+def test_execute_output_written_by_streaming_path(mock_code_combiner_config, tmp_path):
     mock_code_combiner_config.count_tokens = False
-    mock_code_combiner_config.output = "output.txt"
+    mock_code_combiner_config.output = str(tmp_path / "output.txt")
     combiner = CodeMeld(mock_code_combiner_config)
 
     with patch('src.output_generator.InMemoryOutputGenerator') as MockInMemoryOutputGenerator:
@@ -27,13 +26,15 @@ def test_execute_output_written_by_streaming_path(mock_code_combiner_config):
                 combiner.execute()
                 mock_write_output.assert_not_called()
 
-def test_execute_processing_complete_notification(mock_code_combiner_config, caplog):
-    mock_code_combiner_config.output = "output.txt"
-    mock_code_combiner_config.directory_path.rglob.return_value = [create_mock_path("/mock/dir/file1.py")]
+def test_execute_processing_complete_notification_with_files(mock_code_combiner_config, caplog, tmp_path):
+    mock_code_combiner_config.output = str(tmp_path / "output.txt")
+    file1 = tmp_path / "file1.py"
+    file1.touch()
+    mock_code_combiner_config.directory_path.resolve.return_value = tmp_path
+    mock_code_combiner_config.directory_path.rglob.return_value = [file1]
 
-    # 👇 PATCH is_likely_binary to avoid MagicMock/int comparison error
     with patch('src.output_generator.is_likely_binary', return_value=False):
-        with patch.object(CodeMeld, '_get_filtered_files', return_value=[create_mock_path('/mock/dir/file1.py')]) as _mock_get_filtered_files:
+        with patch.object(CodeMeld, '_get_filtered_files', return_value=[file1]) as _mock_get_filtered_files:
             with patch('builtins.open', MagicMock(return_value=MagicMock(__enter__=lambda self: MagicMock(read=MagicMock(side_effect=["file content", ""])), __exit__=MagicMock()))):
                 with patch('src.code_combiner.InMemoryOutputGenerator') as MockInMemoryOutputGeneratorClass:
                     mock_in_memory_generator_instance = MockInMemoryOutputGeneratorClass.return_value
@@ -59,28 +60,23 @@ def test_execute_processing_complete_notification(mock_code_combiner_config, cap
                             mock_publisher_instance.notify.assert_called_with(
                                 "processing_complete", None
                             )
-    mock_code_combiner_config.directory_path.rglob.return_value = []  # Simulate empty directory
-    mock_code_combiner_config.output = "non_existent_output.txt" # Ensure output file doesn't exist
 
-    combiner = CodeMeld(mock_code_combiner_config)
-
-    with caplog.at_level(logging.INFO):
-        combiner.execute()
-
-    assert "No files found to process. Exiting." in caplog.text
-    # Ensure write_output was not called
-    assert not Path(mock_code_combiner_config.output).exists()
-
-def test_execute_write_output_called_when_not_streaming(mock_code_combiner_config):
+def test_execute_write_output_called_when_not_streaming(mock_code_combiner_config, tmp_path):
     mock_code_combiner_config.always_include = []
-    mock_code_combiner_config.output = "output.txt"
+    mock_code_combiner_config.output = str(tmp_path / "output.txt")
     mock_code_combiner_config.force = True
     mock_code_combiner_config.dry_run = False
     mock_code_combiner_config.dry_run_output = None
 
+    file1 = tmp_path / "file1.py"
+    file1.touch()
+
+    mock_code_combiner_config.directory_path.resolve.return_value = tmp_path
+    mock_code_combiner_config.directory_path.rglob.return_value = [file1]
+
     combiner = CodeMeld(mock_code_combiner_config)
 
-    with patch.object(CodeMeld, '_get_filtered_files', return_value=[create_mock_path('/mock/dir/file1.py')]) as _mock_get_filtered_files:
+    with patch.object(CodeMeld, '_get_filtered_files', return_value=[file1]) as _mock_get_filtered_files:
         with patch('src.code_combiner.InMemoryOutputGenerator') as MockInMemoryOutputGeneratorClass:
             mock_in_memory_generator_instance = MockInMemoryOutputGeneratorClass.return_value
             mock_in_memory_generator_instance.generate.return_value = ("some content", "raw content")
@@ -94,8 +90,11 @@ def test_execute_write_output_called_when_not_streaming(mock_code_combiner_confi
                     None, # dry_run_output_path
                 )
 
-def test_execute_no_files_to_process(mock_code_combiner_config, caplog):
+
+def test_execute_no_files_to_process(mock_code_combiner_config, caplog, tmp_path):
     mock_code_combiner_config.always_include = []
+    mock_code_combiner_config.directory_path.resolve.return_value = tmp_path
+    mock_code_combiner_config.directory_path.rglob.return_value = []
     # Simulate _get_filtered_files returning an empty list
     with patch.object(CodeMeld, '_get_filtered_files', return_value=[]):
         combiner = CodeMeld(mock_code_combiner_config)

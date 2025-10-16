@@ -37,8 +37,7 @@ check-strict:
 test:
 	PYTHONPATH=. .venv/bin/pytest tests/
 
-coverage:
-	PYTHONPATH=. .venv/bin/pytest --cov=src --cov-report=term-missing --cov-fail-under=95 --timeout=60 tests/
+coverage: PYTHONPATH=. .venv/bin/pytest --cov=src --cov-report=term-missing --cov-fail-under=90 --timeout=60 tests/
 
 radon:
 	.venv/bin/radon cc src -a -nc

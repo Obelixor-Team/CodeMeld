@@ -22,6 +22,15 @@ BINARY_EXTENSIONS = {
     ".zip",
 }
 
+# These constants are used in the heuristic to determine if a file is likely binary.
+# Rationale for values:
+# - _SAMPLE_SIZE_BYTES: A common sample size (8KB) for quick content analysis.
+#   It's large enough to detect binary patterns but small enough to be fast.
+# - _LARGE_FILE_THRESHOLD_BYTES: Files larger than 1MB are considered "large"
+#   and only their initial sample is checked to avoid reading entire huge files.
+# - _NON_TEXT_THRESHOLD: A common heuristic threshold (30%) for the proportion
+#   of non-text characters in a sample to classify a file as binary. This value
+#   is a balance between accuracy and avoiding false positives/negatives.
 _SAMPLE_SIZE_BYTES = 8192
 _LARGE_FILE_THRESHOLD_BYTES = 1024 * 1024  # 1MB
 _NON_TEXT_THRESHOLD = 0.30

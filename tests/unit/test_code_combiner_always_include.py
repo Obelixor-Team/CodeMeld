@@ -5,21 +5,23 @@ from unittest.mock import MagicMock, patch
 from pathlib import Path
 import logging
 
-from tests.unit.conftest import create_mock_path
 from src.code_combiner import CodeMeld
 
 
-def test_get_filtered_files_always_include_non_existent(mock_code_combiner_config, caplog):
-    mock_code_combiner_config.always_include = [Path("/non/existent/file.py")]
+def test_get_filtered_files_always_include_non_existent(mock_code_combiner_config, caplog, tmp_path):
+    non_existent_file = tmp_path / "non_existent_file.py"
+    mock_code_combiner_config.always_include = [non_existent_file]
     combiner = CodeMeld(mock_code_combiner_config)
     with caplog.at_level(logging.WARNING):
         combiner.execute()
-    assert "Warning: --always-include path '/non/existent/file.py' is not a file or does not exist. Skipping." in caplog.text
+    assert f"Warning: --always-include path '{non_existent_file}' is not a file or does not exist. Skipping." in caplog.text
 
-def test_get_filtered_files_always_include_directory(mock_code_combiner_config, caplog):
-    mock_dir = create_mock_path("/mock/dir/always_include_dir", is_file=False)
+
+def test_get_filtered_files_always_include_directory(mock_code_combiner_config, caplog, tmp_path):
+    mock_dir = tmp_path / "always_include_dir"
+    mock_dir.mkdir()
     mock_code_combiner_config.always_include = [mock_dir]
     combiner = CodeMeld(mock_code_combiner_config)
     with caplog.at_level(logging.WARNING):
         combiner.execute()
-    assert "Warning: --always-include path '/mock/dir/always_include_dir' is not a file or does not exist. Skipping." in caplog.text
+    assert f"Warning: --always-include path '{mock_dir}' is not a file or does not exist. Skipping." in caplog.text

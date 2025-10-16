@@ -4,14 +4,7 @@ from unittest.mock import MagicMock
 from pathlib import Path
 from src.config import CombinerConfig
 
-def create_mock_path(path_str: str, is_file: bool = True) -> MagicMock:
-    mock_path = MagicMock(spec=Path, name=path_str)
-    mock_path.is_file.return_value = is_file
-    mock_path.__str__.return_value = path_str
-    mock_path.resolve.return_value = mock_path
-    mock_path.__truediv__.side_effect = lambda x: Path(path_str + "/" + str(x))
-    mock_path.__lt__.side_effect = lambda other: str(mock_path) < str(other) # Make sortable
-    return mock_path
+
 
 @pytest.fixture
 def mock_code_combiner_config():
