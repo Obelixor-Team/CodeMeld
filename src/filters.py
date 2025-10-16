@@ -33,7 +33,7 @@ class FileFilter(ABC):
 
 
 class CompositeFilter(FileFilter):
-    """A filter that is composed of other filters."""
+    """A filter that is composed of other filters. All filters must pass."""
 
     def __init__(self, filters: list[FileFilter]):
         """Initialize the composite filter."""
@@ -41,22 +41,9 @@ class CompositeFilter(FileFilter):
 
     def _check(self, file_path: Path, context: dict) -> bool:
         """Check the file against all filters in the composite."""
-        always_include_filter = None
         for f in self.filters:
-            if isinstance(f, AlwaysIncludeFilter):
-                always_include_filter = f
-                break
-
-        if always_include_filter and always_include_filter.should_process(
-            file_path, context
-        ):
-            return True
-
-        for f in self.filters:
-            if not isinstance(f, AlwaysIncludeFilter):
-                if not f.should_process(file_path, context):
-                    return False
-
+            if not f.should_process(file_path, context):
+                return False
         return True
 
 
@@ -228,6 +215,19 @@ class FileSizeFilter(FileFilter):
             return False
 
 
+class OrFilter(FileFilter):
+    """A filter that passes if any of its sub-filters pass."""
+
+    def __init__(self, filters: list[FileFilter]):
+        self.filters = filters
+
+    def _check(self, file_path: Path, context: dict) -> bool:
+        for f in self.filters:
+            if f.should_process(file_path, context):
+                return True
+        return False
+
+
 class FilterChainBuilder:
     """Builder for constructing file filter chains."""
 
@@ -259,16 +259,27 @@ class FilterChainBuilder:
         safety_chain: FileFilter,
         always_include_paths: list[Path],
     ) -> FileFilter:
-        """Build a full filter chain including all configured filters."""
-        filters: list[FileFilter] = []
-        if always_include_paths:
-            filters.append(AlwaysIncludeFilter(always_include_paths))
-        filters.append(ExtensionFilter(config.extensions, config.exclude_extensions))
+        """
+        Build the full filter chain with the logic:
+        (pass_always_include OR pass_content_filters) AND pass_safety_filters
+        """
+        content_filters: list[FileFilter] = [
+            ExtensionFilter(config.extensions, config.exclude_extensions)
+        ]
         if not config.include_hidden:
-            filters.append(HiddenFileFilter(config.include_hidden))
+            content_filters.append(HiddenFileFilter(config.include_hidden))
         if config.use_gitignore and spec:
-            filters.append(GitignoreFilter(spec))
+            content_filters.append(GitignoreFilter(spec))
 
-        filters.append(safety_chain)
+        main_selection_filters: list[FileFilter] = [CompositeFilter(content_filters)]
+        if always_include_paths:
+            main_selection_filters.insert(
+                0, AlwaysIncludeFilter(always_include_paths)
+            )
 
-        return CompositeFilter(filters)
+        # The core logic: a file is included if it's either in the always_include list
+        # OR it passes all the content filters.
+        main_filter = OrFilter(main_selection_filters)
+
+        # The final chain: the file must pass the main filter AND the safety filter.
+        return CompositeFilter([main_filter, safety_chain])
