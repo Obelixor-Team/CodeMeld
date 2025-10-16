@@ -5,6 +5,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from src.filters import (
+    AlwaysIncludeFilter,
     BinaryFileFilter,
     ExtensionFilter,
     FileFilter,
@@ -232,6 +233,28 @@ class TestCompositeFilter:
     def test_empty_composite(self):
         composite = CompositeFilter([])
         assert composite.should_process(Path("file.txt"), {})
+
+    def test_always_include_bypasses_other_filters(self, tmp_path):
+        # Create a large file that should be filtered by size
+        large_file = tmp_path / "large_file.bin"
+        large_file.write_text("a" * 200 * 1024)  # 200KB
+
+        # Create a filter chain that includes a size filter and an always-include filter
+        always_include_filter = AlwaysIncludeFilter(always_include_paths=[large_file])
+        file_size_filter = FileSizeFilter(max_file_size_kb=100)  # Max 100KB
+
+        # The composite filter contains both. The bug is that AlwaysIncludeFilter
+        # causes the FileSizeFilter to be ignored.
+        composite_filter = CompositeFilter(
+            [always_include_filter, file_size_filter]
+        )
+
+        # The current buggy implementation will return True, because AlwaysIncludeFilter
+        # is checked first and the function returns immediately.
+        # A correct implementation should return False, because the file is too large.
+        assert not composite_filter.should_process(
+            large_file, {"root_path": tmp_path}
+        ), "AlwaysIncludeFilter should not bypass the FileSizeFilter"
 
 
 class TestFilterChainBuilder:
