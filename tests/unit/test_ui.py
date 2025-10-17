@@ -8,17 +8,19 @@ from src.ui import LiveUI
 class TestLiveUI:
     def test_start_no_progress_bar(self, capsys):
         ui = LiveUI(total_files=10)
-        ui.progress_style = 'none'
+        ui.progress_style = "none"
         ui.verbose = True
         ui.start()
         captured = capsys.readouterr()
         assert "Processing 10 files..." in captured.out
 
     def test_start_ascii_progress_bar(self):
-        with patch('src.ui.tqdm') as mock_tqdm, patch('shutil.get_terminal_size', return_value=MagicMock(columns=80)):
+        with patch("src.ui.tqdm") as mock_tqdm, patch(
+            "shutil.get_terminal_size", return_value=MagicMock(columns=80)
+        ):
             ui = LiveUI(total_files=10)
-            ui.progress_style = 'ascii'
-            with patch('sys.stdout.isatty', return_value=True):
+            ui.progress_style = "ascii"
+            with patch("sys.stdout.isatty", return_value=True):
                 ui.start()
             mock_tqdm.assert_called_with(
                 total=10,
@@ -29,10 +31,12 @@ class TestLiveUI:
             )
 
     def test_start_block_progress_bar(self):
-        with patch('src.ui.tqdm') as mock_tqdm, patch('shutil.get_terminal_size', return_value=MagicMock(columns=80)):
+        with patch("src.ui.tqdm") as mock_tqdm, patch(
+            "shutil.get_terminal_size", return_value=MagicMock(columns=80)
+        ):
             ui = LiveUI(total_files=10)
-            ui.progress_style = 'block'
-            with patch('sys.stdout.isatty', return_value=True):
+            ui.progress_style = "block"
+            with patch("sys.stdout.isatty", return_value=True):
                 ui.start()
             mock_tqdm.assert_called_with(
                 total=10,
@@ -42,7 +46,7 @@ class TestLiveUI:
             )
 
     def test_start_verbose_non_tty(self, capsys):
-        with patch('sys.stdout.isatty', return_value=False):
+        with patch("sys.stdout.isatty", return_value=False):
             ui = LiveUI(total_files=10)
             ui.verbose = True
             ui.start()
@@ -85,7 +89,7 @@ class TestLiveUIFinish:
         assert "Token count" not in captured.out
 
     def test_finish_no_psutil(self, capsys):
-        with patch('src.ui._psutil_module', None):
+        with patch("src.ui._psutil_module", None):
             ui = LiveUI()
             ui.summary = True
             ui.finish()

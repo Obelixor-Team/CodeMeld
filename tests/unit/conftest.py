@@ -27,11 +27,15 @@ def mock_code_combiner_config():
     config = MagicMock(spec=CombinerConfig)
     # Create a mock Path object for directory_path
     mock_dir_path = MagicMock(spec=Path)
-    mock_dir_path.rglob.return_value = [] # Default empty rglob
-    mock_dir_path.__truediv__.side_effect = lambda x: Path(str(mock_dir_path) + "/" + str(x)) # Allow division for path joining
-    mock_dir_path.is_absolute.return_value = True # Assume it's absolute for _resolve_path
-    mock_dir_path.resolve.return_value = mock_dir_path # Assume it resolves to itself
-    mock_dir_path.__str__.return_value = "/mock/dir" # For string representation
+    mock_dir_path.rglob.return_value = []  # Default empty rglob
+    mock_dir_path.__truediv__.side_effect = lambda x: Path(
+        str(mock_dir_path) + "/" + str(x)
+    )  # Allow division for path joining
+    mock_dir_path.is_absolute.return_value = (
+        True  # Assume it's absolute for _resolve_path
+    )
+    mock_dir_path.resolve.return_value = mock_dir_path  # Assume it resolves to itself
+    mock_dir_path.__str__.return_value = "/mock/dir"  # For string representation
 
     config.directory_path = mock_dir_path
     config.extensions = [".py"]
@@ -48,8 +52,9 @@ def mock_code_combiner_config():
     config.token_encoding_model = "cl100k_base"
     config.max_memory_mb = 500
     config.custom_file_headers = {}
-    config.max_file_size_kb = None # Added
+    config.max_file_size_kb = None  # Added
     return config
+
 
 @pytest.fixture
 def mock_filter_config():
@@ -64,13 +69,16 @@ def mock_filter_config():
         max_file_size_kb=100,
     )
 
+
 @pytest.fixture
 def mock_context():
     return {"root_path": Path("/mock/root")}
 
+
 @pytest.fixture
 def mock_file_path():
     return Path("/mock/root/test.py")
+
 
 @pytest.fixture
 def mock_spec():

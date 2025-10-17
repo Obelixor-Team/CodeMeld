@@ -16,21 +16,21 @@ def test_complete_refactored_flow(tmp_path):
     (tmp_path / "file2.js").write_text("console.log('test')")
     (tmp_path / ".gitignore").write_text("*.log")
     (tmp_path / "debug.log").write_text("should be ignored")
-    
+
     output = tmp_path / "output.txt"
-    
+
     # Run with various options
     config = CombinerConfig(
         directory_path=tmp_path,
         output=str(output),
-        extensions=[ ".py", ".js"],
+        extensions=[".py", ".js"],
         use_gitignore=True,
         count_tokens=False,
     )
-    
+
     combiner = CodeMeld(config)
     combiner.execute()
-    
+
     # Verify
     assert output.exists()
     content = output.read_text()
@@ -47,7 +47,7 @@ def test_convert_json_to_markdown(tmp_path):
     config = CombinerConfig(
         directory_path=tmp_path,
         output=str(output_file),
-        extensions=[ ".py"],
+        extensions=[".py"],
         format="json",
         final_output_format="markdown",
     )
@@ -73,7 +73,7 @@ def test_convert_xml_to_text(tmp_path):
     config = CombinerConfig(
         directory_path=tmp_path,
         output=str(output_file),
-        extensions=[ ".js"],
+        extensions=[".js"],
         format="xml",
         final_output_format="text",
     )
@@ -88,48 +88,33 @@ def test_convert_xml_to_text(tmp_path):
     assert "<" not in content  # Should not contain XML syntax
     assert ">" not in content  # Should not contain XML syntax
 
-def test_dry_run_mode(tmp_path, capsys, caplog):
 
+def test_dry_run_mode(tmp_path, capsys, caplog):
     """Test that --dry-run mode prints to stdout and does not create an output file."""
 
     (tmp_path / "file1.py").write_text("print('dry run test')")
 
     output_file = tmp_path / "dry_run_output.txt"
 
-
-
     config = CombinerConfig(
-
         directory_path=tmp_path,
-
         output=str(output_file),
-
-        extensions=[ ".py"],
-
+        extensions=[".py"],
         dry_run=True,
-
     )
 
-
-
     combiner = CodeMeld(config)
-    
+
     with caplog.at_level(logging.INFO):
         combiner.execute()
-
-
 
     # Verify that the output file was NOT created
 
     assert not output_file.exists()
 
-
-
     # Verify that the content was printed to stdout
 
     captured_stdout = capsys.readouterr().out
-
-    
 
     # Verify logging messages using caplog
 
@@ -137,9 +122,9 @@ def test_dry_run_mode(tmp_path, capsys, caplog):
 
     assert "--- End Dry Run Output ---" in caplog.text
 
-
-
     assert "print('dry run test')" in captured_stdout
+
+
 def test_gitignore_precedence(tmp_path):
     """Test that .gitignore rules take precedence over included extensions."""
     # Create a Python file
@@ -152,7 +137,7 @@ def test_gitignore_precedence(tmp_path):
     config = CombinerConfig(
         directory_path=tmp_path,
         output=str(output),
-        extensions=[ ".py"],
+        extensions=[".py"],
         use_gitignore=True,
         count_tokens=False,
     )
@@ -163,6 +148,7 @@ def test_gitignore_precedence(tmp_path):
     # Verify that the output file exists but does NOT contain the ignored Python file
     assert not output.exists()
 
+
 def test_custom_file_headers_formatting(tmp_path):
     """Test that --custom-file-headers formatting is applied correctly."""
     (tmp_path / "script.py").write_text("print('Hello from Python')")
@@ -170,15 +156,12 @@ def test_custom_file_headers_formatting(tmp_path):
 
     output = tmp_path / "output.txt"
 
-    custom_headers = {
-        "py": "# Python File: {path}",
-        "js": "// JavaScript File: {path}"
-    }
+    custom_headers = {"py": "# Python File: {path}", "js": "// JavaScript File: {path}"}
 
     config = CombinerConfig(
         directory_path=tmp_path,
         output=str(output),
-        extensions=[ ".py", ".js"],
+        extensions=[".py", ".js"],
         custom_file_headers=custom_headers,
         count_tokens=False,
     )
@@ -194,6 +177,7 @@ def test_custom_file_headers_formatting(tmp_path):
     assert "// JavaScript File: app.js" in content
     assert "console.log('Hello from JS')" in content
 
+
 def test_memory_threshold_fallback(tmp_path, caplog):
     """Test that memory threshold exceeding triggers fallback to streaming output."""
     large_file = tmp_path / "large_file.txt"
@@ -204,7 +188,7 @@ def test_memory_threshold_fallback(tmp_path, caplog):
     config = CombinerConfig(
         directory_path=tmp_path,
         output=str(output_file),
-        extensions=[ ".txt"],
+        extensions=[".txt"],
         max_memory_mb=1,  # Intentionally very low
         count_tokens=False,  # Fallback only occurs if token counting is not needed
     )
@@ -220,7 +204,11 @@ def test_memory_threshold_fallback(tmp_path, caplog):
     assert "a" * (1024 * 1024 * 2) in content
 
     # Log should contain fallback message (looser match for robustness)
-    assert any("Falling back to streaming due to memory constraints" in record.message for record in caplog.records)    
+    assert any(
+        "Falling back to streaming due to memory constraints" in record.message
+        for record in caplog.records
+    )
+
 
 def test_dry_run_mode_with_streaming_fallback(tmp_path, capsys, caplog):
     """Test that --dry-run mode with forced streaming fallback prints to stdout and does not create an output file."""
@@ -232,14 +220,14 @@ def test_dry_run_mode_with_streaming_fallback(tmp_path, capsys, caplog):
     config = CombinerConfig(
         directory_path=tmp_path,
         output=str(output_file),
-        extensions=[ ".txt"],
+        extensions=[".txt"],
         dry_run=True,
         max_memory_mb=1,  # Force streaming fallback
-        count_tokens=False, # Required for streaming fallback
+        count_tokens=False,  # Required for streaming fallback
     )
 
     combiner = CodeMeld(config)
-    
+
     with caplog.at_level(logging.INFO):
         combiner.execute()
 
@@ -248,7 +236,7 @@ def test_dry_run_mode_with_streaming_fallback(tmp_path, capsys, caplog):
 
     # Verify that the content was printed to stdout
     captured_stdout = capsys.readouterr().out
-    
+
     # Verify logging messages using caplog
     assert "--- Dry Run Output (Streaming) ---" in caplog.text
     assert "--- End Dry Run Output (Streaming) ---" in caplog.text

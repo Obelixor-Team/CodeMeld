@@ -72,19 +72,27 @@ class TestExtensionFilter:
 class TestHiddenFileFilter:
     def test_include_hidden_true(self, mock_file_path):
         hidden_file_filter = HiddenFileFilter(include_hidden=True)
-        assert hidden_file_filter.should_process(Path("/mock/root/.hidden_file"), {"root_path": Path("/mock/root")})
+        assert hidden_file_filter.should_process(
+            Path("/mock/root/.hidden_file"), {"root_path": Path("/mock/root")}
+        )
 
     def test_include_hidden_false_visible_file(self, mock_file_path):
         hidden_file_filter = HiddenFileFilter(include_hidden=False)
-        assert hidden_file_filter.should_process(Path("/mock/root/visible_file.py"), {"root_path": Path("/mock/root")})
+        assert hidden_file_filter.should_process(
+            Path("/mock/root/visible_file.py"), {"root_path": Path("/mock/root")}
+        )
 
     def test_include_hidden_false_hidden_file(self, mock_file_path):
         hidden_file_filter = HiddenFileFilter(include_hidden=False)
-        assert not hidden_file_filter.should_process(Path("/mock/root/.hidden_file"), {"root_path": Path("/mock/root")})
+        assert not hidden_file_filter.should_process(
+            Path("/mock/root/.hidden_file"), {"root_path": Path("/mock/root")}
+        )
 
     def test_include_hidden_false_hidden_dir(self, mock_file_path):
         hidden_file_filter = HiddenFileFilter(include_hidden=False)
-        assert not hidden_file_filter.should_process(Path("/mock/root/.hidden_dir/file.py"), {"root_path": Path("/mock/root")})
+        assert not hidden_file_filter.should_process(
+            Path("/mock/root/.hidden_dir/file.py"), {"root_path": Path("/mock/root")}
+        )
 
     def test_no_root_path_context(self):
         hidden_file_filter = HiddenFileFilter(include_hidden=False)
@@ -102,11 +110,15 @@ class TestGitignoreFilter:
 
     def test_file_ignored(self, mock_spec):
         gitignore_filter = GitignoreFilter(mock_spec)
-        assert not gitignore_filter.should_process(Path("/mock/root/ignored.py"), {"root_path": Path("/mock/root")})
+        assert not gitignore_filter.should_process(
+            Path("/mock/root/ignored.py"), {"root_path": Path("/mock/root")}
+        )
 
     def test_file_not_ignored(self, mock_spec):
         gitignore_filter = GitignoreFilter(mock_spec)
-        assert gitignore_filter.should_process(Path("/mock/root/not_ignored.py"), {"root_path": Path("/mock/root")})
+        assert gitignore_filter.should_process(
+            Path("/mock/root/not_ignored.py"), {"root_path": Path("/mock/root")}
+        )
 
     def test_no_spec(self):
         gitignore_filter = GitignoreFilter(None)
@@ -146,7 +158,9 @@ class TestBinaryFileFilter:
         assert not binary_filter.should_process(Path("binary.bin"), {})
 
     @patch("src.filters.is_likely_binary", return_value=False)
-    def test_text_file_is_not_filtered(self, mock_is_likely_binary, binary_filter_config):
+    def test_text_file_is_not_filtered(
+        self, mock_is_likely_binary, binary_filter_config
+    ):
         binary_filter = BinaryFileFilter(binary_filter_config)
         assert binary_filter.should_process(Path("text.txt"), {})
 
@@ -255,9 +269,7 @@ class TestCompositeFilter:
 
         # The composite filter contains both. The bug is that AlwaysIncludeFilter
         # causes the FileSizeFilter to be ignored.
-        composite_filter = CompositeFilter(
-            [always_include_filter, file_size_filter]
-        )
+        composite_filter = CompositeFilter([always_include_filter, file_size_filter])
 
         # The current buggy implementation will return True, because AlwaysIncludeFilter
         # is checked first and the function returns immediately.
@@ -296,17 +308,21 @@ class TestFilterChainBuilder:
     def test_build_full_chain(self, mock_config, mock_spec, tmp_path):
         mock_config.output = str(tmp_path / "output.txt")
         safety_chain = FilterChainBuilder.build_safety_chain(mock_config)
-        full_chain = FilterChainBuilder.build_full_chain(mock_config, mock_spec, safety_chain, [])
+        full_chain = FilterChainBuilder.build_full_chain(
+            mock_config, mock_spec, safety_chain, []
+        )
         assert isinstance(full_chain, CompositeFilter)
         # Check the order and types of filters
         filters = full_chain.filters
         assert len(filters) == 2
         assert isinstance(filters[0], OrFilter)
-        assert isinstance(filters[1], CompositeFilter) # This is the safety_chain
+        assert isinstance(filters[1], CompositeFilter)  # This is the safety_chain
 
         or_filters = filters[0].filters
-        assert len(or_filters) == 1 # Only content filters, no always_include_paths
-        content_filters = or_filters[0].filters # Get the CompositeFilter for content filters
+        assert len(or_filters) == 1  # Only content filters, no always_include_paths
+        content_filters = or_filters[
+            0
+        ].filters  # Get the CompositeFilter for content filters
 
         assert any(isinstance(f, ExtensionFilter) for f in content_filters)
         assert any(isinstance(f, HiddenFileFilter) for f in content_filters)
@@ -342,7 +358,7 @@ class TestFilterChainBuilder:
         mock_config.output = str(tmp_path / "output.txt")
         mock_config.extensions = [".py"]
         mock_config.use_gitignore = True
-        (tmp_path / ".gitignore").write_text("*.py") # Ignore all python files
+        (tmp_path / ".gitignore").write_text("*.py")  # Ignore all python files
 
         (tmp_path / "file1.py").write_text("print('hello')")
         (tmp_path / "file2.js").write_text("console.log('world')")
@@ -356,8 +372,10 @@ class TestFilterChainBuilder:
         mock_config.directory_path = tmp_path
         mock_config.output = str(tmp_path / "output.txt")
         mock_config.extensions = [".py"]
-        mock_config.always_include = [str(tmp_path / "file2.js")] # Include a non-python file
-        
+        mock_config.always_include = [
+            str(tmp_path / "file2.js")
+        ]  # Include a non-python file
+
         (tmp_path / "file1.py").write_text("print('hello')")
         (tmp_path / "file2.js").write_text("console.log('world')")
 

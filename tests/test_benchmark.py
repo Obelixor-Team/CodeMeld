@@ -2,6 +2,7 @@ import pytest
 from src.code_combiner import CodeMeld
 from src.config import CombinerConfig, MemoryThresholdExceededError
 
+
 @pytest.mark.benchmark(group="codemeld")
 def test_inmemory_generation_benchmark(benchmark, tmp_path):
     """Benchmark performance of in-memory generation."""
@@ -11,10 +12,12 @@ def test_inmemory_generation_benchmark(benchmark, tmp_path):
     (small_dir / "b.py").write_text("print('b')")
 
     base_config = CombinerConfig(directory_path=small_dir)
+
     def run_in_memory(**kwargs):
         CodeMeld(base_config).execute()
 
     benchmark.pedantic(run_in_memory)
+
 
 @pytest.mark.benchmark(group="codemeld")
 def test_streaming_generation_benchmark(benchmark, tmp_path):
@@ -25,6 +28,7 @@ def test_streaming_generation_benchmark(benchmark, tmp_path):
     (small_dir / "b.py").write_text("print('b')")
 
     stream_cfg = CombinerConfig(directory_path=small_dir, max_memory_mb=1)
+
     def run_streaming(**kwargs):
         try:
             CodeMeld(stream_cfg).execute()

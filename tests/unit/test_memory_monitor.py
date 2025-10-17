@@ -1,6 +1,11 @@
 import pytest
-from src.memory_monitor import SystemMemoryMonitor, TracemallocMemoryMonitor, MemoryMonitor
+from src.memory_monitor import (
+    SystemMemoryMonitor,
+    TracemallocMemoryMonitor,
+    MemoryMonitor,
+)
 from src.config import MemoryThresholdExceededError
+
 
 def test_system_memory_monitor_no_limit():
     """
@@ -13,7 +18,8 @@ def test_system_memory_monitor_no_limit():
     monitor_zero.check_memory_usage()  # Should not raise an error
 
     monitor_negative = SystemMemoryMonitor(max_memory_mb=-100)
-    monitor_negative.check_memory_usage() # Should not raise an error
+    monitor_negative.check_memory_usage()  # Should not raise an error
+
 
 def test_tracemalloc_memory_monitor_no_limit():
     """
@@ -26,7 +32,8 @@ def test_tracemalloc_memory_monitor_no_limit():
     monitor_zero.check_memory_usage()  # Should not raise an error
 
     monitor_negative = TracemallocMemoryMonitor(max_memory_mb=-100)
-    monitor_negative.check_memory_usage() # Should not raise an error
+    monitor_negative.check_memory_usage()  # Should not raise an error
+
 
 def test_system_memory_monitor_threshold_exceeded(mocker):
     """
@@ -34,7 +41,7 @@ def test_system_memory_monitor_threshold_exceeded(mocker):
     """
     mock_process = mocker.Mock()
     mock_process.memory_info.return_value.rss = 200 * 1024 * 1024  # 200 MB
-    mocker.patch('psutil.Process', return_value=mock_process)
+    mocker.patch("psutil.Process", return_value=mock_process)
 
     monitor = SystemMemoryMonitor(max_memory_mb=100)  # Set limit to 100 MB
 
@@ -43,12 +50,16 @@ def test_system_memory_monitor_threshold_exceeded(mocker):
 
     assert "Memory usage exceeded 100MB" in str(excinfo.value)
 
+
 def test_tracemalloc_memory_monitor_threshold_exceeded(mocker):
     """
     Test that TracemallocMemoryMonitor raises MemoryThresholdExceededError when memory usage exceeds the limit.
     """
-    mocker.patch('tracemalloc.get_traced_memory', return_value=(200 * 1024 * 1024, 250 * 1024 * 1024))
-    mocker.patch('tracemalloc.is_tracing', return_value=True)
+    mocker.patch(
+        "tracemalloc.get_traced_memory",
+        return_value=(200 * 1024 * 1024, 250 * 1024 * 1024),
+    )
+    mocker.patch("tracemalloc.is_tracing", return_value=True)
 
     monitor = TracemallocMemoryMonitor(max_memory_mb=100)  # Set limit to 100 MB
 
@@ -57,8 +68,10 @@ def test_tracemalloc_memory_monitor_threshold_exceeded(mocker):
 
     assert "Python memory usage exceeded" in str(excinfo.value)
 
+
 def test_memory_monitor_abstract_pass_statement():
     """Test that the pass statement in the abstract MemoryMonitor.check_memory_usage is covered."""
+
     class ConcreteMemoryMonitor(MemoryMonitor):
         def check_memory_usage(self) -> None:
             # This method is intentionally empty as it's a concrete implementation
@@ -68,6 +81,7 @@ def test_memory_monitor_abstract_pass_statement():
 
     monitor = ConcreteMemoryMonitor()
     monitor.check_memory_usage()
+
 
 def test_system_memory_monitor_no_limit_explicit():
     """

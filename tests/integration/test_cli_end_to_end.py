@@ -8,13 +8,14 @@ import sys
 import pty
 import os
 
+
 def test_cli_basic_run(tmp_path):
     """Test a basic CLI run with default options."""
     (tmp_path / "file1.py").write_text("print('hello')")
     (tmp_path / "file2.txt").write_text("just text")
 
     output_file = tmp_path / "combined_code.txt"
-    
+
     # Construct the command to run the script
     command = [
         sys.executable,
@@ -26,12 +27,11 @@ def test_cli_basic_run(tmp_path):
         "-e",
         ".py",
         ".txt",
-        "--force"
+        "--force",
     ]
 
     # Execute the command in a pseudo-terminal
     result = subprocess.run(command, capture_output=True, text=True, check=True)
-
 
     # Assertions
     assert result.returncode == 0
