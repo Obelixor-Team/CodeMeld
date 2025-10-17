@@ -43,7 +43,7 @@ format:
 	@echo ""
 	@echo "--- Starting format ---"
 	@echo ""
-	.venv/bin/black src
+	.venv/bin/black .
 	@echo ""
 	@echo "--- Finished format ---"
 	@echo ""
@@ -70,8 +70,8 @@ check-strict:
 	@echo ""
 	@echo "--- Starting strict checks (ruff, mypy, pytest) ---"
 	@echo ""
-	.venv/bin/ruff check src
-	.venv/bin/mypy --strict --package src
+	.venv/bin/ruff check .
+	.venv/bin/mypy --strict .
 	PYTHONPATH=. .venv/bin/pytest tests/
 	@echo ""
 	@echo "--- Finished strict checks ---"
@@ -99,7 +99,7 @@ radon:
 	@echo ""
 	@echo "--- Starting radon complexity analysis ---"
 	@echo ""
-	.venv/bin/radon cc src -a -nc
+	.venv/bin/radon cc . -a -nc
 	@echo ""
 	@echo "--- Finished radon complexity analysis ---"
 	@echo ""
