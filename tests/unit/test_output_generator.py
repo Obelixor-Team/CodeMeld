@@ -157,9 +157,7 @@ def test_in_memory_generator_failed_files_logging(
 
             from concurrent.futures import Future
 
-            def mock_submit_with_exception(
-                func, *args, **kwargs
-            ) -> Future[tuple[Path, str | None]]:
+            def mock_submit_with_exception(func, *args, **kwargs) -> Future[tuple[Path, str | None]]:
                 future: Future[tuple[Path, str | None]] = Future()
                 future.set_exception(Exception("Test exception"))
                 return future

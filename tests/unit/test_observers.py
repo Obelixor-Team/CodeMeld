@@ -30,7 +30,6 @@ class MockObserver(Observer[Any]):
         self.event = event
         self.data = data
 
-
 def test_publisher_subscribe_and_notify():
     publisher = Publisher()
     observer: MockObserver = MockObserver()
@@ -46,9 +45,7 @@ def test_publisher_subscribe_and_notify():
 def test_publisher_unsubscribe():
     publisher = Publisher()
     observer: MockObserver = MockObserver()
-    publisher.notify(
-        ProcessingEvent.FILE_PROCESSED, FileProcessedData(path="test_file")
-    )
+    publisher.notify(ProcessingEvent.FILE_PROCESSED, FileProcessedData(path="test_file"))
     assert not observer.update_called
 
 
@@ -58,9 +55,7 @@ def test_publisher_notify_multiple_observers():
     observer2: MockObserver = MockObserver()
     publisher.subscribe(observer1)
     publisher.subscribe(observer2)
-    publisher.notify(
-        ProcessingEvent.FILE_PROCESSED, FileProcessedData(path="test_file")
-    )
+    publisher.notify(ProcessingEvent.FILE_PROCESSED, FileProcessedData(path="test_file"))
     assert observer1.update_called
     assert observer2.update_called
 
@@ -213,9 +208,7 @@ def test_token_counter_observer_with_custom_encoding():
         mock_tiktoken.get_encoding.return_value = mock_encoding
 
         # Create an observer instance after mocking
-        observer: TokenCounterObserver = TokenCounterObserver(
-            token_encoding_model=custom_encoding_model
-        )
+        observer: TokenCounterObserver = TokenCounterObserver(token_encoding_model=custom_encoding_model)
 
         observer.update(
             ProcessingEvent.FILE_CONTENT_PROCESSED,

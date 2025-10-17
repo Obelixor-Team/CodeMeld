@@ -43,7 +43,7 @@ format:
 	@echo ""
 	@echo "--- Starting format ---"
 	@echo ""
-	.venv/bin/black .
+	.venv/bin/black src
 	@echo ""
 	@echo "--- Finished format ---"
 	@echo ""
