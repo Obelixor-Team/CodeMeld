@@ -9,7 +9,7 @@ extend-exclude = ["node_modules", ".git", ".venv", "dist", "build"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "C90", "I", "B", "UP", "N", "D"]
-ignore = ["C901", "ANN", "D202", "D203", "D212"]  # C901 for complex functions, ANN for mypy, D202 for blank line after docstring
+ignore = ["C901", "ANN", "D202", "D203", "D212", "E501", "ISC001", "ISC002"]  # C901 for complex functions, ANN for mypy, D202 for blank line after docstring
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.lint.mccabe]
