@@ -16,7 +16,7 @@ jobs:
       matrix:
         python-version: ["3.11"]
     steps:
-      - uses: actions/checkout@8e5f7da63308152969e6426f8d400b4f0473447fa
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
         with:
@@ -35,8 +35,13 @@ jobs:
           ruff check --fix .
           ruff check .  # Re-check for unfixable issues
 
+  type_check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
     steps:
-      - uses: actions/checkout@8e5f7da63308152969e6426f8d400b4f0473447fa
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
         with:
@@ -51,8 +56,13 @@ jobs:
         run: |
           mypy --strict .
 
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
     steps:
-      - uses: actions/checkout@8e5f7da63308152969e6426f8d400b4f0473447fa
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
         with:
@@ -71,8 +81,10 @@ jobs:
         with:
           file: ./coverage.xml
 
+  complexity:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@8e5f7da63308152969e6426f8d400b4f0473447fa
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
         with:
@@ -88,8 +100,10 @@ jobs:
         run: |
           radon cc src -a -nc
 
+  audit:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@8e5f7da63308152969e6426f8d400b4f0473447fa
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
         with:
@@ -108,11 +122,11 @@ jobs:
   sonarqube:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@8e5f7da63308152969e6426f8d400b4f0473447fa
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Disabling shallow clones is recommended for improving the relevancy of reporting
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@fd3a7f673a91f1b2ff7e221b9a23a911d6e2d9c0
+        uses: SonarSource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
