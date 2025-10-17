@@ -1,4 +1,4 @@
-.PHONY: help install format lint check test coverage all radon check-strict
+.PHONY: help install format lint check test coverage all radon check-strict audit
 
 help:
 	@echo "Makefile for managing the project."
@@ -13,6 +13,7 @@ help:
 	@echo "  coverage   Run tests with coverage reporting."
 	@echo "  all        Run format, lint, check, coverage, and radon."
 	@echo "  radon      Run code complexity analysis."
+	@echo "  audit      Run pip-audit to check for vulnerabilities."
 
 install:
 	.venv/bin/pip install -r requirements.txt
@@ -41,3 +42,6 @@ coverage: PYTHONPATH=. .venv/bin/pytest --cov=src --cov-report=term-missing --co
 
 radon:
 	.venv/bin/radon cc src -a -nc
+
+audit:
+	.venv/bin/pip-audit

@@ -9,3 +9,4 @@ types-tqdm==4.67.0.20250809
 pytest-mock==3.15.1
 types-psutil==7.0.0.20251001
 pytest-benchmark==5.1.0
+pip-audit==2.9.0
