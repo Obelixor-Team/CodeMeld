@@ -18,7 +18,9 @@ from .utils import is_likely_binary
 class FileFilter(ABC):
     """Base class for file filters."""
 
-    def should_process(self, file_path: Path, context: dict) -> bool:
+    filters: list[FileFilter] = []
+
+    def should_process(self, file_path: Path, context: dict[str, Any]) -> bool:
         """Return True if file should be processed."""
         result = self._check(file_path, context)
         logging.debug(
@@ -27,7 +29,7 @@ class FileFilter(ABC):
         return result
 
     @abstractmethod
-    def _check(self, file_path: Path, context: dict) -> bool:
+    def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
         """Individual filter logic."""
         pass
 
@@ -39,7 +41,7 @@ class CompositeFilter(FileFilter):
         """Initialize the composite filter."""
         self.filters = filters
 
-    def _check(self, file_path: Path, context: dict) -> bool:
+    def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
         """Check the file against all filters in the composite."""
         for f in self.filters:
             if not f.should_process(file_path, context):
@@ -55,7 +57,7 @@ class ExtensionFilter(FileFilter):
         self.extensions = [e.lower() for e in extensions]
         self.exclude = [e.lower() for e in exclude]
 
-    def _check(self, file_path: Path, context: dict) -> bool:
+    def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
         suffix = file_path.suffix.lower()
         if suffix in self.exclude:
             return False
@@ -69,7 +71,7 @@ class HiddenFileFilter(FileFilter):
         """Initialize the hidden file filter."""
         self.include_hidden = include_hidden
 
-    def _check(self, file_path: Path, context: dict) -> bool:
+    def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
         if self.include_hidden:
             return True
         root_path = context.get("root_path")
@@ -89,7 +91,7 @@ class GitignoreFilter(FileFilter):
         """Initialize the gitignore filter."""
         self.spec = spec
 
-    def _check(self, file_path: Path, context: dict) -> bool:
+    def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
         if not self.spec:
             return True
         root_path = context.get("root_path")
@@ -121,7 +123,7 @@ class BinaryFileFilter(FileFilter):
         """Initialize the binary file filter."""
         self.config = config
 
-    def _check(self, file_path: Path, context: dict) -> bool:
+    def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
         return not is_likely_binary(file_path, self.config)
 
 
@@ -132,7 +134,7 @@ class SymlinkFilter(FileFilter):
         """Initialize the SymlinkFilter."""
         self.follow_symlinks = follow_symlinks
 
-    def _check(self, file_path: Path, context: dict) -> bool:
+    def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
         if self.follow_symlinks:
             return True  # If following symlinks, don't filter them out
 
@@ -148,7 +150,7 @@ class SymlinkFilter(FileFilter):
 class SecurityFilter(FileFilter):
     """Filter to prevent path traversal by ensuring files are within the root path."""
 
-    def _check(self, file_path: Path, context: dict) -> bool:
+    def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
 
         import logging
 
@@ -194,7 +196,7 @@ class AlwaysIncludeFilter(FileFilter):
         """Initialize the AlwaysIncludeFilter."""
         self.always_include_paths = {p.resolve() for p in always_include_paths}
 
-    def _check(self, file_path: Path, context: dict) -> bool:
+    def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
         return file_path.resolve() in self.always_include_paths
 
 
@@ -205,7 +207,7 @@ class FileSizeFilter(FileFilter):
         """Initialize the FileSizeFilter."""
         self.max_file_size_bytes = max_file_size_kb * 1024
 
-    def _check(self, file_path: Path, context: dict) -> bool:
+    def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
         try:
             return file_path.stat().st_size <= self.max_file_size_bytes
         except FileNotFoundError:
@@ -226,7 +228,7 @@ class OrFilter(FileFilter):
         """Initialize the OrFilter."""
         self.filters = filters
 
-    def _check(self, file_path: Path, context: dict) -> bool:
+    def _check(self, file_path: Path, context: dict[str, Any]) -> bool:
         if not self.filters:
             logging.debug(f"OrFilter: No filters provided for {file_path}")
             return False
@@ -249,7 +251,7 @@ class FilterChainBuilder:
         return output_path
 
     @staticmethod
-    def build_safety_chain(config: CombinerConfig) -> FileFilter:
+    def build_safety_chain(config: CombinerConfig) -> CompositeFilter:
         """Build a filter chain for safety checks only."""
         output_path = FilterChainBuilder._resolve_output_path(config)
         filters: list[FileFilter] = [
@@ -266,9 +268,9 @@ class FilterChainBuilder:
     def build_full_chain(
         config: CombinerConfig,
         spec: pathspec.PathSpec | None,
-        safety_chain: FileFilter,
+        safety_chain: CompositeFilter,
         always_include_paths: list[Path],
-    ) -> FileFilter:
+    ) -> CompositeFilter:
         """
         Build the full filter chain with the logic.
 

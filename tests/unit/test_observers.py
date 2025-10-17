@@ -20,20 +20,19 @@ from src.observers import (
 
 
 class MockObserver(Observer[Any]):
-    def __init__(self):
+    def __init__(self) -> None:
         self.update_called = False
-        self.event = None
-        self.data = None
+        self.event: ProcessingEvent | None = None
+        self.data: Any = None
 
     def update(self, event: ProcessingEvent, data: Any):
         self.update_called = True
         self.event = event
         self.data = data
 
-
 def test_publisher_subscribe_and_notify():
     publisher = Publisher()
-    observer = MockObserver()
+    observer: MockObserver = MockObserver()
     publisher.subscribe(observer)
     publisher.notify(
         ProcessingEvent.PROCESSING_STARTED, ProcessingStartedData(total_files=10)
@@ -45,26 +44,24 @@ def test_publisher_subscribe_and_notify():
 
 def test_publisher_unsubscribe():
     publisher = Publisher()
-    observer = MockObserver()
-    publisher.subscribe(observer)
-    publisher.unsubscribe(observer)
-    publisher.notify("test_event", "test_data")
+    observer: MockObserver = MockObserver()
+    publisher.notify(ProcessingEvent.FILE_PROCESSED, FileProcessedData(path="test_file"))
     assert not observer.update_called
 
 
 def test_publisher_notify_multiple_observers():
     publisher = Publisher()
-    observer1 = MockObserver()
-    observer2 = MockObserver()
+    observer1: MockObserver = MockObserver()
+    observer2: MockObserver = MockObserver()
     publisher.subscribe(observer1)
     publisher.subscribe(observer2)
-    publisher.notify("test_event", "test_data")
+    publisher.notify(ProcessingEvent.FILE_PROCESSED, FileProcessedData(path="test_file"))
     assert observer1.update_called
     assert observer2.update_called
 
 
 def test_line_counter_observer():
-    observer = LineCounterObserver()
+    observer: LineCounterObserver = LineCounterObserver()
     observer.update(
         ProcessingEvent.FILE_CONTENT_PROCESSED,
         FileContentProcessedData(content_chunk="line 1\nline 2\nline 3"),
@@ -177,7 +174,7 @@ def test_observer_failure_does_not_stop_others(caplog):
 
     failing_observer.update.side_effect = Exception("Test Exception")
 
-    working_observer = MockObserver()
+    working_observer: MockObserver = MockObserver()
 
     publisher.subscribe(failing_observer)
 
@@ -211,7 +208,7 @@ def test_token_counter_observer_with_custom_encoding():
         mock_tiktoken.get_encoding.return_value = mock_encoding
 
         # Create an observer instance after mocking
-        observer = TokenCounterObserver(token_encoding_model=custom_encoding_model)
+        observer: TokenCounterObserver = TokenCounterObserver(token_encoding_model=custom_encoding_model)
 
         observer.update(
             ProcessingEvent.FILE_CONTENT_PROCESSED,

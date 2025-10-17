@@ -8,9 +8,10 @@ import logging
 import sys
 import threading
 import time
+from builtins import BaseException
 from enum import Enum, auto
-from types import ModuleType
-from typing import Any, Literal, Protocol, TypedDict, TypeVar, overload
+from types import ModuleType, TracebackType
+from typing import Any, Literal, Protocol, Self, TypedDict, TypeVar, overload
 
 from tqdm import tqdm
 
@@ -70,7 +71,7 @@ class Publisher:
         self.observers: list[Observer[Any]] = []
         self.total_files = total_files
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """Enter runtime context; notify observers processing started."""
         self.notify(
             ProcessingEvent.PROCESSING_STARTED,
@@ -78,12 +79,17 @@ class Publisher:
         )
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> Literal[False]:
         """Exit the runtime context and notify observers that processing is complete."""
         self.notify(ProcessingEvent.PROCESSING_COMPLETE, None)
         return False
 
-    def subscribe(self, observer: Observer[Any]):
+    def subscribe(self, observer: Observer[Any]) -> None:
         """Subscribe an observer to the publisher."""
         self.observers.append(observer)
 
@@ -149,14 +155,14 @@ class ProgressBarObserver(Observer[FileProcessedData]):
 
     def __init__(self, total_files: int, description: str):
         """Initialize the ProgressBarObserver."""
-        self.progress_bar: tqdm | None
+        self.progress_bar: tqdm[Any] | None
         if sys.stdout.isatty():
             self.progress_bar = tqdm(total=total_files, desc=description)
         else:
             self.progress_bar = None
             logging.info(f"Progress: {description} - 0/{total_files}")
 
-    def update(self, event: ProcessingEvent, data: FileProcessedData):
+    def update(self, event: ProcessingEvent, data: FileProcessedData) -> None:
         """Update the progress bar based on the event."""
         if event == ProcessingEvent.FILE_PROCESSED:
             if self.progress_bar:
@@ -165,16 +171,21 @@ class ProgressBarObserver(Observer[FileProcessedData]):
             else:
                 logging.info(f"Processed: {data['path']}")
 
-    def close(self):
+    def close(self) -> None:
         """Clean up the progress bar."""
         if self.progress_bar is not None:
             self.progress_bar.close()
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """Enter the runtime context related to this object."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> Literal[False]:
         """Exit the runtime context related to this object."""
         self.close()
         return False
@@ -183,7 +194,7 @@ class ProgressBarObserver(Observer[FileProcessedData]):
 class LineCounterObserver(Observer[FileContentProcessedData]):
     """Observer for counting lines."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the LineCounterObserver."""
         self._total_lines: int = 0
         self._lock = threading.Lock()
@@ -193,7 +204,7 @@ class LineCounterObserver(Observer[FileContentProcessedData]):
         """Return the total number of lines counted."""
         return self._total_lines
 
-    def update(self, event: ProcessingEvent, data: FileContentProcessedData):
+    def update(self, event: ProcessingEvent, data: FileContentProcessedData) -> None:
         """Count lines based on the event."""
         if event == ProcessingEvent.FILE_CONTENT_PROCESSED:
             with self._lock:
@@ -207,12 +218,14 @@ class LineCounterObserver(Observer[FileContentProcessedData]):
 class TelemetryObserver(Observer[ProcessingStartedData | None]):
     """Observer for logging telemetry data like total files processed and time taken."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the TelemetryObserver."""
         self.start_time: float | None = None
         self.total_files_processed: int = 0
 
-    def update(self, event: ProcessingEvent, data: ProcessingStartedData | None):
+    def update(
+        self, event: ProcessingEvent, data: ProcessingStartedData | None
+    ) -> None:
         """Receive update from subject and log telemetry."""
         if event == ProcessingEvent.PROCESSING_STARTED:
             self.start_time = time.time()
@@ -228,7 +241,7 @@ class TelemetryObserver(Observer[ProcessingStartedData | None]):
 class TokenCounterObserver(Observer[FileContentProcessedData]):
     """Observer for counting tokens."""
 
-    def __init__(self, token_encoding_model: str = "cl100k_base"):
+    def __init__(self, token_encoding_model: str = "cl100k_base") -> None:
         """Initialize the TokenCounterObserver."""
         self.total_tokens = 0
         self.token_encoding_model = token_encoding_model
@@ -247,7 +260,7 @@ class TokenCounterObserver(Observer[FileContentProcessedData]):
                 logging.warning("tiktoken not found. Token counting will be skipped.")
         return self._tiktoken_module
 
-    def update(self, event: ProcessingEvent, data: FileContentProcessedData):
+    def update(self, event: ProcessingEvent, data: FileContentProcessedData) -> None:
         """Count tokens based on the event."""
         if self.tiktoken_module is None:
             return

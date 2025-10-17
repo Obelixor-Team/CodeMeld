@@ -80,8 +80,8 @@ def test_thread_pool_executor_worker_cap(
             # Mock the submit method to return a real Future that is already done
             from concurrent.futures import Future
 
-            def mock_submit(func, *args, **kwargs):
-                future = Future()
+            def mock_submit(func, *args, **kwargs) -> Future[tuple[Path, str | None]]:
+                future: Future[tuple[Path, str | None]] = Future()
                 future.set_result((args[0], "dummy content"))
                 return future
 
@@ -117,8 +117,8 @@ def test_thread_pool_executor_worker_cap(
             # Mock the submit method to return a real Future that is already done
             from concurrent.futures import Future
 
-            def mock_submit(func, *args, **kwargs):
-                future = Future()
+            def mock_submit(func, *args, **kwargs) -> Future[tuple[Path, str | None]]:
+                future: Future[tuple[Path, str | None]] = Future()
                 future.set_result((args[0], "dummy content"))
                 return future
 
@@ -157,8 +157,8 @@ def test_in_memory_generator_failed_files_logging(
 
             from concurrent.futures import Future
 
-            def mock_submit_with_exception(func, *args, **kwargs):
-                future = Future()
+            def mock_submit_with_exception(func, *args, **kwargs) -> Future[tuple[Path, str | None]]:
+                future: Future[tuple[Path, str | None]] = Future()
                 future.set_exception(Exception("Test exception"))
                 return future
 

@@ -1,10 +1,11 @@
 from pathlib import Path
+from typing import Any
 
 
 # This is a simplified version of the OutputFormatter for the example.
 # In a real-world scenario, this would be imported from the code_combiner package.
 class OutputFormatter:
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         # This method is intentionally empty for this example, as no specific
         # initialization is required for the base OutputFormatter in this context.
         pass

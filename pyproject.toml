@@ -19,6 +19,7 @@ max-complexity = 10  # Matches radon's default
 "tests/*" = ["D"]
 "custom_formatter_example/*" = ["D"]  # Skip docstring checks in tests
 "src/config_builder.py" = ["E402", "D100"]
+"tests/unit/test_observers.py" = ["F821"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -29,3 +30,11 @@ skip-magic-trailing-comma = false
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disable_error_code = ["no-untyped-def"]
+
+[[tool.mypy.overrides]]
+module = "tests.unit.test_formatters"
+disable_error_code = ["arg-type"]

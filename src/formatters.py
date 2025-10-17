@@ -10,7 +10,7 @@ import xml.sax.saxutils
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast, final
+from typing import Any, final
 
 from src._types import FormatType
 
@@ -66,7 +66,7 @@ class TextFormatter(OutputFormatter):
 
     format_name = "text"
 
-    def __init__(self, header_width: int = 80, **kwargs):
+    def __init__(self, header_width: int = 80, **kwargs: Any) -> None:
         """Initialize the TextFormatter."""
         super().__init__(**kwargs)
         self.header_width = header_width
@@ -107,7 +107,7 @@ class MarkdownFormatter(OutputFormatter):
 
     format_name = "markdown"
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         """Initialize the MarkdownFormatter."""
         super().__init__(**kwargs)
 
@@ -143,7 +143,7 @@ class JSONFormatter(OutputFormatter):
 
     format_name = "json"
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         """Initialize the JSONFormatter."""
         super().__init__(**kwargs)
         self.is_first = True
@@ -175,7 +175,7 @@ class XMLFormatter(OutputFormatter):
 
     format_name = "xml"
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         """Initialize the XMLFormatter."""
         super().__init__(**kwargs)
 
@@ -197,7 +197,9 @@ class XMLFormatter(OutputFormatter):
         """Return any footer/closing content for XML output."""
         return "</codebase>"
 
-    def format_file_stream(self, relative_path: Path, file_path: Path, outfile):
+    def format_file_stream(
+        self, relative_path: Path, file_path: Path, outfile: Any
+    ) -> None:
         """Stream XML content directly without building tree."""
         outfile.write(f"  <file>\n    <path>{relative_path}</path>\n    <content>")
         try:
@@ -249,7 +251,7 @@ class FormatterFactory:
         cls._plugins_loaded = True
 
     @classmethod
-    def register(cls, format_type: str, formatter_class: type[OutputFormatter]):
+    def register(cls, format_type: str, formatter_class: type[OutputFormatter]) -> None:
         """Register a new formatter."""
         cls._formatters[format_type] = formatter_class
 
@@ -258,7 +260,7 @@ class FormatterFactory:
         cls,
         format_type: FormatType,
         custom_file_headers: dict[str, str] | str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> OutputFormatter:
         """Create an OutputFormatter instance based on the format type."""
         cls._load_plugins()  # Ensure plugins are loaded before creation
@@ -277,10 +279,7 @@ class FormatterFactory:
 
         # Let formatters handle their own parameter validation
         try:
-            return cast(
-                OutputFormatter,
-                formatter_class(custom_file_headers=parsed_custom_headers, **kwargs),
-            )
+            return formatter_class(custom_file_headers=parsed_custom_headers, **kwargs)
         except TypeError as e:
             raise TypeError(
                 f"Formatter '{format_type}' initialization failed: {e}"

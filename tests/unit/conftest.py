@@ -1,5 +1,6 @@
 # tests/unit/conftest.py
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -28,8 +29,8 @@ def create_common_file_structure(tmp_path):
 def mock_code_combiner_config():
     config = MagicMock(spec=CombinerConfig)
     # Create a mock Path object for directory_path
-    mock_dir_path = MagicMock(spec=Path)
-    mock_dir_path.rglob.return_value = []  # Default empty rglob
+    mock_dir_path: Any = MagicMock()
+    mock_dir_path.rglob = MagicMock(return_value=iter([]))  # Default empty rglob
     mock_dir_path.__truediv__.side_effect = lambda x: Path(
         str(mock_dir_path) + "/" + str(x)
     )  # Allow division for path joining

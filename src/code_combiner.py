@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from collections.abc import Iterator
 from pathlib import Path
 
 import pathspec
@@ -13,7 +14,7 @@ import pathspec
 from .config import CodeMeldError, CombinerConfig, MemoryThresholdExceededError
 from .config_builder import load_and_merge_config
 from .context import GeneratorContext
-from .filters import FileFilter, FilterChainBuilder
+from .filters import CompositeFilter, FileFilter, FilterChainBuilder
 from .formatters import FormatterFactory
 from .memory_monitor import TracemallocMemoryMonitor
 from .observers import (
@@ -247,7 +248,9 @@ class CodeMeld:
         )
         self.full_filter_chain = self._build_full_filter_chain(self.safety_filter_chain)
 
-    def _build_full_filter_chain(self, safety_chain_head: FileFilter) -> FileFilter:
+    def _build_full_filter_chain(
+        self, safety_chain_head: CompositeFilter
+    ) -> FileFilter:
         spec = self._get_gitignore_spec() if self.config.use_gitignore else None
         return FilterChainBuilder.build_full_chain(
             self.config, spec, safety_chain_head, self.always_included_files
@@ -274,7 +277,7 @@ class CodeMeld:
         # If no .gitignore file is found after traversing to the root, return None
         return None
 
-    def _iter_files(self):
+    def _iter_files(self) -> Iterator[Path]:
         """Iterate over files in the directory using pathlib.Path.rglob()."""
         # rglob will traverse all directories, including hidden ones.
         # The HiddenFileFilter will then handle filtering of hidden files/directories
@@ -436,7 +439,7 @@ class CodeMeld:
         ui.finish()
 
 
-def main():
+def main() -> None:
     """Run CodeMeld from the command line."""
     args = parse_arguments()
     config = load_and_merge_config(args)

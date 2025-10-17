@@ -9,7 +9,7 @@ import logging
 import tomllib
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .config import DEFAULT_EXTENSIONS, CombinerConfig
 from .config_validator import ConfigValidator
@@ -38,7 +38,7 @@ def load_config_from_pyproject(root_path: Path) -> dict[str, Any]:
 class CombinerConfigBuilder:
     """Builder for CombinerConfig with proper precedence."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the builder with default values."""
         self._config = {
             "extensions": DEFAULT_EXTENSIONS,
@@ -69,7 +69,7 @@ class CombinerConfigBuilder:
         args: argparse.Namespace,
         arg_name: str,
         config_key: str | None = None,
-        transform_func: Callable | None = None,
+        transform_func: Callable[[Any], Any] | None = None,
     ) -> None:
         if config_key is None:
             config_key = arg_name
@@ -120,7 +120,7 @@ class CombinerConfigBuilder:
     def build(self, directory_path: Path, output: str) -> CombinerConfig:
         """Build the final configuration."""
         return CombinerConfig(
-            directory_path=directory_path, output=output, **self._config
+            directory_path=directory_path, output=output, **cast(Any, self._config)
         )
 
 

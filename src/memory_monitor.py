@@ -90,7 +90,7 @@ class TracemallocMemoryMonitor(MemoryMonitor):
                 "Falling back to streaming output."
             )
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Stop tracemalloc if it's running."""
         if tracemalloc.is_tracing():
             tracemalloc.stop()

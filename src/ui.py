@@ -35,7 +35,7 @@ class LiveUI:
         self.title = title
         self.version = version
         self.start_time: float | None = None
-        self._progress_bar: tqdm | None = None
+        self._progress_bar: tqdm[Any] | None = None
         self.processed = 0
         self.skipped = 0
         self.tokens = 0
@@ -57,7 +57,7 @@ class LiveUI:
     # ───────────────────────────────
     # Header & Config Display
     # ───────────────────────────────
-    def print_header(self):
+    def print_header(self) -> None:
         """Print the header of the UI, including title and version."""
         width = shutil.get_terminal_size((80, 20)).columns
         bar = "═" * (width - 2)
@@ -66,7 +66,7 @@ class LiveUI:
         print(f"║{self.version.center(width - 2)}║")
         print(f"╚{bar}╝\n")
 
-    def print_config(self):
+    def print_config(self) -> None:
         """Print the current configuration settings."""
         width = shutil.get_terminal_size((80, 20)).columns
         separator = "─" * width
@@ -89,7 +89,7 @@ class LiveUI:
     # ───────────────────────────────
     # Live Progress Handling
     # ───────────────────────────────
-    def start(self):
+    def start(self) -> None:
         """Start live progress display."""
         self.start_time = time.time()
         if self.progress_style == "none":
@@ -99,7 +99,7 @@ class LiveUI:
             return
 
         if sys.stdout.isatty():
-            tqdm_kwargs = {
+            tqdm_kwargs: dict[str, Any] = {
                 "total": self.total_files,
                 "desc": "Processing files",
                 "ncols": shutil.get_terminal_size((80, 20)).columns,
@@ -127,7 +127,7 @@ class LiveUI:
         skipped: bool = False,
         tokens: int | None = None,
         lines: int | None = None,
-    ):
+    ) -> None:
         """Update progress line-by-line."""
         self.processed += 0 if skipped else 1
         self.skipped += 1 if skipped else 0
@@ -161,7 +161,7 @@ class LiveUI:
     # ───────────────────────────────
     # Final Summary
     # ───────────────────────────────
-    def finish(self):
+    def finish(self) -> None:
         """Close the live view and show static summary."""
         if self._progress_bar:
             self._progress_bar.close()
@@ -204,7 +204,7 @@ class LiveUI:
     # ───────────────────────────────
     # Utility: Apply from Config
     # ───────────────────────────────
-    def apply_config(self, config):
+    def apply_config(self, config: Any) -> None:
         """Apply CodeCombiner config to the UI display."""
         self.directory = str(config.directory_path)
         self.output_file = config.output
