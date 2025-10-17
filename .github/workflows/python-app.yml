@@ -118,3 +118,19 @@ jobs:
       - name: Run pip-audit
         run: |
           pip-audit
+
+  sonarqube:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Disabling shallow clones is recommended for improving the relevancy of reporting
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=skumdump_CodeMeld
+            -Dsonar.python.version=3.11
