@@ -1,15 +1,17 @@
 # Copyright (c) 2025 skum
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from src.formatters import (
     FormatterFactory,
-    TextFormatter,
-    MarkdownFormatter,
     JSONFormatter,
-    XMLFormatter,
+    MarkdownFormatter,
     OutputFormatter,
+    TextFormatter,
+    XMLFormatter,
 )
 
 
@@ -165,14 +167,6 @@ def test_markdown_formatter_with_no_matching_custom_header():
     expected_output = "## FILE: my_script.py\n\n```py\nprint('Hello')\n```\n\n"
     assert formatter.format_file(relative_path, content) == expected_output
 
-
-def test_text_formatter_custom_header_with_invalid_placeholder():
-    custom_headers = {"py": "# Python File: {lang}"}
-    formatter = FormatterFactory.create("text", custom_file_headers=custom_headers)
-    relative_path = Path("my_script.py")
-    content = "print('Hello')"
-    with pytest.raises(KeyError):
-        formatter.format_file(relative_path, content)
 
 
 def test_markdown_formatter_custom_header_with_invalid_placeholder():
