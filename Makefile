@@ -19,7 +19,7 @@ install:
 	.venv/bin/pip install -r requirements.txt
 	.venv/bin/pip install -r requirements-dev.txt
 
-all: format lint check coverage radon
+all: format lint check coverage radon audit
 
 format:
 	.venv/bin/black src
