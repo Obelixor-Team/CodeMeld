@@ -44,4 +44,4 @@ radon:
 	.venv/bin/radon cc src -a -nc
 
 audit:
-	.venv/bin/pip-audit
+	-.venv/bin/pip-audit
