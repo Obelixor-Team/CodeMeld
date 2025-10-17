@@ -1,9 +1,9 @@
 # Copyright (c) 2025 skum
 
-import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
 import logging
+from unittest.mock import patch
+
+import pytest
 
 from src.code_combiner import write_output
 

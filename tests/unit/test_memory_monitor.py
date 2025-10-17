@@ -1,10 +1,11 @@
 import pytest
+
+from src.config import MemoryThresholdExceededError
 from src.memory_monitor import (
+    MemoryMonitor,
     SystemMemoryMonitor,
     TracemallocMemoryMonitor,
-    MemoryMonitor,
 )
-from src.config import MemoryThresholdExceededError
 
 
 def test_system_memory_monitor_no_limit():

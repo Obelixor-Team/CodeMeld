@@ -1,11 +1,9 @@
 # Copyright (c) 2025 skum
 
-import logging
 import importlib
-from unittest.mock import MagicMock, patch
+import logging
 from typing import Any
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 import src.observers
 from src.observers import (
@@ -13,9 +11,9 @@ from src.observers import (
     FileProcessedData,
     LineCounterObserver,
     Observer,
-    ProgressBarObserver,
     ProcessingEvent,
     ProcessingStartedData,
+    ProgressBarObserver,
     Publisher,
     TokenCounterObserver,
 )

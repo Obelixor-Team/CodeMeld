@@ -1,7 +1,7 @@
 # Copyright (c) 2025 skum
 
-import pytest
 from unittest.mock import MagicMock, patch
+
 from src.ui import LiveUI
 
 

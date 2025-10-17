@@ -1,7 +1,7 @@
 # Copyright (c) 2025 skum
 
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from src.code_combiner import CodeMeld
 

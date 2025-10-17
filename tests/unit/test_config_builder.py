@@ -1,10 +1,11 @@
 # Copyright (c) 2025 skum
 
+from argparse import Namespace
+
 import pytest
+
 from src.config import CodeMeldError
 from src.config_builder import CombinerConfigBuilder, load_and_merge_config
-from argparse import Namespace
-from pathlib import Path
 
 
 def test_header_width_validation_positive():

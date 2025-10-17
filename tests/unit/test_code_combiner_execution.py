@@ -1,12 +1,11 @@
 # Copyright (c) 2025 skum
 
-import pytest
-from unittest.mock import MagicMock, patch
-from pathlib import Path
 import logging
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from src.config import MemoryThresholdExceededError
 from src.code_combiner import CodeMeld
+from src.config import MemoryThresholdExceededError
 
 
 def test_execute_output_written_by_streaming_path(mock_code_combiner_config, tmp_path):

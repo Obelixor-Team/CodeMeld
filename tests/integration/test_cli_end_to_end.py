@@ -1,12 +1,7 @@
 # Copyright (c) 2025 skum
 
-import pytest
 import subprocess
-from pathlib import Path
-
 import sys
-import pty
-import os
 
 
 def test_cli_basic_run(tmp_path):

@@ -1,11 +1,11 @@
 # Copyright (c) 2025 skum
 
-import pytest
 from unittest.mock import MagicMock, patch
-from pathlib import Path
 
-from src.config import CodeMeldError
+import pytest
+
 from src.code_combiner import CodeMeld
+from src.config import CodeMeldError
 from src.filters import FilterChainBuilder
 
 

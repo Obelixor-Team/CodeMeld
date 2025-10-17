@@ -1,21 +1,18 @@
 # Copyright (c) 2025 skum
 
-import pytest
-from unittest.mock import MagicMock, patch
-from pathlib import Path
 import logging
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-import psutil
+import pytest
 
+from src.context import GeneratorContext
+from src.formatters import TextFormatter, XMLFormatter
 from src.output_generator import (
     InMemoryOutputGenerator,
     StreamingOutputGenerator,
     read_file_content,
 )
-from src.context import GeneratorContext
-from src.formatters import TextFormatter, XMLFormatter
-from src.config import MemoryThresholdExceededError
-from src.memory_monitor import SystemMemoryMonitor
 
 
 @pytest.fixture
@@ -31,9 +28,6 @@ def mock_root_path():
 @pytest.fixture
 def mock_formatter():
     return TextFormatter()
-
-
-import io
 
 
 class TestReadFileContent:

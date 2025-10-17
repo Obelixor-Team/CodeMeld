@@ -1,23 +1,21 @@
 # Copyright (c) 2025 skum
 
-import pytest
-from unittest.mock import MagicMock, patch
-from pathlib import Path
-import logging
-import psutil
 import collections
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from src.output_generator import (
-    InMemoryOutputGenerator,
-    read_file_content,
-    log_file_read_error,
-    StreamingOutputGenerator,
-)
-from src.observers import ProcessingEvent
+import pytest
+
+from src.config import MemoryThresholdExceededError
 from src.context import GeneratorContext
 from src.formatters import TextFormatter
-from src.config import MemoryThresholdExceededError
 from src.memory_monitor import SystemMemoryMonitor
+from src.observers import ProcessingEvent
+from src.output_generator import (
+    InMemoryOutputGenerator,
+    StreamingOutputGenerator,
+    read_file_content,
+)
 
 
 @pytest.fixture
@@ -296,8 +294,9 @@ def test_in_memory_generator_xml_indentation(
     mock_files_to_process, mock_root_path, tmp_path, mocker
 ):
     """Test that ET.indent is called when using XMLFormatter in InMemoryOutputGenerator."""
-    from src.formatters import XMLFormatter
     from xml.etree import ElementTree as ET
+
+    from src.formatters import XMLFormatter
 
     mock_xml_formatter = XMLFormatter()
     mocker.patch.object(mock_xml_formatter, "begin_output", return_value="<root>")
@@ -376,7 +375,7 @@ def test_streaming_output_generator_handle_actual_streaming_exception(
 
     # Mock the open function to raise an exception when writing to the temporary file
     mock_open = mocker.patch("builtins.open", mocker.mock_open())
-    mock_open.return_value.__enter__.return_value.write.side_effect = IOError(
+    mock_open.return_value.__enter__.return_value.write.side_effect = OSError(
         "Disk full"
     )
 
@@ -452,7 +451,7 @@ def test_streaming_output_generator_dry_run_output_path_exception(
     mock_logging_error = mocker.patch("logging.error")
 
     # Mock the open function to raise an exception when writing to the dry_run_output_path
-    _ = mocker.patch("builtins.open", side_effect=IOError("Permission denied"))
+    _ = mocker.patch("builtins.open", side_effect=OSError("Permission denied"))
 
     generator._handle_dry_run_streaming()
 

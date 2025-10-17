@@ -1,12 +1,9 @@
 # Copyright (c) 2025 skum
 
-import pytest
-from pathlib import Path
 import logging
+
 from src.code_combiner import CodeMeld
-from src.config import CombinerConfig, MemoryThresholdExceededError
-from src.formatters import FormatType
-from src.config import ConvertType
+from src.config import CombinerConfig
 
 
 def test_complete_refactored_flow(tmp_path):

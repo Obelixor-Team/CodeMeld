@@ -1,26 +1,28 @@
 # Copyright (c) 2025 skum
 
 import os
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
+
+from src.code_combiner import CodeMeld
+from src.config import CombinerConfig
 from src.filters import (
     AlwaysIncludeFilter,
     BinaryFileFilter,
+    CompositeFilter,
     ExtensionFilter,
     FileFilter,
+    FileSizeFilter,
     FilterChainBuilder,
     GitignoreFilter,
     HiddenFileFilter,
+    OrFilter,
     OutputFilePathFilter,
     SecurityFilter,
     SymlinkFilter,
-    FileSizeFilter,
-    CompositeFilter,
-    OrFilter,
 )
-from src.config import CombinerConfig
-from src.code_combiner import CodeMeld
 
 
 @pytest.fixture

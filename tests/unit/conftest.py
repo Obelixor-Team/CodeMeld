@@ -1,7 +1,9 @@
 # tests/unit/conftest.py
-import pytest
-from unittest.mock import MagicMock
 from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+
 from src.config import CombinerConfig
 
 

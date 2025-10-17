@@ -1,8 +1,10 @@
 # Copyright (c) 2025 skum
 
-import pytest
-from pathlib import Path
 import logging
+from pathlib import Path
+
+import pytest
+
 from src.utils import is_likely_binary, log_file_read_error
 
 

@@ -1,16 +1,16 @@
-import pytest
 import logging
-from unittest.mock import MagicMock, patch, PropertyMock
 import sys
+from unittest.mock import patch
+
+import pytest
 
 from src.observers import (
-    ProgressBarObserver,
-    ProcessingEvent,
     FileProcessedData,
-    TokenCounterObserver,
-    TelemetryObserver,
     LineCounterObserver,
-    FileContentProcessedData,
+    ProcessingEvent,
+    ProgressBarObserver,
+    TelemetryObserver,
+    TokenCounterObserver,
 )
 
 

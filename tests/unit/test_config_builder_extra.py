@@ -1,10 +1,8 @@
 # Copyright (c) 2025 skum
 
-from unittest.mock import patch, MagicMock
-from pathlib import Path
-import pytest
+from unittest.mock import patch
 
-from src.config_builder import load_config_from_pyproject, CombinerConfigBuilder
+from src.config_builder import CombinerConfigBuilder, load_config_from_pyproject
 
 
 def test_load_config_from_pyproject_malformed(tmp_path):

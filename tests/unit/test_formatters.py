@@ -168,7 +168,6 @@ def test_markdown_formatter_with_no_matching_custom_header():
     assert formatter.format_file(relative_path, content) == expected_output
 
 
-
 def test_markdown_formatter_custom_header_with_invalid_placeholder():
     custom_headers = {"js": "// JavaScript File: {foo}"}
     formatter = FormatterFactory.create("markdown", custom_file_headers=custom_headers)
