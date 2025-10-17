@@ -28,7 +28,7 @@ lint:
 	.venv/bin/ruff check . --fix
 
 check:
-	.venv/bin/mypy --package src
+	.venv/bin/mypy .
 
 check-strict:
 	.venv/bin/ruff check src
