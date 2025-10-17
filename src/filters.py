@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import logging
-import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -119,6 +118,7 @@ class BinaryFileFilter(FileFilter):
     """Filter binary files."""
 
     def __init__(self, config: CombinerConfig):
+        """Initialize the binary file filter."""
         self.config = config
 
     def _check(self, file_path: Path, context: dict) -> bool:
@@ -223,13 +223,14 @@ class OrFilter(FileFilter):
     """A filter that passes if any of its sub-filters pass."""
 
     def __init__(self, filters: list[FileFilter]):
+        """Initialize the OrFilter."""
         self.filters = filters
 
     def _check(self, file_path: Path, context: dict) -> bool:
         if not self.filters:
             logging.debug(f"OrFilter: No filters provided for {file_path}")
             return False
-        
+
         for f in self.filters:
             if f.should_process(file_path, context):
                 logging.debug(f"OrFilter: {f.__class__.__name__} accepted {file_path}")
@@ -269,7 +270,9 @@ class FilterChainBuilder:
         always_include_paths: list[Path],
     ) -> FileFilter:
         """
-        Build the full filter chain with the logic:
+        Build the full filter chain with the logic.
+
+        The logic is:
         (pass_always_include OR pass_content_filters) AND pass_safety_filters
         """
         content_filters: list[FileFilter] = [
@@ -282,9 +285,7 @@ class FilterChainBuilder:
 
         main_selection_filters: list[FileFilter] = [CompositeFilter(content_filters)]
         if always_include_paths:
-            main_selection_filters.insert(
-                0, AlwaysIncludeFilter(always_include_paths)
-            )
+            main_selection_filters.insert(0, AlwaysIncludeFilter(always_include_paths))
 
         # The core logic: a file is included if it's either in the always_include list
         # OR it passes all the content filters.

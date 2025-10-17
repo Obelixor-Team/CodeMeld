@@ -4,6 +4,7 @@
 
 import logging
 from pathlib import Path
+
 from src.config import CombinerConfig
 
 BINARY_EXTENSIONS = {
@@ -20,6 +21,7 @@ BINARY_EXTENSIONS = {
     ".pdf",
     ".zip",
 }
+
 
 def log_file_read_error(file_path: Path, error: Exception) -> None:
     """Log a warning for file read errors."""
@@ -65,7 +67,9 @@ def is_likely_binary(file_path: Path, config: CombinerConfig | None = None) -> b
 
     # Use configurable values or defaults
     sample_size_bytes = config.sample_size_bytes if config else 8192
-    large_file_threshold_bytes = config.large_file_threshold_bytes if config else 1024 * 1024
+    large_file_threshold_bytes = (
+        config.large_file_threshold_bytes if config else 1024 * 1024
+    )
     non_text_threshold = config.non_text_threshold if config else 0.30
 
     # 2. Content analysis for other files:
