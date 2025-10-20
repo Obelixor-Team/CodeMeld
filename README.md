@@ -52,6 +52,37 @@ A Python script to scan a specified directory, identify code files based on thei
     make install
     ```
 
+### Building a Standalone Executable with PyInstaller
+
+You can package CodeMeld into a standalone executable using PyInstaller. This allows you to run the application without a Python environment installed on the target machine.
+
+1.  **Install PyInstaller**:
+
+    ```bash
+    .venv/bin/pip install pyinstaller
+    ```
+
+2.  **Build the Executable**:
+    Run PyInstaller from the project root. The `--onefile` option creates a single executable file, `--name CodeMeld` sets the executable name, and `--distpath build/dist` specifies the output directory. The `--hidden-import` flags are crucial for `tiktoken` to function correctly in the bundled application.
+
+    ```bash
+    .venv/bin/pyinstaller src/code_combiner.py --onefile --name CodeMeld --distpath build/dist --hidden-import=tiktoken_ext --hidden-import=tiktoken_ext.openai_public
+    ```
+
+    The executable will be created in the `build/dist` directory.
+
+3.  **Run the Executable**:
+
+    ```bash
+    ./build/dist/CodeMeld <directory> [options]
+    ```
+
+    For example:
+
+    ```bash
+    ./build/dist/CodeMeld . -o combined_project.txt
+    ```
+
 ## Usage
 
 ```bash
