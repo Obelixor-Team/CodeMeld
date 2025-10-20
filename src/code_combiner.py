@@ -11,20 +11,20 @@ from pathlib import Path
 
 import pathspec
 
-from .config import CodeMeldError, CombinerConfig, MemoryThresholdExceededError
-from .config_builder import load_and_merge_config
-from .context import GeneratorContext
-from .filters import CompositeFilter, FileFilter, FilterChainBuilder
-from .formatters import FormatterFactory
-from .memory_monitor import TracemallocMemoryMonitor
-from .observers import (
+from src.config import CodeMeldError, CombinerConfig, MemoryThresholdExceededError
+from src.config_builder import load_and_merge_config
+from src.context import GeneratorContext
+from src.filters import CompositeFilter, FileFilter, FilterChainBuilder
+from src.formatters import FormatterFactory
+from src.memory_monitor import TracemallocMemoryMonitor
+from src.observers import (
     LineCounterObserver,
     Publisher,
     TelemetryObserver,
     TokenCounterObserver,
 )
-from .output_generator import InMemoryOutputGenerator, StreamingOutputGenerator
-from .ui import LiveUI
+from src.output_generator import InMemoryOutputGenerator, StreamingOutputGenerator
+from src.ui import LiveUI
 
 
 def write_output(
