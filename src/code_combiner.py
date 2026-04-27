@@ -46,26 +46,19 @@ def write_output(
                     outfile.write(output_content)
                 logging.info(f"Dry run output also written to: {dry_run_output_path}")
             except Exception as e:
-                logging.error(
-                    f"Error writing dry run output to {dry_run_output_path}: {e}"
-                )
+                logging.error(f"Error writing dry run output to {dry_run_output_path}: {e}")
         return
 
     if output_path.exists() and not force:
         import sys
 
         if sys.stdin.isatty():
-            response = input(
-                f"Output file '{output_path}' already exists. Overwrite? (y/N): "
-            )
+            response = input(f"Output file '{output_path}' already exists. Overwrite? (y/N): ")
             if response.lower() != "y":
                 logging.info("Operation cancelled by user. File not overwritten.")
                 return
         else:
-            logging.info(
-                f"Output file '{output_path}' already exists. "
-                "Skipping overwrite in non-interactive mode."
-            )
+            logging.info(f"Output file '{output_path}' already exists. Skipping overwrite in non-interactive mode.")
             return
 
     try:
@@ -80,9 +73,7 @@ def write_output(
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments for the CodeMeld script."""
-    parser = argparse.ArgumentParser(
-        description="Combine code files from a directory into a single file."
-    )
+    parser = argparse.ArgumentParser(description="Combine code files from a directory into a single file.")
     parser.add_argument("directory", help="The directory to scan for code files.")
     parser.add_argument(
         "-o",
@@ -144,10 +135,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--always-include",
         nargs="+",
-        help=(
-            "Always include specified files, bypassing other filters "
-            "(space-separated paths)."
-        ),
+        help=("Always include specified files, bypassing other filters (space-separated paths)."),
     )
     parser.add_argument(
         "--follow-symlinks",
@@ -157,15 +145,13 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--token-encoding",
         default="cl100k_base",
-        help="The token encoding model to use for token counting "
-        "(default: cl100k_base).",
+        help="The token encoding model to use for token counting (default: cl100k_base).",
     )
     parser.add_argument(
         "--max-memory-mb",
         type=int,
         default=500,
-        help="Maximum memory in MB to use before falling back to streaming "
-        "(default: 500). Set to 0 for no limit.",
+        help="Maximum memory in MB to use before falling back to streaming (default: 500). Set to 0 for no limit.",
     )
     parser.add_argument(
         "--custom-file-headers",
@@ -183,10 +169,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--max-file-size-kb",
         type=int,
-        help=(
-            "Maximum file size in KB to include (e.g., 1024 for 1MB). "
-            "Files larger than this will be skipped."
-        ),
+        help=("Maximum file size in KB to include (e.g., 1024 for 1MB). Files larger than this will be skipped."),
     )
     parser.add_argument(
         "--verbose",
@@ -233,9 +216,7 @@ class CodeMeld:
         self.always_included_files = self._process_always_include_files()
 
         # Determine the effective format based on --convert-to
-        effective_format = (
-            config.final_output_format if config.final_output_format else config.format
-        )
+        effective_format = config.final_output_format if config.final_output_format else config.format
 
         formatter_kwargs = {}
         if effective_format == "text":
@@ -248,13 +229,9 @@ class CodeMeld:
         )
         self.full_filter_chain = self._build_full_filter_chain(self.safety_filter_chain)
 
-    def _build_full_filter_chain(
-        self, safety_chain_head: CompositeFilter
-    ) -> FileFilter:
+    def _build_full_filter_chain(self, safety_chain_head: CompositeFilter) -> FileFilter:
         spec = self._get_gitignore_spec() if self.config.use_gitignore else None
-        return FilterChainBuilder.build_full_chain(
-            self.config, spec, safety_chain_head, self.always_included_files
-        )
+        return FilterChainBuilder.build_full_chain(self.config, spec, safety_chain_head, self.always_included_files)
 
     def _get_gitignore_spec(self) -> pathspec.PathSpec | None:
         """
@@ -300,11 +277,7 @@ class CodeMeld:
     def _apply_filters_to_files(self, files: list[Path]) -> list[Path]:
         """Apply the full filter chain to a list of files."""
         filtered_files = [
-            file
-            for file in files
-            if self.full_filter_chain.should_process(
-                file, {"root_path": self.root_path}
-            )
+            file for file in files if self.full_filter_chain.should_process(file, {"root_path": self.root_path})
         ]
         return filtered_files
 
@@ -339,17 +312,13 @@ class CodeMeld:
             resolved_path = self._resolve_path(path)
             if not resolved_path.is_file():
                 logging.warning(
-                    f"Warning: --always-include path '{path_str}' is not a file "
-                    "or does not exist. Skipping."
+                    f"Warning: --always-include path '{path_str}' is not a file or does not exist. Skipping."
                 )
                 continue
 
-            if not self.safety_filter_chain.should_process(
-                resolved_path, {"root_path": self.root_path}
-            ):
+            if not self.safety_filter_chain.should_process(resolved_path, {"root_path": self.root_path}):
                 logging.warning(
-                    f"Warning: --always-include path '{path_str}' was filtered out "
-                    "by safety checks. Skipping."
+                    f"Warning: --always-include path '{path_str}' was filtered out by safety checks. Skipping."
                 )
                 continue
             always_included_files.append(resolved_path)
@@ -369,16 +338,12 @@ class CodeMeld:
         return ui
 
     def _run_generation(self, all_files_to_process: list[Path], ui: LiveUI) -> None:
-        memory_monitor = TracemallocMemoryMonitor(
-            self.config.max_memory_mb, self.config.count_tokens
-        )
+        memory_monitor = TracemallocMemoryMonitor(self.config.max_memory_mb, self.config.count_tokens)
 
         with Publisher(total_files=len(all_files_to_process)) as publisher:
             token_counter_observer = None
             if self.config.count_tokens:
-                token_counter_observer = TokenCounterObserver(
-                    self.config.token_encoding_model
-                )
+                token_counter_observer = TokenCounterObserver(self.config.token_encoding_model)
                 publisher.subscribe(token_counter_observer)
             line_counter_observer = LineCounterObserver()
             publisher.subscribe(line_counter_observer)
@@ -404,9 +369,7 @@ class CodeMeld:
                 # publisher.notify("processing_complete", (output_content, raw_content)) # Handled by __exit__
             except MemoryThresholdExceededError:
                 if not self.config.count_tokens and self.formatter.supports_streaming():
-                    logging.warning(
-                        "Falling back to streaming due to memory constraints."
-                    )
+                    logging.warning("Falling back to streaming due to memory constraints.")
                     streaming_generator = StreamingOutputGenerator(context)
                     streaming_generator.generate()
                     output_written_by_streaming = True
@@ -420,11 +383,7 @@ class CodeMeld:
                     output_content,
                     self.config.force,
                     self.config.dry_run,
-                    (
-                        Path(self.config.dry_run_output)
-                        if self.config.dry_run_output
-                        else None
-                    ),
+                    (Path(self.config.dry_run_output) if self.config.dry_run_output else None),
                 )
 
     def execute(self) -> None:

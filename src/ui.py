@@ -106,15 +106,11 @@ class LiveUI:
             }
             if self.progress_style:
                 # Allow custom bar_format if a style is provided, otherwise use default
-                tqdm_kwargs["bar_format"] = (
-                    "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
-                )
+                tqdm_kwargs["bar_format"] = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
                 if self.progress_style == "ascii":
                     tqdm_kwargs["ascii"] = True
                 elif self.progress_style == "block":
-                    tqdm_kwargs["bar_format"] = (
-                        "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
-                    )
+                    tqdm_kwargs["bar_format"] = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
                 # Add more styles as needed
 
             self._progress_bar = tqdm(**tqdm_kwargs)
@@ -154,9 +150,7 @@ class LiveUI:
             if file_path and file_path not in self._included_files_set:
                 self._included_files_set.add(file_path)
                 self.included_files.append(file_path)
-            logging.debug(
-                f"LiveUI.update: Added {file_path}. Count: {len(self.included_files)}"
-            )
+            logging.debug(f"LiveUI.update: Added {file_path}. Count: {len(self.included_files)}")
 
     # ───────────────────────────────
     # Final Summary
@@ -171,9 +165,7 @@ class LiveUI:
         separator = "─" * width
         label_width = 25  # Increased label width for summary
 
-        logging.debug(
-            f"LiveUI.finish: list_files={self.list_files}, count={len(self.included_files)}"
-        )
+        logging.debug(f"LiveUI.finish: list_files={self.list_files}, count={len(self.included_files)}")
 
         if self.list_files and self.included_files:
             print("Included files:")

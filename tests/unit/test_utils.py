@@ -90,9 +90,7 @@ def test_is_likely_binary_unusual_extension(temp_files):
 
 def test_log_file_read_error_unicode_decode_error(caplog):
     with caplog.at_level(logging.WARNING):
-        log_file_read_error(
-            Path("test.txt"), UnicodeDecodeError("utf-8", b"", 0, 1, "reason")
-        )
+        log_file_read_error(Path("test.txt"), UnicodeDecodeError("utf-8", b"", 0, 1, "reason"))
     assert "Skipping file due to UnicodeDecodeError: test.txt" in caplog.text
 
 

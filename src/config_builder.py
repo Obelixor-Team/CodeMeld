@@ -89,9 +89,7 @@ class CombinerConfigBuilder:
         self._apply_arg_if_present(args, "include_hidden")
         if hasattr(args, "no_tokens") and args.no_tokens:
             self._config["count_tokens"] = False
-        if (
-            hasattr(args, "header_width") and args.header_width != 80
-        ):  # Check against default
+        if hasattr(args, "header_width") and args.header_width != 80:  # Check against default
             self._config["header_width"] = args.header_width
         self._apply_arg_if_present(args, "format")
         self._apply_arg_if_present(args, "convert_to", "final_output_format")
@@ -119,9 +117,7 @@ class CombinerConfigBuilder:
 
     def build(self, directory_path: Path, output: str) -> CombinerConfig:
         """Build the final configuration."""
-        return CombinerConfig(
-            directory_path=directory_path, output=output, **cast(Any, self._config)
-        )
+        return CombinerConfig(directory_path=directory_path, output=output, **cast(Any, self._config))
 
 
 def load_and_merge_config(args: argparse.Namespace) -> CombinerConfig:

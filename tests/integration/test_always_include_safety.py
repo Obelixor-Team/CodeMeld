@@ -21,6 +21,6 @@ def test_always_include_with_large_binary_file_blocked(tmp_path):
     # The file should be filtered out, so the output file should not be created
     # or should be empty if it was created by some other mechanism.
     output_file_path = tmp_path / "output.txt"
-    assert (
-        not output_file_path.exists() or output_file_path.read_text() == ""
-    ), "Output file should not exist or be empty if all files are filtered out."
+    assert not output_file_path.exists() or output_file_path.read_text() == "", (
+        "Output file should not exist or be empty if all files are filtered out."
+    )

@@ -44,8 +44,7 @@ class SystemMemoryMonitor(MemoryMonitor):
                 f"Threshold: {self.max_memory_mb}MB. Falling back to streaming."
             )
             raise MemoryThresholdExceededError(
-                f"Memory usage exceeded {self.max_memory_mb}MB. "
-                "Falling back to streaming output."
+                f"Memory usage exceeded {self.max_memory_mb}MB. Falling back to streaming output."
             )
 
 
@@ -86,8 +85,7 @@ class TracemallocMemoryMonitor(MemoryMonitor):
                 self.safety_margin * 100,
             )
             raise MemoryThresholdExceededError(
-                f"Python memory usage exceeded {threshold:.1f}MB. "
-                "Falling back to streaming output."
+                f"Python memory usage exceeded {threshold:.1f}MB. Falling back to streaming output."
             )
 
     def __del__(self) -> None:

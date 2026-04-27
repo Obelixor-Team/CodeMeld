@@ -52,9 +52,7 @@ def test_progressbar_observer_explicit_enter_exit(caplog):
     """Test ProgressBarObserver's __enter__ and __exit__ methods explicitly."""
     with patch.object(sys.stdout, "isatty", return_value=False):
         with caplog.at_level(logging.INFO):
-            observer = ProgressBarObserver(
-                total_files=5, description="Explicit Enter/Exit"
-            )
+            observer = ProgressBarObserver(total_files=5, description="Explicit Enter/Exit")
             observer.__enter__()
             assert "Progress: Explicit Enter/Exit - 0/5" in caplog.text
             observer.__exit__(None, None, None)
@@ -77,9 +75,7 @@ def test_telemetry_observer_init():
 
 def test_token_counter_observer_tiktoken_import_error(caplog):
     """Test TokenCounterObserver handles ImportError when tiktoken is not found."""
-    with patch.dict(
-        sys.modules, {"tiktoken": None}
-    ):  # Simulate tiktoken not being importable
+    with patch.dict(sys.modules, {"tiktoken": None}):  # Simulate tiktoken not being importable
         with caplog.at_level(logging.WARNING):
             observer = TokenCounterObserver()
             assert observer.tiktoken_module is None

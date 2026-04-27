@@ -26,9 +26,7 @@ from .observers import (
 from .utils import is_likely_binary, log_file_read_error
 
 
-def read_file_content(
-    file_path: Path, chunk_size: int = 65536
-) -> Generator[str, None, None]:
+def read_file_content(file_path: Path, chunk_size: int = 65536) -> Generator[str, None, None]:
     """Read file content in chunks with proper error handling."""
     if is_likely_binary(file_path):
         return
@@ -149,9 +147,7 @@ class InMemoryOutputGenerator(OutputGenerator):
                         failed_files.append(path)
 
                 if failed_files:
-                    logging.warning(
-                        f"Failed to read {len(failed_files)} files. See log for details."
-                    )
+                    logging.warning(f"Failed to read {len(failed_files)} files. See log for details.")
 
             except Exception as e:
                 logging.error(f"An error occurred during file processing: {e}")
@@ -169,16 +165,8 @@ class InMemoryOutputGenerator(OutputGenerator):
             ProcessingEvent.OUTPUT_GENERATED,
             OutputGeneratedData(
                 output_path=str(self.output_path),
-                total_tokens=(
-                    self.token_counter_observer.total_tokens
-                    if self.token_counter_observer
-                    else None
-                ),
-                total_lines=(
-                    self.line_counter_observer.total_lines
-                    if self.line_counter_observer
-                    else None
-                ),
+                total_tokens=(self.token_counter_observer.total_tokens if self.token_counter_observer else None),
+                total_lines=(self.line_counter_observer.total_lines if self.line_counter_observer else None),
             ),
         )
         self.publisher.notify(ProcessingEvent.PROCESSING_COMPLETE, None)
@@ -194,32 +182,24 @@ class InMemoryOutputGenerator(OutputGenerator):
         self.raw_content_parts.append(content)
         if isinstance(self.formatter, JSONFormatter):
             self.json_data[str(relative_path)] = content
-        elif (
-            isinstance(self.formatter, XMLFormatter)
-            and self.xml_root_element is not None
-        ):
+        elif isinstance(self.formatter, XMLFormatter) and self.xml_root_element is not None:
             file_element = ET.SubElement(self.xml_root_element, "file")
             path_element = ET.SubElement(file_element, "path")
             path_element.text = str(relative_path)
             content_element = ET.SubElement(file_element, "content")
             content_element.text = content
         else:
-            self.formatted_content_parts.append(
-                self.formatter.format_file(relative_path, content)
-            )
+            self.formatted_content_parts.append(self.formatter.format_file(relative_path, content))
 
     def _end_output(self) -> tuple[str, str]:
         """Finalize in-memory output and return it."""
         if isinstance(self.formatter, JSONFormatter):
             self.output_content = json.dumps(self.json_data, indent=4)
-        elif (
-            isinstance(self.formatter, XMLFormatter)
-            and self.xml_root_element is not None
-        ):
+        elif isinstance(self.formatter, XMLFormatter) and self.xml_root_element is not None:
             ET.indent(self.xml_root_element)  # Python 3.9+
-            self.output_content = ET.tostring(
-                self.xml_root_element, encoding="utf-8", xml_declaration=True
-            ).decode("utf-8")
+            self.output_content = ET.tostring(self.xml_root_element, encoding="utf-8", xml_declaration=True).decode(
+                "utf-8"
+            )
         else:
             self.output_content = "".join(self.formatted_content_parts)
 
@@ -237,16 +217,8 @@ class InMemoryOutputGenerator(OutputGenerator):
             return file_path
 
     def _update_ui(self, relative_path: Path, skipped: bool) -> None:
-        tokens = (
-            self.token_counter_observer.total_tokens
-            if self.token_counter_observer
-            else None
-        )
-        lines = (
-            self.line_counter_observer.total_lines
-            if self.line_counter_observer
-            else None
-        )
+        tokens = self.token_counter_observer.total_tokens if self.token_counter_observer else None
+        lines = self.line_counter_observer.total_lines if self.line_counter_observer else None
         self.ui.update(
             str(relative_path),
             skipped=skipped,
@@ -254,9 +226,7 @@ class InMemoryOutputGenerator(OutputGenerator):
             lines=lines,
         )
 
-    def _process_single_file(
-        self, i: int, file_path: Path, content: str | None, check_interval: int
-    ) -> None:
+    def _process_single_file(self, i: int, file_path: Path, content: str | None, check_interval: int) -> None:
         """Process a single file within the main loop."""
         # Sample memory usage instead of checking every file
         if i % check_interval == 0:
@@ -265,9 +235,7 @@ class InMemoryOutputGenerator(OutputGenerator):
 
         relative_path = self._get_relative_path(file_path)
 
-        self.publisher.notify(
-            ProcessingEvent.FILE_PROCESSED, FileProcessedData(path=str(relative_path))
-        )
+        self.publisher.notify(ProcessingEvent.FILE_PROCESSED, FileProcessedData(path=str(relative_path)))
 
         self._update_ui(relative_path, content is None)
 
@@ -289,9 +257,7 @@ class StreamingOutputGenerator(OutputGenerator):
         )
         self.output_path = context.output_path
         self.dry_run = context.dry_run
-        self.dry_run_output_path = (
-            Path(context.dry_run_output) if context.dry_run_output else None
-        )
+        self.dry_run_output_path = Path(context.dry_run_output) if context.dry_run_output else None
         self.ui = context.ui
         self.token_counter_observer = context.token_counter_observer
         self.line_counter_observer = context.line_counter_observer
@@ -300,17 +266,13 @@ class StreamingOutputGenerator(OutputGenerator):
         """Return the description for the progress bar."""
         return "Processing files (Streaming)"
 
-    def _process_file_streaming(
-        self, file_path: Path, outfile: Any | None = None
-    ) -> None:
+    def _process_file_streaming(self, file_path: Path, outfile: Any | None = None) -> None:
         try:
             relative_path = file_path.relative_to(self.root_path)
         except ValueError:
             relative_path = file_path  # Use full path if not relative to root
 
-        self.publisher.notify(
-            ProcessingEvent.FILE_PROCESSED, FileProcessedData(path=str(relative_path))
-        )
+        self.publisher.notify(ProcessingEvent.FILE_PROCESSED, FileProcessedData(path=str(relative_path)))
         content_generator = read_file_content(file_path)
         full_content = ""
         for chunk in content_generator:
@@ -326,16 +288,8 @@ class StreamingOutputGenerator(OutputGenerator):
             content = full_content
 
         # Update UI
-        tokens = (
-            self.token_counter_observer.total_tokens
-            if self.token_counter_observer
-            else None
-        )
-        lines = (
-            self.line_counter_observer.total_lines
-            if self.line_counter_observer
-            else None
-        )
+        tokens = self.token_counter_observer.total_tokens if self.token_counter_observer else None
+        lines = self.line_counter_observer.total_lines if self.line_counter_observer else None
         self.ui.update(
             str(relative_path),
             skipped=(content is None),
@@ -385,13 +339,9 @@ class StreamingOutputGenerator(OutputGenerator):
                 with open(self.dry_run_output_path, "w", encoding="utf-8") as outfile:
                     for file_path in self.files_to_process:
                         self._process_file_streaming(file_path, outfile)
-                logging.info(
-                    f"Dry run output also written to: {self.dry_run_output_path}"
-                )
+                logging.info(f"Dry run output also written to: {self.dry_run_output_path}")
             except Exception as e:
-                logging.error(
-                    f"Error writing dry run output to {self.dry_run_output_path}: {e}"
-                )
+                logging.error(f"Error writing dry run output to {self.dry_run_output_path}: {e}")
 
     def _handle_actual_streaming(self) -> None:
         # Determine if we are using a streaming formatter that writes directly to file

@@ -1,28 +1,39 @@
-.PHONY: help install format lint check test coverage all radon check-strict audit
+.PHONY: help install format lint check test coverage all check-strict audit run
 
 help:
 	@echo "Makefile for managing the project."
 	@echo ""
 	@echo "Targets:"
 	@echo "  install    Install development dependencies."
-	@echo "  format     Format the code using black."
+	@echo "  format     Format the code using ruff."
 	@echo "  lint       Lint the code using ruff."
-	@echo "  check      Run static type checking with mypy."
-	@echo "  check-strict Run ruff check, mypy --strict, and pytest."
+	@echo "  check      Run static type checking with ty."
+	@echo "  check-strict Run ruff check, ty check, and pytest."
 	@echo "  test       Run tests using pytest."
 	@echo "  coverage   Run tests with coverage reporting."
-	@echo "  all        Run format, lint, check, coverage, and radon."
-	@echo "  radon      Run code complexity analysis."
+	@echo "  run        Run the codemeld tool (e.g., make run ARGS='.')"
+	@echo "  all        Run format, lint, check, coverage, and audit."
 	@echo "  audit      Run pip-audit to check for vulnerabilities."
+	@echo ""
 
 install:
 	@echo ""
 	@echo "--- Starting install ---"
 	@echo ""
-	.venv/bin/pip install -r requirements.txt
-	.venv/bin/pip install -r requirements-dev.txt
+	uv pip install -r requirements.txt
+	uv pip install -r requirements-dev.txt
 	@echo ""
 	@echo "--- Finished install ---"
+	@echo ""
+
+setup:
+	@echo ""
+	@echo "--- Setting up environment with uv ---"
+	@echo ""
+	uv venv --python 3.14.4
+	$(MAKE) install
+	@echo ""
+	@echo "--- Setup finished ---"
 	@echo ""
 
 all: 
@@ -33,7 +44,6 @@ all:
 	$(MAKE) lint
 	$(MAKE) check
 	$(MAKE) coverage
-	$(MAKE) radon
 	$(MAKE) audit
 	@echo ""
 	@echo "--- Finished all checks ---"
@@ -43,7 +53,7 @@ format:
 	@echo ""
 	@echo "--- Starting format ---"
 	@echo ""
-	.venv/bin/black .
+	uv run ruff format .
 	@echo ""
 	@echo "--- Finished format ---"
 	@echo ""
@@ -52,27 +62,27 @@ lint:
 	@echo ""
 	@echo "--- Starting lint ---"
 	@echo ""
-	.venv/bin/ruff check . --fix
+	uv run ruff check . --fix
 	@echo ""
 	@echo "--- Finished lint ---"
 	@echo ""
 
 check:
 	@echo ""
-	@echo "--- Starting check (mypy) ---"
+	@echo "--- Starting check (ty) ---"
 	@echo ""
-	.venv/bin/mypy --strict .
+	uv run ty check .
 	@echo ""
-	@echo "--- Finished check (mypy) ---"
+	@echo "--- Finished check (ty) ---"
 	@echo ""
 
 check-strict:
 	@echo ""
 	@echo "--- Starting strict checks (ruff, mypy, pytest) ---"
 	@echo ""
-	.venv/bin/ruff check .
-	.venv/bin/mypy --strict .
-	PYTHONPATH=. .venv/bin/pytest tests/
+	uv run ruff check .
+	uv run ty check .
+	uv run pytest tests/
 	@echo ""
 	@echo "--- Finished strict checks ---"
 	@echo ""
@@ -81,7 +91,7 @@ test:
 	@echo ""
 	@echo "--- Starting tests ---"
 	@echo ""
-	PYTHONPATH=. .venv/bin/pytest tests/
+	uv run pytest tests/
 	@echo ""
 	@echo "--- Finished tests ---"
 	@echo ""
@@ -90,25 +100,25 @@ coverage:
 	@echo ""
 	@echo "--- Starting coverage report ---"
 	@echo ""
-	PYTHONPATH=. .venv/bin/pytest --cov=src --cov-report=term-missing --cov-fail-under=90 --timeout=60 tests/
+	uv run pytest --cov=src --cov-report=term-missing --cov-fail-under=90 --timeout=60 tests/
 	@echo ""
 	@echo "--- Finished coverage report ---"
-	@echo ""
-
-radon:
-	@echo ""
-	@echo "--- Starting radon complexity analysis ---"
-	@echo ""
-	.venv/bin/radon cc . -a -nc
-	@echo ""
-	@echo "--- Finished radon complexity analysis ---"
 	@echo ""
 
 audit:
 	@echo ""
 	@echo "--- Starting pip-audit ---"
 	@echo ""
-	-.venv/bin/pip-audit
+	uv run pip-audit
 	@echo ""
 	@echo "--- Finished pip-audit ---"
+	@echo ""
+	@echo ""
+
+run:
+	uv run main.py $(ARGS)
+	@echo ""
+	@echo "--- Finished running codemeld ---"
+	@echo ""
+	@echo "--- Finished running codemeld ---"
 	@echo ""

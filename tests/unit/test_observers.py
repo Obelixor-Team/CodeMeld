@@ -35,9 +35,7 @@ def test_publisher_subscribe_and_notify():
     publisher = Publisher()
     observer: MockObserver = MockObserver()
     publisher.subscribe(observer)
-    publisher.notify(
-        ProcessingEvent.PROCESSING_STARTED, ProcessingStartedData(total_files=10)
-    )
+    publisher.notify(ProcessingEvent.PROCESSING_STARTED, ProcessingStartedData(total_files=10))
     assert observer.update_called
     assert observer.event == ProcessingEvent.PROCESSING_STARTED
     assert observer.data == ProcessingStartedData(total_files=10)
@@ -46,9 +44,7 @@ def test_publisher_subscribe_and_notify():
 def test_publisher_unsubscribe():
     publisher = Publisher()
     observer: MockObserver = MockObserver()
-    publisher.notify(
-        ProcessingEvent.FILE_PROCESSED, FileProcessedData(path="test_file")
-    )
+    publisher.notify(ProcessingEvent.FILE_PROCESSED, FileProcessedData(path="test_file"))
     assert not observer.update_called
 
 
@@ -58,9 +54,7 @@ def test_publisher_notify_multiple_observers():
     observer2: MockObserver = MockObserver()
     publisher.subscribe(observer1)
     publisher.subscribe(observer2)
-    publisher.notify(
-        ProcessingEvent.FILE_PROCESSED, FileProcessedData(path="test_file")
-    )
+    publisher.notify(ProcessingEvent.FILE_PROCESSED, FileProcessedData(path="test_file"))
     assert observer1.update_called
     assert observer2.update_called
 
@@ -85,20 +79,16 @@ def test_line_counter_observer():
         mock_progress_bar = MagicMock()
         mock_tqdm.return_value = mock_progress_bar
         with ProgressBarObserver(total_files=10, description="Processing") as observer:
-            observer.update(
-                ProcessingEvent.FILE_PROCESSED, FileProcessedData(path="test_file")
-            )
+            observer.update(ProcessingEvent.FILE_PROCESSED, FileProcessedData(path="test_file"))
             mock_progress_bar.update.assert_called_with(1)
             mock_progress_bar.write.assert_called_with("Processed: test_file")
         mock_progress_bar.close.assert_called()
 
 
 def test_token_counter_observer():
-
     # Mock tiktoken in sys.modules
 
     with patch.dict("sys.modules", {"tiktoken": MagicMock()}) as mock_sys_modules:
-
         mock_tiktoken = mock_sys_modules["tiktoken"]
 
         mock_encoding = MagicMock()
@@ -128,25 +118,19 @@ def test_token_counter_observer():
 
 
 def test_token_counter_observer_no_tiktoken(caplog):
-
     # Temporarily remove tiktoken from sys.modules to simulate it not being installed
 
     with patch.dict("sys.modules", {"tiktoken": None}):
-
         # Reload src.observers to ensure the lazy import logic is re-evaluated
 
         importlib.reload(src.observers)
 
         with caplog.at_level(logging.WARNING):
-
             observer = TokenCounterObserver()
 
             assert observer.tiktoken_module is None
 
-            assert (
-                caplog.records[0].message
-                == "tiktoken not found. Token counting will be skipped."
-            )
+            assert caplog.records[0].message == "tiktoken not found. Token counting will be skipped."
 
         # Ensure update does nothing if tiktoken_module is None
 
@@ -161,7 +145,6 @@ def test_token_counter_observer_no_tiktoken(caplog):
 
 
 def test_publisher_unsubscribe_not_subscribed():
-
     publisher = Publisher()
 
     observer = MockObserver()
@@ -172,7 +155,6 @@ def test_publisher_unsubscribe_not_subscribed():
 
 
 def test_observer_failure_does_not_stop_others(caplog):
-
     publisher = Publisher()
 
     failing_observer = MagicMock(spec=Observer)
@@ -186,10 +168,7 @@ def test_observer_failure_does_not_stop_others(caplog):
     publisher.subscribe(working_observer)
 
     with caplog.at_level(logging.ERROR):
-
-        publisher.notify(
-            ProcessingEvent.PROCESSING_STARTED, ProcessingStartedData(total_files=5)
-        )
+        publisher.notify(ProcessingEvent.PROCESSING_STARTED, ProcessingStartedData(total_files=5))
 
         assert "failed: Test Exception" in caplog.text
 
@@ -213,9 +192,7 @@ def test_token_counter_observer_with_custom_encoding():
         mock_tiktoken.get_encoding.return_value = mock_encoding
 
         # Create an observer instance after mocking
-        observer: TokenCounterObserver = TokenCounterObserver(
-            token_encoding_model=custom_encoding_model
-        )
+        observer: TokenCounterObserver = TokenCounterObserver(token_encoding_model=custom_encoding_model)
 
         observer.update(
             ProcessingEvent.FILE_CONTENT_PROCESSED,

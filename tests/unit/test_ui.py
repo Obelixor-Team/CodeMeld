@@ -15,9 +15,7 @@ class TestLiveUI:
         assert "Processing 10 files..." in captured.out
 
     def test_start_ascii_progress_bar(self):
-        with patch("src.ui.tqdm") as mock_tqdm, patch(
-            "shutil.get_terminal_size", return_value=MagicMock(columns=80)
-        ):
+        with patch("src.ui.tqdm") as mock_tqdm, patch("shutil.get_terminal_size", return_value=MagicMock(columns=80)):
             ui = LiveUI(total_files=10)
             ui.progress_style = "ascii"
             with patch("sys.stdout.isatty", return_value=True):
@@ -31,9 +29,7 @@ class TestLiveUI:
             )
 
     def test_start_block_progress_bar(self):
-        with patch("src.ui.tqdm") as mock_tqdm, patch(
-            "shutil.get_terminal_size", return_value=MagicMock(columns=80)
-        ):
+        with patch("src.ui.tqdm") as mock_tqdm, patch("shutil.get_terminal_size", return_value=MagicMock(columns=80)):
             ui = LiveUI(total_files=10)
             ui.progress_style = "block"
             with patch("sys.stdout.isatty", return_value=True):

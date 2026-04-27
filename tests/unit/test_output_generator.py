@@ -35,21 +35,15 @@ def mock_formatter():
     return TextFormatter()
 
 
-def test_in_memory_generator_memory_warning(
-    mock_files_to_process, mock_root_path, mock_formatter, tmp_path
-):
+def test_in_memory_generator_memory_warning(mock_files_to_process, mock_root_path, mock_formatter, tmp_path):
     """Ensure MemoryThresholdExceededError is raised when memory exceeds threshold."""
     with patch("psutil.Process") as mock_process_class:
         mock_process_instance = mock_process_class.return_value
-        mock_process_instance.memory_info.return_value.rss = (
-            1000 * 1024 * 1024
-        )  # 1000MB, very high
+        mock_process_instance.memory_info.return_value.rss = 1000 * 1024 * 1024  # 1000MB, very high
 
         memory_monitor = SystemMemoryMonitor(max_memory_mb=500, count_tokens=True)
 
-        with patch(
-            "src.output_generator.read_file_content", return_value="some content"
-        ):
+        with patch("src.output_generator.read_file_content", return_value="some content"):
             context = GeneratorContext(
                 files_to_process=mock_files_to_process,
                 root_path=mock_root_path,
@@ -66,16 +60,12 @@ def test_in_memory_generator_memory_warning(
                 generator.generate()
 
 
-def test_thread_pool_executor_worker_cap(
-    mock_files_to_process, mock_root_path, mock_formatter, tmp_path
-):
+def test_thread_pool_executor_worker_cap(mock_files_to_process, mock_root_path, mock_formatter, tmp_path):
     """Ensure ThreadPoolExecutor max_workers is capped correctly."""
     with patch("os.cpu_count", return_value=100):
         with patch("src.output_generator.ThreadPoolExecutor") as mock_executor_class:
             mock_executor_instance = MagicMock()
-            mock_executor_class.return_value.__enter__.return_value = (
-                mock_executor_instance
-            )
+            mock_executor_class.return_value.__enter__.return_value = mock_executor_instance
 
             # Mock the submit method to return a real Future that is already done
             from concurrent.futures import Future
@@ -110,9 +100,7 @@ def test_thread_pool_executor_worker_cap(
     with patch("os.cpu_count", return_value=2):
         with patch("src.output_generator.ThreadPoolExecutor") as mock_executor_class:
             mock_executor_instance = MagicMock()
-            mock_executor_class.return_value.__enter__.return_value = (
-                mock_executor_instance
-            )
+            mock_executor_class.return_value.__enter__.return_value = mock_executor_instance
 
             # Mock the submit method to return a real Future that is already done
             from concurrent.futures import Future
@@ -144,22 +132,16 @@ def test_thread_pool_executor_worker_cap(
             assert mock_executor_class.call_args[1]["max_workers"] == 6
 
 
-def test_in_memory_generator_failed_files_logging(
-    mock_files_to_process, mock_root_path, mock_formatter, tmp_path
-):
+def test_in_memory_generator_failed_files_logging(mock_files_to_process, mock_root_path, mock_formatter, tmp_path):
     """Ensure failed files are logged when _read_file_and_notify raises an exception."""
     with patch("os.cpu_count", return_value=2):
         with patch("src.output_generator.ThreadPoolExecutor") as mock_executor_class:
             mock_executor_instance = MagicMock()
-            mock_executor_class.return_value.__enter__.return_value = (
-                mock_executor_instance
-            )
+            mock_executor_class.return_value.__enter__.return_value = mock_executor_instance
 
             from concurrent.futures import Future
 
-            def mock_submit_with_exception(
-                func, *args, **kwargs
-            ) -> Future[tuple[Path, str | None]]:
+            def mock_submit_with_exception(func, *args, **kwargs) -> Future[tuple[Path, str | None]]:
                 future: Future[tuple[Path, str | None]] = Future()
                 future.set_exception(Exception("Test exception"))
                 return future
@@ -259,9 +241,7 @@ def test_read_file_content_is_a_directory_error(tmp_path, mocker):
     assert "Is a directory" in str(mock_log_file_read_error.call_args[0][1])
 
 
-def test_in_memory_generator_file_not_relative_to_root(
-    mock_root_path, mock_formatter, tmp_path, mocker
-):
+def test_in_memory_generator_file_not_relative_to_root(mock_root_path, mock_formatter, tmp_path, mocker):
     """Test that _get_relative_path handles files not relative to root_path."""
     # Create a file outside the mock_root_path
     external_file = tmp_path / "external_dir" / "external_file.txt"
@@ -280,9 +260,7 @@ def test_in_memory_generator_file_not_relative_to_root(
     )
     generator = InMemoryOutputGenerator(context)
 
-    mocker.patch(
-        "src.output_generator.read_file_content", return_value=["external content"]
-    )
+    mocker.patch("src.output_generator.read_file_content", return_value=["external content"])
     mocker.patch("src.output_generator.is_likely_binary", return_value=False)
 
     output, _ = generator.generate()
@@ -292,9 +270,7 @@ def test_in_memory_generator_file_not_relative_to_root(
     assert "external content" in output
 
 
-def test_in_memory_generator_xml_indentation(
-    mock_files_to_process, mock_root_path, tmp_path, mocker
-):
+def test_in_memory_generator_xml_indentation(mock_files_to_process, mock_root_path, tmp_path, mocker):
     """Test that ET.indent is called when using XMLFormatter in InMemoryOutputGenerator."""
     from xml.etree import ElementTree as ET
 
@@ -319,9 +295,7 @@ def test_in_memory_generator_xml_indentation(
     generator = InMemoryOutputGenerator(context)
 
     # Mock read_file_content to return some content
-    mocker.patch(
-        "src.output_generator.read_file_content", return_value=["some content"]
-    )
+    mocker.patch("src.output_generator.read_file_content", return_value=["some content"])
     mocker.patch("src.output_generator.is_likely_binary", return_value=False)
 
     generator.generate()
@@ -370,25 +344,19 @@ def test_streaming_output_generator_handle_actual_streaming_exception(
     )
     generator = StreamingOutputGenerator(context)
 
-    mocker.patch(
-        "src.output_generator.read_file_content", return_value=["some content"]
-    )
+    mocker.patch("src.output_generator.read_file_content", return_value=["some content"])
     mocker.patch("src.output_generator.is_likely_binary", return_value=False)
 
     # Mock the open function to raise an exception when writing to the temporary file
     mock_open = mocker.patch("builtins.open", mocker.mock_open())
-    mock_open.return_value.__enter__.return_value.write.side_effect = OSError(
-        "Disk full"
-    )
+    mock_open.return_value.__enter__.return_value.write.side_effect = OSError("Disk full")
 
     with pytest.raises(IOError, match="Disk full"):
         generator._handle_actual_streaming()
 
     # Ensure the temporary file is unlinked
     mock_open.assert_called_with(tmp_path / "output.tmp", "w", encoding="utf-8")
-    assert (
-        tmp_path / "output.tmp"
-    ).exists() is False  # Should be unlinked by the except block
+    assert (tmp_path / "output.tmp").exists() is False  # Should be unlinked by the except block
 
 
 def test_streaming_output_generator_dry_run_output_path_handling(
@@ -410,13 +378,9 @@ def test_streaming_output_generator_dry_run_output_path_handling(
     )
     generator = StreamingOutputGenerator(context)
 
-    mocker.patch(
-        "src.output_generator.read_file_content", return_value=["some content"]
-    )
+    mocker.patch("src.output_generator.read_file_content", return_value=["some content"])
     mocker.patch("src.output_generator.is_likely_binary", return_value=False)
-    mocker.patch(
-        "logging.info"
-    )  # Mock logging.info to prevent console output during test
+    mocker.patch("logging.info")  # Mock logging.info to prevent console output during test
 
     generator._handle_dry_run_streaming()
 
@@ -443,13 +407,9 @@ def test_streaming_output_generator_dry_run_output_path_exception(
     )
     generator = StreamingOutputGenerator(context)
 
-    mocker.patch(
-        "src.output_generator.read_file_content", return_value=["some content"]
-    )
+    mocker.patch("src.output_generator.read_file_content", return_value=["some content"])
     mocker.patch("src.output_generator.is_likely_binary", return_value=False)
-    mocker.patch(
-        "logging.info"
-    )  # Mock logging.info to prevent console output during test
+    mocker.patch("logging.info")  # Mock logging.info to prevent console output during test
     mock_logging_error = mocker.patch("logging.error")
 
     # Mock the open function to raise an exception when writing to the dry_run_output_path
@@ -483,9 +443,7 @@ def test_streaming_output_generator_dry_run_output_path(
     assert generator.dry_run_output_path == Path(dry_run_output_path_str)
 
 
-def test_streaming_output_generator_empty_non_binary_file(
-    mock_root_path, mock_formatter, tmp_path, mocker
-):
+def test_streaming_output_generator_empty_non_binary_file(mock_root_path, mock_formatter, tmp_path, mocker):
     """Test that StreamingOutputGenerator._process_file_streaming handles an empty, non-binary file."""
     empty_file = mock_root_path / "empty.txt"
     empty_file.touch()

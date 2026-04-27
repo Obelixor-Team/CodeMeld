@@ -34,9 +34,7 @@ def mock_code_combiner_config():
     mock_dir_path.__truediv__.side_effect = lambda x: Path(
         str(mock_dir_path) + "/" + str(x)
     )  # Allow division for path joining
-    mock_dir_path.is_absolute.return_value = (
-        True  # Assume it's absolute for _resolve_path
-    )
+    mock_dir_path.is_absolute.return_value = True  # Assume it's absolute for _resolve_path
     mock_dir_path.resolve.return_value = mock_dir_path  # Assume it resolves to itself
     mock_dir_path.__str__.return_value = "/mock/dir"  # For string representation
 

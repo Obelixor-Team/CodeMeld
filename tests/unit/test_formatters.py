@@ -96,30 +96,22 @@ def test_create_xml_formatter_with_unknown_arg_raises_error():
 
 
 def test_text_formatter_direct_init_with_unknown_arg_raises_error():
-    with pytest.raises(
-        TypeError, match="Unknown arguments for text formatter: unknown_arg"
-    ):
+    with pytest.raises(TypeError, match="Unknown arguments for text formatter: unknown_arg"):
         TextFormatter(header_width=80, custom_file_headers={}, unknown_arg="value")
 
 
 def test_markdown_formatter_direct_init_with_unknown_arg_raises_error():
-    with pytest.raises(
-        TypeError, match="Unknown arguments for markdown formatter: unknown_arg"
-    ):
+    with pytest.raises(TypeError, match="Unknown arguments for markdown formatter: unknown_arg"):
         MarkdownFormatter(custom_file_headers={}, unknown_arg="value")
 
 
 def test_json_formatter_direct_init_with_unknown_arg_raises_error():
-    with pytest.raises(
-        TypeError, match="Unknown arguments for json formatter: unknown_arg"
-    ):
+    with pytest.raises(TypeError, match="Unknown arguments for json formatter: unknown_arg"):
         JSONFormatter(custom_file_headers={}, unknown_arg="value")
 
 
 def test_xml_formatter_direct_init_with_unknown_arg_raises_error():
-    with pytest.raises(
-        TypeError, match="Unknown arguments for xml formatter: unknown_arg"
-    ):
+    with pytest.raises(TypeError, match="Unknown arguments for xml formatter: unknown_arg"):
         XMLFormatter(custom_file_headers={}, unknown_arg="value")
 
 
@@ -133,9 +125,7 @@ def test_text_formatter_with_custom_header():
 
 
 def test_markdown_formatter_with_custom_header():
-    custom_headers = {
-        "js": "// JavaScript File: {path}"
-    }  # Custom header no longer includes ```lang
+    custom_headers = {"js": "// JavaScript File: {path}"}  # Custom header no longer includes ```lang
     formatter = FormatterFactory.create("markdown", custom_file_headers=custom_headers)
     relative_path = Path("my_script.js")
     content = "console.log('Hello');"
@@ -149,12 +139,7 @@ def test_text_formatter_with_no_matching_custom_header():
     relative_path = Path("my_script.py")
     content = "print('Hello')"
     # Should fall back to default text header
-    expected_output = (
-        f"\n{'=' * 80}\n"
-        f"FILE: my_script.py\n"
-        f"{'=' * 80}\n\n"
-        f"print('Hello')\n\n"
-    )
+    expected_output = f"\n{'=' * 80}\nFILE: my_script.py\n{'=' * 80}\n\nprint('Hello')\n\n"
     assert formatter.format_file(relative_path, content) == expected_output
 
 
@@ -192,23 +177,14 @@ def test_markdown_formatter_begin_end_output():
 def test_json_formatter_streaming():
     formatter = JSONFormatter()
     assert formatter.begin_output() == "{\n"
-    assert (
-        formatter.format_file(Path("file1.txt"), "content1")
-        == '    "file1.txt": "content1"'
-    )
-    assert (
-        formatter.format_file(Path("file2.txt"), "content2")
-        == ',\n    "file2.txt": "content2"'
-    )
+    assert formatter.format_file(Path("file1.txt"), "content1") == '    "file1.txt": "content1"'
+    assert formatter.format_file(Path("file2.txt"), "content2") == ',\n    "file2.txt": "content2"'
     assert formatter.end_output() == "\n}"
 
 
 def test_xml_formatter_begin_end_output():
     formatter = XMLFormatter()
-    assert (
-        formatter.begin_output()
-        == '<?xml version="1.0" encoding="UTF-8"?>\n<codebase>\n'
-    )
+    assert formatter.begin_output() == '<?xml version="1.0" encoding="UTF-8"?>\n<codebase>\n'
     assert formatter.end_output() == "</codebase>"
 
 

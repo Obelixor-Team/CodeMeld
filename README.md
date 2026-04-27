@@ -1,4 +1,4 @@
-# CodeMeld
+# codemeld
 
 A Python script to scan a specified directory, identify code files based on their extensions, and combine their contents into a single output file. It respects `.gitignore` patterns by default, supports custom file extensions, and can include hidden files. The script also counts tokens in the generated output file.
 
@@ -25,10 +25,8 @@ A Python script to scan a specified directory, identify code files based on thei
 ### Development Dependencies
 
 -   `pytest`: For running unit tests.
--   `black`: For code formatting.
--   `ruff`: For linting.
--   `mypy`: For static type checking.
--   `radon`: For calculating code complexity metrics.
+-   `ruff`: For linting and formatting.
+-   `ty`: For static type checking.
 
 ## Installation
 
@@ -54,7 +52,7 @@ A Python script to scan a specified directory, identify code files based on thei
 
 ### Building a Standalone Executable with PyInstaller
 
-You can package CodeMeld into a standalone executable using PyInstaller. This allows you to run the application without a Python environment installed on the target machine.
+You can package codemeld into a standalone executable using PyInstaller. This allows you to run the application without a Python environment installed on the target machine.
 
 1.  **Install PyInstaller**:
 
@@ -63,10 +61,10 @@ You can package CodeMeld into a standalone executable using PyInstaller. This al
     ```
 
 2.  **Build the Executable**:
-    Run PyInstaller from the project root. The `--onefile` option creates a single executable file, `--name CodeMeld` sets the executable name, and `--distpath build/dist` specifies the output directory. The `--hidden-import` flags are crucial for `tiktoken` to function correctly in the bundled application.
+    Run PyInstaller from the project root. The `--onefile` option creates a single executable file, `--name codemeld` sets the executable name, and `--distpath build/dist` specifies the output directory. The `--hidden-import` flags are crucial for `tiktoken` to function correctly in the bundled application.
 
     ```bash
-    .venv/bin/pyinstaller src/code_combiner.py --onefile --name CodeMeld --distpath build/dist --hidden-import=tiktoken_ext --hidden-import=tiktoken_ext.openai_public
+    .venv/bin/pyinstaller src/code_combiner.py --onefile --name codemeld --distpath build/dist --hidden-import=tiktoken_ext --hidden-import=tiktoken_ext.openai_public
     ```
 
     The executable will be created in the `build/dist` directory.
@@ -74,7 +72,7 @@ You can package CodeMeld into a standalone executable using PyInstaller. This al
 3.  **Run the Executable**:
 
     ```bash
-    ./build/dist/CodeMeld <directory> [options]
+    ./build/dist/codemeld <directory> [options]
     ```
 
     For example:
@@ -240,7 +238,7 @@ The primary goal of this script is to generate a single file that can be easily 
 
 ### Extending with Custom Formatters
 
-CodeMeld can be extended with custom formatters using a plugin-based architecture. This allows you to define your own output formats and integrate them seamlessly with the `main.py` script.
+codemeld can be extended with custom formatters using a plugin-based architecture. This allows you to define your own output formats and integrate them seamlessly with the `main.py` script.
 
 #### Creating a Custom Formatter Package
 
@@ -310,10 +308,10 @@ To create a custom formatter, you'll typically set up a small Python package.
     cd my_custom_formatter_package
     .venv/bin/pip install -e .
     ```
-    (Make sure you have activated CodeMeld's virtual environment first.)
+    (Make sure you have activated codemeld's virtual environment first.)
 
 2.  **Use with `main.py`**:
-    Once installed, CodeMeld will automatically discover and register your custom formatter. You can then use it with the `--format` option:
+    Once installed, codemeld will automatically discover and register your custom formatter. You can then use it with the `--format` option:
 
     ```bash
     .venv/bin/python main.py . --format yaml -o combined.yaml
@@ -327,7 +325,7 @@ This setup allows for a clean separation of concerns, making your custom formatt
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     CodeMeld                             │
+│                     codemeld                             │
 │  (Orchestrates the entire process)                       │
 └─────────────────────┬───────────────────────────────────┘
                       │
@@ -388,10 +386,10 @@ For very large projects, you might encounter performance or memory issues. Here 
 
 Use the provided `Makefile` for code quality checks:
 
--   `make format`: Formats the code using `black`.
+-   `make format`: Formats the code using `ruff`.
 -   `make lint`: Lints the code using `ruff`.
--   `make check`: Runs static type checking with `mypy`.
--   `make check-strict`: Runs `ruff check`, `mypy --strict`, and `pytest`.
+-   `make check`: Runs static type checking with `ty`.
+-   `make check-strict`: Runs `ruff check`, `ty check`, and `pytest`.
 -   `make all`: Runs format, lint, and check.
 
 ```bash
@@ -417,7 +415,7 @@ This project aims for high code quality, enforced by a suite of static analysis 
 
 -   **Maintainability Index**: Striving for >95.
 -   **Cyclomatic Complexity**: Aiming for <2.5 average.
--   **Type Safety**: 100% strict type checking with `mypy --strict`.
+-   **Type Safety**: 100% strict type checking with `ty check`.
 -   **Test Coverage**: Targeting >95% line coverage.
 
 These metrics ensure the codebase is robust, easy to understand, and maintainable.

@@ -46,10 +46,7 @@ class ConfigValidator:
         for i, ext in enumerate(self._config["extensions"]):
             if not ext.startswith("."):
                 suggested_ext = f".{ext.lower()}"
-                raise CodeMeldError(
-                    f"Error: Extension '{ext}' must start with '.'. "
-                    f"Did you mean '{suggested_ext}'?"
-                )
+                raise CodeMeldError(f"Error: Extension '{ext}' must start with '.'. Did you mean '{suggested_ext}'?")
             self._config["extensions"][i] = ext.lower()
 
     def _validate_header_width(self) -> None:
@@ -59,21 +56,14 @@ class ConfigValidator:
     def _validate_output_path(self) -> None:
         output_path = Path(self._output)
         if not output_path.parent.exists():
-            logging.info(
-                f"Output directory '{output_path.parent}' does not exist and will be created."
-            )
+            logging.info(f"Output directory '{output_path.parent}' does not exist and will be created.")
 
     def _validate_conversion(self) -> None:
         if self._config["final_output_format"]:
             if self._config["format"] not in ["json", "xml"]:
-                raise CodeMeldError(
-                    "--convert-to can only be used when --format is 'json' or 'xml'"
-                )
+                raise CodeMeldError("--convert-to can only be used when --format is 'json' or 'xml'")
             if self._config["format"] == self._config["final_output_format"]:
-                raise CodeMeldError(
-                    f"Error: Cannot convert format '{self._config['format']}' "
-                    f"to itself."
-                )
+                raise CodeMeldError(f"Error: Cannot convert format '{self._config['format']}' to itself.")
 
     def _validate_max_file_size_kb(self) -> None:
         max_size = self._config.get("max_file_size_kb")
@@ -87,9 +77,7 @@ class ConfigValidator:
                 try:
                     tiktoken.encoding_for_model(token_encoding_model)
                 except KeyError as e:
-                    raise CodeMeldError(
-                        f"Invalid token encoding model: {token_encoding_model}"
-                    ) from e
+                    raise CodeMeldError(f"Invalid token encoding model: {token_encoding_model}") from e
 
     def _validate_custom_file_headers(self) -> None:
         custom_headers_str = self._config.get("custom_file_headers")
@@ -103,9 +91,7 @@ class ConfigValidator:
                 # For example, check if keys are strings and values are strings.
                 for key, value in parsed_headers.items():
                     if not isinstance(key, str) or not isinstance(value, str):
-                        raise ValueError(
-                            "All keys and values in custom file headers must be strings."
-                        )
+                        raise ValueError("All keys and values in custom file headers must be strings.")
                 # If validation passes, store the parsed dictionary back in _config
                 self._config["custom_file_headers"] = parsed_headers
             except json.JSONDecodeError as e:

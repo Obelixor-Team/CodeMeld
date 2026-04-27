@@ -1,9 +1,6 @@
-[tool.black]
-line-length = 88
-
 [tool.ruff]
-line-length = 120
-target-version = "py311"
+line-length = 88
+target-version = "py314"
 cache-dir = ".ruff_cache"
 extend-exclude = ["node_modules", ".git", ".venv", "dist", "build"]
 
@@ -13,7 +10,7 @@ ignore = ["C901", "ANN", "D202", "D203", "D212", "E501", "ISC001", "ISC002", "N8
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.lint.mccabe]
-max-complexity = 10  # Matches radon's default
+max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]
@@ -25,16 +22,3 @@ max-complexity = 10  # Matches radon's default
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
-
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-disable_error_code = ["no-untyped-def"]
-
-[[tool.mypy.overrides]]
-module = "tests.unit.test_formatters"
-disable_error_code = ["arg-type"]
