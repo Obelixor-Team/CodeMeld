@@ -25,8 +25,13 @@ class OutputFormatter(ABC):
     ):
         """Initialize the OutputFormatter and validate kwargs."""
         if kwargs:
-            raise TypeError(f"Unknown arguments for {self.format_name} formatter: {', '.join(kwargs.keys())}")
-        self.custom_file_headers = custom_file_headers if custom_file_headers is not None else {}
+            raise TypeError(
+                f"Unknown arguments for {self.format_name} formatter: "
+                f"{', '.join(kwargs.keys())}"
+            )
+        self.custom_file_headers = (
+            custom_file_headers if custom_file_headers is not None else {}
+        )
 
     @property
     @abstractmethod
@@ -76,7 +81,10 @@ class TextFormatter(OutputFormatter):
             header = custom_header_format.format(path=relative_path)
             return f"{header}\n{content}\n\n"
         else:
-            return f"\n{'=' * self.header_width}\nFILE: {relative_path}\n{'=' * self.header_width}\n\n{content}\n\n"
+            return (
+                f"\n{'=' * self.header_width}\nFILE: {relative_path}\n"
+                f"{'=' * self.header_width}\n\n{content}\n\n"
+            )
 
     def begin_output(self) -> str:
         """Return any header/opening content for text output."""
@@ -172,7 +180,10 @@ class XMLFormatter(OutputFormatter):
     def format_file(self, relative_path: Path, content: str) -> str:
         """Format a single file's content for XML output."""
         escaped = xml.sax.saxutils.escape(content)
-        return f"  <file>\n    <path>{relative_path}</path>\n    <content>{escaped}</content>\n  </file>\n"
+        return (
+            f"  <file>\n    <path>{relative_path}</path>\n"
+            f"    <content>{escaped}</content>\n  </file>\n"
+        )
 
     def begin_output(self) -> str:
         """Return any header/opening content for XML output."""
@@ -182,7 +193,9 @@ class XMLFormatter(OutputFormatter):
         """Return any footer/closing content for XML output."""
         return "</codebase>"
 
-    def format_file_stream(self, relative_path: Path, file_path: Path, outfile: Any) -> None:
+    def format_file_stream(
+        self, relative_path: Path, file_path: Path, outfile: Any
+    ) -> None:
         """Stream XML content directly without building tree."""
         outfile.write(f"  <file>\n    <path>{relative_path}</path>\n    <content>")
         try:
@@ -211,7 +224,9 @@ class FormatterFactory:
         """Discover and register formatters via entry points."""
         if cls._plugins_loaded:
             return
-        for entry_point in importlib.metadata.entry_points(group="code_combiner.formatters"):
+        for entry_point in importlib.metadata.entry_points(
+            group="code_combiner.formatters"
+        ):
             try:
                 formatter_class = entry_point.load()
                 if issubclass(formatter_class, OutputFormatter):
@@ -219,11 +234,16 @@ class FormatterFactory:
                 else:
                     import logging
 
-                    logging.warning(f"Entry point {entry_point.name} is not a subclass of OutputFormatter.")
+                    logging.warning(
+                        f"Entry point {entry_point.name} is not a subclass "
+                        "of OutputFormatter."
+                    )
             except Exception as e:
                 import logging
 
-                logging.error(f"Failed to load formatter plugin {entry_point.name}: {e}")
+                logging.error(
+                    f"Failed to load formatter plugin {entry_point.name}: {e}"
+                )
         cls._plugins_loaded = True
 
     @classmethod
@@ -257,7 +277,9 @@ class FormatterFactory:
         try:
             return formatter_class(custom_file_headers=parsed_custom_headers, **kwargs)
         except TypeError as e:
-            raise TypeError(f"Formatter '{format_type}' initialization failed: {e}") from e
+            raise TypeError(
+                f"Formatter '{format_type}' initialization failed: {e}"
+            ) from e
 
 
 # Register built-in formatters

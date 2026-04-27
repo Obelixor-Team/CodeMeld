@@ -41,7 +41,9 @@ class TestReadFileContent:
         with caplog.at_level(logging.WARNING):
             file_path = tmp_path / "no_permission.txt"
             file_path.write_text("test")
-            with patch("builtins.open", side_effect=PermissionError("Permission denied")):
+            with patch(
+                "builtins.open", side_effect=PermissionError("Permission denied")
+            ):
                 content = list(read_file_content(file_path))
                 assert not content
             assert "Permission denied" in caplog.text
@@ -59,7 +61,9 @@ class TestReadFileContent:
             with patch("src.output_generator.is_likely_binary", return_value=False):
                 with patch(
                     "builtins.open",
-                    side_effect=UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte"),
+                    side_effect=UnicodeDecodeError(
+                        "utf-8", b"", 0, 1, "invalid start byte"
+                    ),
                 ):
                     content = list(read_file_content(file_path))
                     assert not content
@@ -77,7 +81,9 @@ class TestReadFileContent:
 
 class TestInMemoryOutputGenerator:
     def test_xml_formatter(self, mock_files_to_process, mock_root_path, tmp_path):
-        with patch("src.output_generator.read_file_content", return_value=["some content"]):
+        with patch(
+            "src.output_generator.read_file_content", return_value=["some content"]
+        ):
             context = GeneratorContext(
                 files_to_process=mock_files_to_process,
                 root_path=mock_root_path,
@@ -98,11 +104,15 @@ class TestInMemoryOutputGenerator:
 
 
 class TestStreamingOutputGenerator:
-    def test_xml_formatter_streaming(self, mock_files_to_process, mock_root_path, tmp_path):
+    def test_xml_formatter_streaming(
+        self, mock_files_to_process, mock_root_path, tmp_path
+    ):
         output_path = tmp_path / "output.xml"
 
         def process_file_streaming_mock(file_path, outfile):
-            outfile.write("<file><path>file1.py</path><content>some content</content></file>")
+            outfile.write(
+                "<file><path>file1.py</path><content>some content</content></file>"
+            )
 
         with patch.object(
             StreamingOutputGenerator,
@@ -128,7 +138,9 @@ class TestStreamingOutputGenerator:
             assert "<path>file1.py</path>" in output
             assert "<content>some content</content>" in output
 
-    def test_dry_run_with_output_file(self, mock_files_to_process, mock_root_path, tmp_path):
+    def test_dry_run_with_output_file(
+        self, mock_files_to_process, mock_root_path, tmp_path
+    ):
         dry_run_output_path = tmp_path / "dry_run_output.txt"
 
         def process_file_streaming_mock(file_path, outfile):
@@ -178,7 +190,9 @@ class TestStreamingOutputGenerator:
     def test_write_error(self, mock_files_to_process, mock_root_path, tmp_path, caplog):
         output_path = tmp_path / "output.txt"
         with caplog.at_level(logging.ERROR):
-            with patch("builtins.open", side_effect=PermissionError("Permission denied")):
+            with patch(
+                "builtins.open", side_effect=PermissionError("Permission denied")
+            ):
                 context = GeneratorContext(
                     files_to_process=mock_files_to_process,
                     root_path=mock_root_path,

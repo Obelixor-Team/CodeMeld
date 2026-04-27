@@ -108,7 +108,11 @@ class Publisher:
     ) -> None: ...
 
     @overload
-    def notify(self, event: Literal[ProcessingEvent.FILE_PROCESSED], data: FileProcessedData) -> None: ...
+    def notify(
+        self,
+        event: Literal[ProcessingEvent.FILE_PROCESSED],
+        data: FileProcessedData,
+    ) -> None: ...
 
     @overload
     def notify(
@@ -118,7 +122,11 @@ class Publisher:
     ) -> None: ...
 
     @overload
-    def notify(self, event: Literal[ProcessingEvent.PROCESSING_COMPLETE], data: None) -> None: ...
+    def notify(
+        self,
+        event: Literal[ProcessingEvent.PROCESSING_COMPLETE],
+        data: None,
+    ) -> None: ...
 
     @overload
     def notify(
@@ -204,7 +212,8 @@ class LineCounterObserver(Observer[FileContentProcessedData]):
         """Count lines based on the event."""
         if event == ProcessingEvent.FILE_CONTENT_PROCESSED:
             with self._lock:
-                self._total_lines += data["content_chunk"].count("\n") + 1 if data["content_chunk"] else 0
+                chunk = data["content_chunk"]
+                self._total_lines += chunk.count("\n") + 1 if chunk else 0
 
 
 class TelemetryObserver(Observer[ProcessingStartedData | None]):
@@ -215,13 +224,18 @@ class TelemetryObserver(Observer[ProcessingStartedData | None]):
         self.start_time: float | None = None
         self.total_files_processed: int = 0
 
-    def update(self, event: ProcessingEvent, data: ProcessingStartedData | None) -> None:
+    def update(
+        self, event: ProcessingEvent, data: ProcessingStartedData | None
+    ) -> None:
         """Receive update from subject and log telemetry."""
         if event == ProcessingEvent.PROCESSING_STARTED:
             self.start_time = time.time()
             if data:
                 self.total_files_processed = data.get("total_files", 0)
-        elif event == ProcessingEvent.PROCESSING_COMPLETE and self.start_time is not None:
+        elif (
+            event == ProcessingEvent.PROCESSING_COMPLETE
+            and self.start_time is not None
+        ):
             duration = time.time() - self.start_time
             logging.info(f"Processing complete. Duration: {duration:.2f}s")
 

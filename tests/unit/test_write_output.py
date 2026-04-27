@@ -20,7 +20,10 @@ def test_write_output_file_exists_no_overwrite(mock_output_path, caplog):
         with patch("builtins.input", return_value="n"):
             with caplog.at_level(logging.INFO):
                 write_output(mock_output_path, "new content", force=False)
-                assert "Operation cancelled by user. File not overwritten." in caplog.text
+                assert (
+                    "Operation cancelled by user. File not overwritten."
+                    in caplog.text
+                )
                 assert mock_output_path.read_text() == "existing content"
 
 

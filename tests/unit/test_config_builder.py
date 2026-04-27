@@ -273,7 +273,9 @@ def test_convert_to_same_format_raises_error():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeMeldError, match="Error: Cannot convert format 'json' to itself."):
+    with pytest.raises(
+        CodeMeldError, match="Error: Cannot convert format 'json' to itself."
+    ):
         load_and_merge_config(args)
 
 
@@ -307,7 +309,9 @@ def test_malformed_custom_file_headers_raises_error():
 
 def test_non_existent_directory_raises_error():
     builder = CombinerConfigBuilder()
-    with pytest.raises(CodeMeldError, match="Error: Directory 'non_existent_dir' does not exist."):
+    with pytest.raises(
+        CodeMeldError, match="Error: Directory 'non_existent_dir' does not exist."
+    ):
         builder.validate("non_existent_dir", "output.txt")
 
 
@@ -335,7 +339,9 @@ def test_max_file_size_kb_validation_zero_raises_error():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeMeldError, match="Max file size must be a positive integer."):
+    with pytest.raises(
+        CodeMeldError, match="Max file size must be a positive integer."
+    ):
         load_and_merge_config(args)
 
 
@@ -363,7 +369,9 @@ def test_max_file_size_kb_validation_negative_raises_error():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeMeldError, match="Max file size must be a positive integer."):
+    with pytest.raises(
+        CodeMeldError, match="Max file size must be a positive integer."
+    ):
         load_and_merge_config(args)
 
 
@@ -391,5 +399,7 @@ def test_invalid_token_encoding_raises_error():
         dry_run_output=None,
         progress_style=None,
     )
-    with pytest.raises(CodeMeldError, match="Invalid token encoding model: invalid_encoding"):
+    with pytest.raises(
+        CodeMeldError, match="Invalid token encoding model: invalid_encoding"
+    ):
         load_and_merge_config(args)

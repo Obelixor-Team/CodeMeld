@@ -23,7 +23,9 @@ class FileFilter(ABC):
     def should_process(self, file_path: Path, context: dict[str, Any]) -> bool:
         """Return True if file should be processed."""
         result = self._check(file_path, context)
-        logging.debug(f"{self.__class__.__name__}._check({file_path.name}) returned {result}")
+        logging.debug(
+            f"{self.__class__.__name__}._check({file_path.name}) returned {result}"
+        )
         return result
 
     @abstractmethod
@@ -138,7 +140,9 @@ class SymlinkFilter(FileFilter):
 
         import logging
 
-        logging.debug(f"SymlinkFilter: Checking {file_path}, is_symlink: {file_path.is_symlink()}")
+        logging.debug(
+            f"SymlinkFilter: Checking {file_path}, is_symlink: {file_path.is_symlink()}"
+        )
 
         return not file_path.is_symlink()
 
@@ -152,7 +156,9 @@ class SecurityFilter(FileFilter):
         root_path = context.get("root_path")
 
         if not root_path:
-            logging.debug(f"SecurityFilter: No root_path in context for {file_path}. Allowing.")
+            logging.debug(
+                f"SecurityFilter: No root_path in context for {file_path}. Allowing."
+            )
 
             return True
 
@@ -163,12 +169,18 @@ class SecurityFilter(FileFilter):
 
             resolved_file_path.relative_to(resolved_root_path)
 
-            logging.debug(f"SecurityFilter: {resolved_file_path} in {resolved_root_path}. Allowing.")
+            logging.debug(
+                f"SecurityFilter: {resolved_file_path} in "
+                f"{resolved_root_path}. Allowing."
+            )
 
             return True
 
         except ValueError:
-            logging.debug(f"SecurityFilter: {resolved_file_path} NOT in {resolved_root_path}. Blocking.")
+            logging.debug(
+                f"SecurityFilter: {resolved_file_path} NOT in "
+                f"{resolved_root_path}. Blocking."
+            )
 
             return False
 
@@ -261,7 +273,9 @@ class FilterChainBuilder:
         The logic is:
         (pass_always_include OR pass_content_filters) AND pass_safety_filters
         """
-        content_filters: list[FileFilter] = [ExtensionFilter(config.extensions, config.exclude_extensions)]
+        content_filters: list[FileFilter] = [
+            ExtensionFilter(config.extensions, config.exclude_extensions)
+        ]
         if not config.include_hidden:
             content_filters.append(HiddenFileFilter(config.include_hidden))
         if config.use_gitignore and spec:

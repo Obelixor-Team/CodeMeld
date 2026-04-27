@@ -69,11 +69,12 @@ lint:
 
 check:
 	@echo ""
-	@echo "--- Starting check (ty) ---"
+	@echo "--- Starting check (ruff, ty) ---"
 	@echo ""
+	uv run ruff check .
 	uv run ty check .
 	@echo ""
-	@echo "--- Finished check (ty) ---"
+	@echo "--- Finished check (ruff, ty) ---"
 	@echo ""
 
 check-strict:

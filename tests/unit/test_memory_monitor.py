@@ -10,7 +10,8 @@ from src.memory_monitor import (
 
 def test_system_memory_monitor_no_limit():
     """
-    Test that SystemMemoryMonitor.check_memory_usage does nothing when max_memory_mb is None, 0, or negative.
+    Test that SystemMemoryMonitor.check_memory_usage does nothing when
+    max_memory_mb is None, 0, or negative.
     """
     monitor_none = SystemMemoryMonitor(max_memory_mb=None)
     monitor_none.check_memory_usage()  # Should not raise an error
@@ -24,7 +25,8 @@ def test_system_memory_monitor_no_limit():
 
 def test_tracemalloc_memory_monitor_no_limit():
     """
-    Test that TracemallocMemoryMonitor.check_memory_usage does nothing when max_memory_mb is None, 0, or negative.
+    Test that TracemallocMemoryMonitor.check_memory_usage does nothing when
+    max_memory_mb is None, 0, or negative.
     """
     monitor_none = TracemallocMemoryMonitor(max_memory_mb=None)
     monitor_none.check_memory_usage()  # Should not raise an error
@@ -38,7 +40,8 @@ def test_tracemalloc_memory_monitor_no_limit():
 
 def test_system_memory_monitor_threshold_exceeded(mocker):
     """
-    Test that SystemMemoryMonitor raises MemoryThresholdExceededError when memory usage exceeds the limit.
+    Test that SystemMemoryMonitor raises MemoryThresholdExceededError when
+    memory usage exceeds the limit.
     """
     mock_process = mocker.Mock()
     mock_process.memory_info.return_value.rss = 200 * 1024 * 1024  # 200 MB
@@ -54,7 +57,8 @@ def test_system_memory_monitor_threshold_exceeded(mocker):
 
 def test_tracemalloc_memory_monitor_threshold_exceeded(mocker):
     """
-    Test that TracemallocMemoryMonitor raises MemoryThresholdExceededError when memory usage exceeds the limit.
+    Test that TracemallocMemoryMonitor raises MemoryThresholdExceededError when
+    memory usage exceeds the limit.
     """
     mocker.patch(
         "tracemalloc.get_traced_memory",
@@ -71,7 +75,8 @@ def test_tracemalloc_memory_monitor_threshold_exceeded(mocker):
 
 
 def test_memory_monitor_abstract_pass_statement():
-    """Test that the pass statement in the abstract MemoryMonitor.check_memory_usage is covered."""
+    """Test that the pass statement in the abstract
+    MemoryMonitor.check_memory_usage is covered."""
 
     class ConcreteMemoryMonitor(MemoryMonitor):
         def check_memory_usage(self) -> None:
