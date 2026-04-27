@@ -1,4 +1,4 @@
-.PHONY: help install format lint check test coverage all check-strict audit run
+.PHONY: help install format lint check test coverage all check-strict audit run build clean-build
 
 help:
 	@echo "Makefile for managing the project."
@@ -12,6 +12,8 @@ help:
 	@echo "  test       Run tests using pytest."
 	@echo "  coverage   Run tests with coverage reporting."
 	@echo "  run        Run the codemeld tool (e.g., make run ARGS='.')"
+	@echo "  build       Build a standalone executable with PyInstaller."
+	@echo "  clean-build Remove build artifacts."
 	@echo "  all        Run format, lint, check, coverage, and audit."
 	@echo "  audit      Run pip-audit to check for vulnerabilities."
 	@echo ""
@@ -30,7 +32,7 @@ setup:
 	@echo ""
 	@echo "--- Setting up environment with uv ---"
 	@echo ""
-	uv venv --python 3.14.4
+	uv venv --python 3.14.4 --clear
 	$(MAKE) install
 	@echo ""
 	@echo "--- Setup finished ---"
@@ -121,5 +123,22 @@ run:
 	@echo ""
 	@echo "--- Finished running codemeld ---"
 	@echo ""
-	@echo "--- Finished running codemeld ---"
+ 
+build:
 	@echo ""
+	@echo "--- Building standalone executable ---"
+	@echo ""
+	uv run pyinstaller src/code_combiner.py --onefile --name codemeld --distpath build/dist --hidden-import=tiktoken_ext --hidden-import=tiktoken_ext.openai_public
+	@echo ""
+	@echo "--- Build finished. Executable is in build/dist/ ---"
+	@echo ""
+ 
+clean-build:
+	@echo ""
+	@echo "--- Cleaning build artifacts ---"
+	@echo ""
+	rm -rf build/ dist/
+	@echo ""
+	@echo "--- Clean finished ---"
+	@echo ""
+
