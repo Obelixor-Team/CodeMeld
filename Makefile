@@ -1,4 +1,4 @@
-.PHONY: help install format lint check test coverage all check-strict audit run build clean-build update
+.PHONY: help install format lint check test coverage all check-strict audit run build clean-build update lizard pre-commit pre-commit-update
 
 help:
 	@echo "Makefile for managing the project."
@@ -8,13 +8,15 @@ help:
 	@echo "  format     Format the code using ruff."
 	@echo "  lint       Lint the code using ruff."
 	@echo "  check      Run static type checking with mypy."
-	@echo "  check-strict Run ruff check, mypy, and pytest."
+	@echo "  check-strict Run ruff check, mypy, pytest, and lizard."
 	@echo "  test       Run tests using pytest."
 	@echo "  coverage   Run tests with coverage reporting."
 	@echo "  run        Run the codemeld tool (e.g., make run ARGS='.')"
 	@echo "  build       Build a standalone executable with PyInstaller."
 	@echo "  clean-build Remove build artifacts."
-	@echo "  update      Update dependencies to the latest versions."
+	@echo "  update       Update dependencies to the latest versions."
+	@echo "  pre-commit   Install and run pre-commit hooks."
+	@echo "  pre-commit-update Update pre-commit hooks to latest versions."
 	@echo "  all        Run format, lint, check, coverage, and audit."
 	@echo "  audit      Run pip-audit to check for vulnerabilities."
 	@echo ""
@@ -39,7 +41,16 @@ setup:
 	@echo "--- Setup finished ---"
 	@echo ""
 
-all: 
+lizard:
+	@echo ""
+	@echo "--- Starting lizard complexity analysis ---"
+	@echo ""
+	uv run lizard .
+	@echo ""
+	@echo "--- Finished lizard analysis ---"
+	@echo ""
+
+all:
 	@echo ""
 	@echo "--- Starting all checks ---"
 	@echo ""
@@ -47,6 +58,7 @@ all:
 	$(MAKE) lint
 	$(MAKE) check
 	$(MAKE) coverage
+	$(MAKE) lizard
 	$(MAKE) audit
 	@echo ""
 	@echo "--- Finished all checks ---"
@@ -80,13 +92,14 @@ check:
 	@echo "--- Finished check (ruff, mypy) ---"
 	@echo ""
 
-check-strict:
+check-strict: 
 	@echo ""
-	@echo "--- Starting strict checks (ruff, mypy, pytest) ---"
+	@echo "--- Starting strict checks (ruff, mypy, pytest, lizard) ---"
 	@echo ""
 	uv run ruff check .
 	uv run mypy .
 	uv run pytest tests/
+	uv run lizard .
 	@echo ""
 	@echo "--- Finished strict checks ---"
 	@echo ""
@@ -143,7 +156,7 @@ clean-build:
 	@echo "--- Clean finished ---"
 	@echo ""
  
-update:
+update: 
 	@echo ""
 	@echo "--- Updating dependencies ---"
 	@echo ""
@@ -152,6 +165,28 @@ update:
 	$(MAKE) check-strict
 	@echo ""
 	@echo "--- Update finished ---"
+	@echo ""
+
+pre-commit:
+	@echo ""
+	@echo "--- Installing pre-commit hooks ---"
+	@echo ""
+	pre-commit install
+	@echo ""
+	@echo "--- Running pre-commit on all files ---"
+	@echo ""
+	pre-commit run --all-files
+	@echo ""
+	@echo "--- Pre-commit hooks installed and checked ---"
+	@echo ""
+
+pre-commit-update:
+	@echo ""
+	@echo "--- Updating pre-commit hooks ---"
+	@echo ""
+	pre-commit autoupdate
+	@echo ""
+	@echo "--- Pre-commit hooks updated ---"
 	@echo ""
 
 
