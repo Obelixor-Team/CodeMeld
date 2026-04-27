@@ -27,6 +27,7 @@ class TestLiveUI:
                 total=10,
                 desc="Processing files",
                 ncols=80,
+                leave=False,
                 bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]",
                 ascii=True,
             )
@@ -44,6 +45,7 @@ class TestLiveUI:
                 total=10,
                 desc="Processing files",
                 ncols=80,
+                leave=False,
                 bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]",
             )
 

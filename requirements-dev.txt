@@ -2,10 +2,10 @@ ruff==0.15.12
 mypy
 pytest==9.0.3
 pytest-cov==7.1.0
-mypypes-requests==2.33.0.20260408
-mypypes-tqdm==4.67.3.20260408
+types-requests==2.33.0.20260408
+types-tqdm==4.67.3.20260408
 pytest-mock==3.15.1
-mypypes-psutil==7.2.2.20260408
+types-psutil==7.2.2.20260408
 pytest-benchmark==5.2.3
 pip-audit==2.10.0
 pyinstaller

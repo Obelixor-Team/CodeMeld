@@ -13,7 +13,6 @@ from enum import Enum, auto
 from types import ModuleType, TracebackType
 from typing import Any, Literal, Protocol, Self, TypedDict, TypeVar, overload
 
-from tqdm import tqdm
 
 
 class ProcessingEvent(Enum):
@@ -152,47 +151,6 @@ class Publisher:
                 observer.update(event, data)
             except Exception as e:
                 logging.error(f"Observer {observer.__class__.__name__} failed: {e}")
-
-
-class ProgressBarObserver(Observer[FileProcessedData]):
-    """Observer for updating the progress bar."""
-
-    def __init__(self, total_files: int, description: str):
-        """Initialize the ProgressBarObserver."""
-        self.progress_bar: tqdm[Any] | None
-        if sys.stdout.isatty():
-            self.progress_bar = tqdm(total=total_files, desc=description)
-        else:
-            self.progress_bar = None
-            logging.info(f"Progress: {description} - 0/{total_files}")
-
-    def update(self, event: ProcessingEvent, data: FileProcessedData) -> None:
-        """Update the progress bar based on the event."""
-        if event == ProcessingEvent.FILE_PROCESSED:
-            if self.progress_bar:
-                self.progress_bar.update(1)
-                self.progress_bar.write(f"Processed: {data['path']}")
-            else:
-                logging.info(f"Processed: {data['path']}")
-
-    def close(self) -> None:
-        """Clean up the progress bar."""
-        if self.progress_bar is not None:
-            self.progress_bar.close()
-
-    def __enter__(self) -> Self:
-        """Enter the runtime context related to this object."""
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> Literal[False]:
-        """Exit the runtime context related to this object."""
-        self.close()
-        return False
 
 
 class LineCounterObserver(Observer[FileContentProcessedData]):

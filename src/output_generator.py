@@ -180,7 +180,6 @@ class InMemoryOutputGenerator(OutputGenerator):
                 ),
             ),
         )
-        self.publisher.notify(ProcessingEvent.PROCESSING_COMPLETE, None)
         return result
 
     def _begin_output(self) -> None:
@@ -343,7 +342,6 @@ class StreamingOutputGenerator(OutputGenerator):
         else:
             self._handle_actual_streaming()
 
-        self.publisher.notify(ProcessingEvent.PROCESSING_COMPLETE, None)
         return None
 
     def _stream_files_to_output(self, outfile: Any, is_dry_run: bool) -> None:
@@ -382,7 +380,6 @@ class StreamingOutputGenerator(OutputGenerator):
 
         if not self.files_to_process and not is_direct_streaming_formatter:
             logging.info("No content to write. File not created.")
-            self.publisher.notify(ProcessingEvent.PROCESSING_COMPLETE, None)
             return
 
         temp_path = self.output_path.with_suffix(".tmp")

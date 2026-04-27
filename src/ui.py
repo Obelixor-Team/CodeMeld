@@ -103,6 +103,7 @@ class LiveUI:
                 "total": self.total_files,
                 "desc": "Processing files",
                 "ncols": shutil.get_terminal_size((80, 20)).columns,
+                "leave": False,
             }
             if self.progress_style:
                 # Allow custom bar_format if a style is provided, otherwise use default
