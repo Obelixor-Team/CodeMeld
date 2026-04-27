@@ -1,4 +1,4 @@
-.PHONY: help install format lint check test coverage all check-strict audit run build clean-build
+.PHONY: help install format lint check test coverage all check-strict audit run build clean-build update
 
 help:
 	@echo "Makefile for managing the project."
@@ -14,7 +14,8 @@ help:
 	@echo "  run        Run the codemeld tool (e.g., make run ARGS='.')"
 	@echo "  build       Build a standalone executable with PyInstaller."
 	@echo "  clean-build Remove build artifacts."
-	@echo "  all        Run format, lint, check, coverage, and audit."
+	@echo "  update      Update dependencies to the latest versions."
+	@echo, "  all        Run format, lint, check, coverage, and audit."
 	@echo "  audit      Run pip-audit to check for vulnerabilities."
 	@echo ""
 
@@ -141,4 +142,16 @@ clean-build:
 	@echo ""
 	@echo "--- Clean finished ---"
 	@echo ""
+ 
+update:
+	@echo ""
+	@echo "--- Updating dependencies ---"
+	@echo ""
+	uv pip install --upgrade -r requirements.txt
+	uv pip install --upgrade -r requirements-dev.txt
+	$(MAKE) check-strict
+	@echo ""
+	@echo "--- Update finished ---"
+	@echo ""
+
 
