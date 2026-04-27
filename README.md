@@ -21,12 +21,13 @@ A Python script to scan a specified directory, identify code files based on thei
 -   `pathspec`: For handling `.gitignore` patterns.
 -   `tqdm`: For showing progress.
 -   `toml`: For reading `pyproject.toml` configuration file. (Note: `tomllib` is used for Python 3.11+; `toml` is a fallback for older versions.)
+  - **Minimum Supported Python Version**: 3.14 (due to use of tomllib and other modern Python features)
 
 ### Development Dependencies
 
 -   `pytest`: For running unit tests.
 -   `ruff`: For linting and formatting.
--   `ty`: For static type checking.
+-   `ty`: For static type checking. (Note: `ty` is an experimental type checker from Astral and may behave differently from more established tools like `mypy`.)
 
 ## Installation
 
@@ -56,30 +57,30 @@ You can package codemeld into a standalone executable using PyInstaller. This al
 
 1.  **Install PyInstaller**:
 
-    ```bash
-    .venv/bin/pip install pyinstaller
-    ```
+     ```bash
+     .venv/bin/pip install pyinstaller
+     ```
 
 2.  **Build the Executable**:
-    Run PyInstaller from the project root. The `--onefile` option creates a single executable file, `--name codemeld` sets the executable name, and `--distpath build/dist` specifies the output directory. The `--hidden-import` flags are crucial for `tiktoken` to function correctly in the bundled application.
+     Run PyInstaller from the project root. The `--onefile` option creates a single executable file, `--name codemeld` sets the executable name, and `--distpath build/dist` specifies the output directory. The `--hidden-import` flags are crucial for `tiktoken` to function correctly in the bundled application.
 
-    ```bash
-    .venv/bin/pyinstaller src/code_combiner.py --onefile --name codemeld --distpath build/dist --hidden-import=tiktoken_ext --hidden-import=tiktoken_ext.openai_public
-    ```
+     ```bash
+     .venv/bin/pyinstaller main.py --onefile --name codemeld --distpath build/dist --hidden-import=tiktoken_ext --hidden-import=tiktoken_ext.openai_public
+     ```
 
-    The executable will be created in the `build/dist` directory.
+     The executable will be created in the `build/dist` directory.
 
 3.  **Run the Executable**:
 
-    ```bash
-    ./build/dist/codemeld <directory> [options]
-    ```
+     ```bash
+     ./build/dist/codemeld <directory> [options]
+     ```
 
-    For example:
+     For example:
 
-    ```bash
-    ./build/dist/CodeMeld . -o combined_project.txt
-    ```
+     ```bash
+     ./build/dist/codemeld . -o combined_project.txt
+     ```
 
 ## Usage
 
@@ -97,16 +98,16 @@ You can package codemeld into a standalone executable using PyInstaller. This al
 -   `-e, --extensions <ext1> <ext2> ...`: Custom file extensions to include (space-separated, e.g., `.py .js .ts`). Extensions must start with a dot.
 -   `--exclude <ext1> <ext2> ...`: Custom file extensions to exclude (space-separated, e.g., `.txt .md`). Exclusions take precedence over inclusions.
 -   `--format <format>`: Output format (`text`, `markdown`, `json`, `xml`). Default is `text`.
--   `--convert-to <format>`: Convert XML/JSON output to `text` or `markdown` format. This option is only applicable when `--format` is `json` or `xml`.
+-   `--convert-to <format>`: Convert XML/JSON output to `text` or `markdown` format. This option is only applicable when `--format` is `json` or `xml` (enforced by validation).
 -   `--no-gitignore`: Do not respect the `.gitignore` file. All files not explicitly excluded by other means will be considered.
 -   `--include-hidden`: Include hidden files and folders (those starting with a dot). By default, hidden files are ignored.
 -   `--no-tokens`: Do not count tokens in the combined output file.
 -   `--header-width <width>`: Specify the width of the separator lines in the combined file header (default: 80).
 -   `--dry-run`: Simulate the combination process without writing any output file. Useful for previewing what would be included.
 -   `--max-file-size-kb <size>`: Exclude files larger than the specified size in kilobytes.
--   `--token-encoding <encoding>`: Specify the token encoding model to use (default: `cl100k_base`).
+-   `--token-encoding <encoding>`: Specify the token encoding model to use (default: `cl100k_base`). Note that different models use different encodings; refer to the tiktoken documentation for details.
 -   `--custom-file-headers <json_string>`: Provide custom headers for specific file extensions as a JSON string (e.g., `'{"py": "# Python File: {path}", "js": "// Javascript File: {path}"}'`).
--   `--max-memory-mb <size>`: Set a maximum memory limit in megabytes for in-memory processing. If exceeded, the script will attempt to use a streaming approach.
+-   `--max-memory-mb <size>`: Set a maximum memory limit in megabytes for in-memory processing. If exceeded, the script will fall back to a streaming approach (when token counting is disabled and the formatter supports streaming). Setting to 0 disables the memory limit entirely.
 
 ### Configuration File
 
@@ -129,9 +130,99 @@ format = "markdown"
 
 1.  **Combine all Python and JavaScript files in the current directory, ignoring hidden files and `.gitignore` entries (default behavior)**:
 
-    ```bash
-    .venv/bin/python main.py . -o combined_project.txt -e .py .js
-    ```
+     ```bash
+     .venv/bin/python main.py . -o combined_project.txt -e .py .js
+     ```
+
+2.  **Perform a dry run to see which files would be included, excluding files larger than 1MB**:
+
+     ```bash
+     .venv/bin/python main.py . --dry-run --max-file-size-kb 1024
+     ```
+
+3.  **Combine files with custom headers for Python and JavaScript files**:
+
+     ```bash
+     .venv/bin/python main.py . -e .py .js -o combined_with_headers.txt --custom-file-headers '{"py": "# Python File: {path}\n# ---------------------\n", "js": "// Javascript File: {path}\n// ---------------------\n"}'
+     ```
+
+4.  **Combine all files in a specific directory, including hidden files, and ignoring `.gitignore`**: 
+
+     ```bash
+     .venv/bin/python main.py /path/to/your/project --include-hidden --no-gitignore -o all_project_files.txt
+     ```
+
+5.  **Combine files in a directory and output as Markdown**:
+
+     ```bash
+     .venv/bin/python main.py . -e .py .md -o documentation.md --format markdown
+     ```
+
+6.  **Combine files using settings from `pyproject.toml` and output as JSON**:
+
+     ```bash
+     .venv/bin/python main.py . -o combined.json --format json
+     ```
+
+7.  **Sample JSON Output**:
+
+<details>
+<summary>Click to expand JSON example</summary>
+
+```json
+{
+    "file1.py": "print('hello')",
+    "file2.js": "console.log('world')",
+    "subdir/file3.py": "x = 1"
+}
+```
+
+</details>
+
+8.  **Sample XML Output**:
+
+<details>
+<summary>Click to expand XML example</summary>
+
+```xml
+    <codebase>
+        <file>
+            <path>file1.py</path>
+            <content>print('hello')</content>
+        </file>
+        <file>
+            <path>file2.js</path>
+            <content>console.log('world')</content>
+        </file>
+        <file>
+            <path>subdir/file3.py</path>
+            <content>x = 1</content>
+        </file>
+    </codebase>
+```
+
+</details>
+
+9.  **Convert JSON Output to Markdown**:
+     Generate an intermediate JSON representation and then convert it to a clean Markdown file.
+
+     ```bash
+     .venv/bin/python main.py . -e .py -o combined.md --format json --convert-to markdown
+     ```
+
+10.  **Force Streaming for a Large Project**:
+     To avoid high memory usage, you can set a low memory limit to force the script to use a streaming approach.
+
+     ```bash
+     .venv/bin/python main.py . -o combined.txt --max-memory-mb 100
+     ```
+
+11.  **Always Include a Specific File**:
+     Ensure a specific configuration file is included, even if it doesn't have a standard extension or is in a hidden directory.
+
+     ```bash
+     .venv/bin/python main.py . -o combined.txt --always-include ./.config/app.conf
+     ```
 
 2.  **Perform a dry run to see which files would be included, excluding files larger than 1MB**:
 
