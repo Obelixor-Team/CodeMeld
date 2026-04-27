@@ -1,4 +1,4 @@
-.PHONY: help install format lint check test coverage all check-strict audit run build clean-build update lizard pre-commit pre-commit-update
+.PHONY: help install format lint check test coverage all check-strict audit run build clean-build clean uninstall update lizard pre-commit pre-commit-update
 
 help:
 	@echo "Makefile for managing the project."
@@ -13,7 +13,9 @@ help:
 	@echo "  coverage   Run tests with coverage reporting."
 	@echo "  run        Run the codemeld tool (e.g., make run ARGS='.')"
 	@echo "  build       Build a standalone executable with PyInstaller."
-	@echo "  clean-build Remove build artifacts."
+	@echo "  clean        Remove Python cache, bytecode, pytest/mypy/ruff caches, and build artifacts."
+	@echo "  clean-build  Remove build artifacts only."
+	@echo "  uninstall    Remove virtual environment, lock file, and all caches to save disk space."
 	@echo "  update       Update dependencies to the latest versions."
 	@echo "  pre-commit   Install and run pre-commit hooks."
 	@echo "  pre-commit-update Update pre-commit hooks to latest versions."
@@ -147,13 +149,41 @@ build:
 	@echo "--- Build finished. Executable is in build/dist/ ---"
 	@echo ""
  
-clean-build:
+clean-build: 
 	@echo ""
 	@echo "--- Cleaning build artifacts ---"
 	@echo ""
 	rm -rf build/ dist/
 	@echo ""
 	@echo "--- Clean finished ---"
+	@echo ""
+
+clean: clean-build
+	@echo ""
+	@echo "--- Cleaning Python cache and bytecode ---"
+	@echo ""
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	find . -type f -name "*.pyo" -delete 2>/dev/null || true
+	find . -type f -name ".coverage" -delete 2>/dev/null || true
+	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name ".coverage.*" -delete 2>/dev/null || true
+	rm -rf htmlcov/
+	@echo ""
+	@echo "--- Clean finished ---"
+	@echo ""
+
+uninstall: clean
+	@echo ""
+	@echo "--- Uninstalling virtual environment and all dependencies ---"
+	@echo ""
+	rm -rf .venv/
+	rm -f uv.lock
+	@echo ""
+	@echo "--- Virtual environment removed ---"
+	@echo "--- Run 'make setup' to recreate the environment ---"
 	@echo ""
  
 update: 
