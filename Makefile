@@ -129,7 +129,7 @@ build:
 	@echo ""
 	@echo "--- Building standalone executable ---"
 	@echo ""
-	uv run pyinstaller src/code_combiner.py --onefile --name codemeld --distpath build/dist --hidden-import=tiktoken_ext --hidden-import=tiktoken_ext.openai_public
+	uv run pyinstaller main.py --onefile --name codemeld --distpath build/dist --hidden-import=tiktoken_ext --hidden-import=tiktoken_ext.openai_public
 	@echo ""
 	@echo "--- Build finished. Executable is in build/dist/ ---"
 	@echo ""
