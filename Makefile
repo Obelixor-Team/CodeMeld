@@ -15,7 +15,7 @@ help:
 	@echo "  build       Build a standalone executable with PyInstaller."
 	@echo "  clean-build Remove build artifacts."
 	@echo "  update      Update dependencies to the latest versions."
-	@echo, "  all        Run format, lint, check, coverage, and audit."
+	@echo "  all        Run format, lint, check, coverage, and audit."
 	@echo "  audit      Run pip-audit to check for vulnerabilities."
 	@echo ""
 
