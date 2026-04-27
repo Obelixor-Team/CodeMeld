@@ -274,22 +274,21 @@ class TestCompositeFilter:
             [always_include_filter, file_size_filter]
         )
 
-        # The current buggy implementation will return True, because AlwaysIncludeFilter
-        # is checked first and the function returns immediately.
-        # A correct implementation should return False, because the file is too large.
+        # This test ensures that AlwaysIncludeFilter does not bypass other essential
+        # filters, such as FileSizeFilter. A correct implementation must return False if
+        # the file exceeds the size limit, regardless of whether it is explicitly
+        # included.
         assert not composite_filter.should_process(
             large_file, {"root_path": tmp_path}
-        ), (
-            "AlwaysIncludeFilter should not bypass the FileSizeFilter"
-        )
+        ), "AlwaysIncludeFilter should not bypass the FileSizeFilter"
 
 
 class TestFilterChainBuilder:
     def test_build_safety_chain(self, mock_config, tmp_path):
         mock_config.output = str(tmp_path / "output.txt")
         mock_config.max_file_size_kb = 50
-        safety_chain: CompositeFilter = (
-            FilterChainBuilder.build_safety_chain(mock_config)
+        safety_chain: CompositeFilter = FilterChainBuilder.build_safety_chain(
+            mock_config
         )
         assert isinstance(safety_chain, CompositeFilter)
         # Further assertions to check the types of filters within the composite
@@ -302,24 +301,24 @@ class TestFilterChainBuilder:
     def test_build_safety_chain_no_file_size(self, mock_config, tmp_path):
         mock_config.output = str(tmp_path / "output.txt")
         mock_config.max_file_size_kb = None
-        safety_chain: CompositeFilter = (
-            FilterChainBuilder.build_safety_chain(mock_config)
+        safety_chain: CompositeFilter = FilterChainBuilder.build_safety_chain(
+            mock_config
         )
         assert not any(isinstance(f, FileSizeFilter) for f in safety_chain.filters)
 
     def test_build_safety_chain_with_file_size(self, mock_config, tmp_path):
         mock_config.output = str(tmp_path / "output.txt")
         mock_config.max_file_size_kb = 50
-        safety_chain: CompositeFilter = (
-            FilterChainBuilder.build_safety_chain(mock_config)
+        safety_chain: CompositeFilter = FilterChainBuilder.build_safety_chain(
+            mock_config
         )
         assert isinstance(safety_chain, CompositeFilter)
         assert any(isinstance(f, FileSizeFilter) for f in safety_chain.filters)
 
     def test_build_full_chain(self, mock_config, mock_spec, tmp_path):
         mock_config.output = str(tmp_path / "output.txt")
-        safety_chain: CompositeFilter = (
-            FilterChainBuilder.build_safety_chain(mock_config)
+        safety_chain: CompositeFilter = FilterChainBuilder.build_safety_chain(
+            mock_config
         )
         full_chain = FilterChainBuilder.build_full_chain(
             mock_config, mock_spec, safety_chain, []

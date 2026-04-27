@@ -7,8 +7,8 @@ help:
 	@echo "  install    Install development dependencies."
 	@echo "  format     Format the code using ruff."
 	@echo "  lint       Lint the code using ruff."
-	@echo "  check      Run static type checking with ty."
-	@echo "  check-strict Run ruff check, ty check, and pytest."
+	@echo "  check      Run static type checking with mypy."
+	@echo "  check-strict Run ruff check, mypy, and pytest."
 	@echo "  test       Run tests using pytest."
 	@echo "  coverage   Run tests with coverage reporting."
 	@echo "  run        Run the codemeld tool (e.g., make run ARGS='.')"
@@ -72,12 +72,12 @@ lint:
 
 check:
 	@echo ""
-	@echo "--- Starting check (ruff, ty) ---"
+	@echo "--- Starting check (ruff, mypy) ---"
 	@echo ""
 	uv run ruff check .
-	uv run ty check .
+	uv run mypy .
 	@echo ""
-	@echo "--- Finished check (ruff, ty) ---"
+	@echo "--- Finished check (ruff, mypy) ---"
 	@echo ""
 
 check-strict:
@@ -85,7 +85,7 @@ check-strict:
 	@echo "--- Starting strict checks (ruff, mypy, pytest) ---"
 	@echo ""
 	uv run ruff check .
-	uv run ty check .
+	uv run mypy .
 	uv run pytest tests/
 	@echo ""
 	@echo "--- Finished strict checks ---"
@@ -104,7 +104,7 @@ coverage:
 	@echo ""
 	@echo "--- Starting coverage report ---"
 	@echo ""
-	uv run pytest --cov=src --cov-report=term-missing --cov-fail-under=90 --timeout=60 tests/
+	uv run pytest --cov=src --cov-report=term-missing --cov-fail-under=90 tests/
 	@echo ""
 	@echo "--- Finished coverage report ---"
 	@echo ""

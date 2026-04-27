@@ -89,13 +89,13 @@ class InMemoryOutputGenerator(OutputGenerator):
         self.raw_content_parts: list[str] = []
         self.formatted_content_parts: list[str] = []
         self.json_data: dict[str, str] = {}
-        self.xml_root_element: ET.Element | None = None
         self.memory_monitor = context.memory_monitor
         self.publisher = context.publisher
         self.output_path = context.output_path
         self.ui = context.ui
         self.token_counter_observer = context.token_counter_observer
         self.line_counter_observer = context.line_counter_observer
+        self.xml_root_element: ET.Element | None = None
 
     def _read_file_and_notify(self, file_path: Path) -> tuple[Path, str | None]:
         """Read a file's content and notify observers."""
@@ -185,23 +185,14 @@ class InMemoryOutputGenerator(OutputGenerator):
 
     def _begin_output(self) -> None:
         """Prepare for in-memory output generation."""
-        if isinstance(self.formatter, XMLFormatter):
-            self.xml_root_element = ET.Element("codebase")
+        if not isinstance(self.formatter, JSONFormatter):
+            self.formatted_content_parts.append(self.formatter.begin_output())
 
     def _process_file(self, relative_path: Path, content: str) -> None:
         """Process each file's content for in-memory storage."""
         self.raw_content_parts.append(content)
         if isinstance(self.formatter, JSONFormatter):
             self.json_data[str(relative_path)] = content
-        elif (
-            isinstance(self.formatter, XMLFormatter)
-            and self.xml_root_element is not None
-        ):
-            file_element = ET.SubElement(self.xml_root_element, "file")
-            path_element = ET.SubElement(file_element, "path")
-            path_element.text = str(relative_path)
-            content_element = ET.SubElement(file_element, "content")
-            content_element.text = content
         else:
             self.formatted_content_parts.append(
                 self.formatter.format_file(relative_path, content)
@@ -211,15 +202,8 @@ class InMemoryOutputGenerator(OutputGenerator):
         """Finalize in-memory output and return it."""
         if isinstance(self.formatter, JSONFormatter):
             self.output_content = json.dumps(self.json_data, indent=4)
-        elif (
-            isinstance(self.formatter, XMLFormatter)
-            and self.xml_root_element is not None
-        ):
-            ET.indent(self.xml_root_element)  # Python 3.9+
-            self.output_content = ET.tostring(
-                self.xml_root_element, encoding="utf-8", xml_declaration=True
-            ).decode("utf-8")
         else:
+            self.formatted_content_parts.append(self.formatter.end_output())
             self.output_content = "".join(self.formatted_content_parts)
 
         self.raw_combined_content = "".join(self.raw_content_parts)

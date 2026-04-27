@@ -20,14 +20,14 @@ A Python script to scan a specified directory, identify code files based on thei
 -   `tiktoken`: For counting tokens in the output file.
 -   `pathspec`: For handling `.gitignore` patterns.
 -   `tqdm`: For showing progress.
--   `toml`: For reading `pyproject.toml` configuration file. (Note: `tomllib` is used for Python 3.11+; `toml` is a fallback for older versions.)
-  - **Minimum Supported Python Version**: 3.14 (due to use of tomllib and other modern Python features)
+-   `toml`: For reading `pyproject.toml` configuration file. (Note: `tomllib` is used for Python 3.11+).
+  - **Minimum Supported Python Version**: 3.11 (due to use of tomllib and other modern Python features)
 
 ### Development Dependencies
 
 -   `pytest`: For running unit tests.
 -   `ruff`: For linting and formatting.
--   `ty`: For static type checking. (Note: `ty` is an experimental type checker from Astral and may behave differently from more established tools like `mypy`.)
+-   `mypy`: For static mypype checking. (Note: `mypy` is an experimental mypype checker from Astral and may behave differently from more established tools like `mypy`.)
 
 ## Installation
 
@@ -224,108 +224,7 @@ format = "markdown"
      .venv/bin/python main.py . -o combined.txt --always-include ./.config/app.conf
      ```
 
-2.  **Perform a dry run to see which files would be included, excluding files larger than 1MB**:
 
-    ```bash
-    .venv/bin/python main.py . --dry-run --max-file-size-kb 1024
-    ```
-
-3.  **Combine files with custom headers for Python and JavaScript files**:
-
-    ```bash
-    .venv/bin/python main.py . -e .py .js -o combined_with_headers.txt --custom-file-headers '{"py": "# Python File: {path}\n# ---------------------\n", "js": "// Javascript File: {path}\n// ---------------------\n"}'
-    ```
-
-
-2.  **Combine all files in a specific directory, including hidden files, and ignoring `.gitignore`**: 
-
-    ```bash
-    .venv/bin/python main.py /path/to/your/project --include-hidden --no-gitignore -o all_project_files.txt
-    ```
-
-3.  **Combine files in a directory and output as Markdown**:
-
-    ```bash
-    .venv/bin/python main.py . -e .py .md -o documentation.md --format markdown
-    ```
-
-4.  **Combine files using settings from `pyproject.toml` and output as JSON**:
-
-    ```bash
-    .venv/bin/python main.py . -o combined.json --format json
-    ```
-
-5.  **Sample JSON Output**:
-
-<details>
-<summary>Click to expand JSON example</summary>
-
-```json
-{
-        "file1.py": "print('hello')",
-        "file2.js": "console.log('world')",
-        "subdir/file3.py": "x = 1"
-    }
-```
-
-</details>
-
-6.  **Sample XML Output**:
-
-<details>
-<summary>Click to expand XML example</summary>
-
-```xml
-    <codebase>
-        <file>
-            <path>file1.py</path>
-            <content>print('hello')</content>
-        </file>
-        <file>
-            <path>file2.js</path>
-            <content>console.log('world')</content>
-        </file>
-        <file>
-            <path>subdir/file3.py</path>
-            <content>x = 1</content>
-        </file>
-    </codebase>
-```
-
-</details>
-
-### Using with Large Language Models (LLMs)
-
-The primary goal of this script is to generate a single file that can be easily copied and pasted into an LLM chat interface.
-
--   **Text Format (`--format text`)**: This is the default and recommended format for most LLMs. It produces a clean, readable output that is easy to copy and paste.
--   **Markdown Format (`--format markdown`)**: This format is useful when you want to preserve the file structure and code formatting in a more structured way. Most LLMs render Markdown correctly. When converting from `json` or `xml` format, using `--convert-to markdown` will also generate a structured Markdown output suitable for LLMs.
--   **JSON and XML Formats (`--format json` or `--format xml`)**: These formats are less common for direct use with LLMs but can be useful for programmatic analysis or if the LLM has specific input requirements.
-
-**Tip for Large Projects**: For very large projects, consider using the `--no-tokens` flag to disable token counting. This enables a memory-safe streaming approach, preventing potential out-of-memory errors.
-
-### More Examples
-
-7.  **Convert JSON Output to Markdown**:
-    Generate an intermediate JSON representation and then convert it to a clean Markdown file.
-
-    ```bash
-    .venv/bin/python main.py . -e .py -o combined.md --format json --convert-to markdown
-    ```
-
-8.  **Force Streaming for a Large Project**:
-    To avoid high memory usage, you can set a low memory limit to force the script to use a streaming approach.
-
-    ```bash
-    .venv/bin/python main.py . -o combined.txt --max-memory-mb 100
-    ```
-
-9.  **Always Include a Specific File**:
-    Ensure a specific configuration file is included, even if it doesn't have a standard extension or is in a hidden directory.
-
-    ```bash
-    .venv/bin/python main.py . -o combined.txt --always-include ./.config/app.conf
-    ```
 
 ### Extending with Custom Formatters
 
@@ -333,7 +232,7 @@ codemeld can be extended with custom formatters using a plugin-based architectur
 
 #### Creating a Custom Formatter Package
 
-To create a custom formatter, you'll typically set up a small Python package.
+To create a custom formatter, you'll mypypically set up a small Python package.
 
 1.  **Project Structure**:
     Organize your custom formatter in a dedicated directory, for example:
@@ -412,7 +311,7 @@ This setup allows for a clean separation of concerns, making your custom formatt
 
 ## Architecture
 
-**Filter Chain (Chain of Responsibility)**: The file filtering logic is implemented using the Chain of Responsibility pattern. Each filter is a separate class that handles a specific filtering rule (e.g., checking extensions, hidden files, or `.gitignore` rules). This design was chosen for its modularity and extensibility. While it might seem more complex than a single, monolithic filter class, it makes the code easier to understand, maintain, and extend. Adding a new filter only requires creating a new class that implements the `FileFilter` interface, without modifying the existing code. The performance overhead of this pattern is minimal and is outweighed by the benefits of a clean and maintainable design.
+**Filter Chain (Chain of Responsibilimypy)**: The file filtering logic is implemented using the Chain of Responsibilimypy pattern. Each filter is a separate class that handles a specific filtering rule (e.g., checking extensions, hidden files, or `.gitignore` rules). This design was chosen for its modularimypy and extensibilimypy. While it might seem more complex than a single, monolithic filter class, it makes the code easier to understand, maintain, and extend. Adding a new filter only requires creating a new class that implements the `FileFilter` interface, without modifying the existing code. The performance overhead of this pattern is minimal and is outweighed by the benefits of a clean and maintainable design.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -439,7 +338,7 @@ This setup allows for a clean separation of concerns, making your custom formatt
 
 **Design Patterns Used:**
 - **Strategy Pattern**: OutputFormatter (text/markdown/json/xml)
-- **Chain of Responsibility**: FileFilter chain
+- **Chain of Responsibilimypy**: FileFilter chain
 - **Template Method**: OutputGenerator
 - **Observer Pattern**: Progress/metrics reporting
 - **Builder Pattern**: Configuration assembly
@@ -473,21 +372,21 @@ For very large projects, you might encounter performance or memory issues. Here 
 
 ## Development
 
-### Code Quality Checks
+### Code Qualimypy Checks
 
-Use the provided `Makefile` for code quality checks:
+Use the provided `Makefile` for code qualimypy checks:
 
 -   `make format`: Formats the code using `ruff`.
 -   `make lint`: Lints the code using `ruff`.
--   `make check`: Runs static type checking with `ty`.
--   `make check-strict`: Runs `ruff check`, `ty check`, and `pytest`.
+-   `make check`: Runs static mypype checking with `mypy`.
+-   `make check-strict`: Runs `ruff check`, `mypy check`, and `pytest`.
 -   `make all`: Runs format, lint, and check.
 
 ```bash
 make all
 ```
 
-### Dependency Vulnerability Scanning
+### Dependency Vulnerabilimypy Scanning
 
 This project uses `pip-audit` to scan for vulnerabilities in the dependencies.
 To run the audit locally, install `pip-audit` and run it:
@@ -500,20 +399,20 @@ pip-audit
 ### Linting with Ruff
 Run `ruff check .` to lint the codebase, or `ruff check --fix .` to auto-fix issues. Configuration is defined in `pyproject.toml` under `[tool.ruff]`. To check formatting, run `ruff format --check .`.
 
-## Development Quality Metrics
+## Development Qualimypy Metrics
 
-This project aims for high code quality, enforced by a suite of static analysis tools and comprehensive testing. Key metrics are:
+This project aims for high code qualimypy, enforced by a suite of static analysis tools and comprehensive testing. Key metrics are:
 
--   **Maintainability Index**: Striving for >95.
--   **Cyclomatic Complexity**: Aiming for <2.5 average.
--   **Type Safety**: 100% strict type checking with `ty check`.
+-   **Maintainabilimypy Index**: Striving for >95.
+-   **Cyclomatic Compleximypy**: Aiming for <2.5 average.
+-   **Type Safemypy**: 100% strict mypype checking with `mypy check`.
 -   **Test Coverage**: Targeting >95% line coverage.
 
 These metrics ensure the codebase is robust, easy to understand, and maintainable.
 
-## Code Quality Evaluation
+## Code Qualimypy Evaluation
 
-This project has undergone a thorough code quality evaluation, focusing on maintainability, cyclomatic complexity, type safety, and test coverage. The goal is to achieve a professional-grade Python project ready for publication and long-term maintenance.
+This project has undergone a thorough code qualimypy evaluation, focusing on maintainabilimypy, cyclomatic compleximypy, mypype safemypy, and test coverage. The goal is to achieve a professional-grade Python project ready for publication and long-term maintenance.
 
 ## Static Analysis
 

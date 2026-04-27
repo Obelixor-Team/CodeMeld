@@ -10,8 +10,10 @@ def test_write_output_overwrite_interactive_yes(tmp_path):
     output_path = tmp_path / "output.txt"
     output_path.write_text("old content")
 
-    with patch("builtins.input", return_value="y"), \
-         patch("sys.stdin.isatty", return_value=True):
+    with (
+        patch("builtins.input", return_value="y"),
+        patch("sys.stdin.isatty", return_value=True),
+    ):
         write_output(output_path, "new content", force=False)
 
     assert output_path.read_text() == "new content"

@@ -144,8 +144,10 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--always-include",
         nargs="+",
-        help=("Always include specified files, bypassing other filters "
-                 "(space-separated paths)."),
+        help=(
+            "Always include specified files, bypassing other filters "
+            "(space-separated paths)."
+        ),
     )
     parser.add_argument(
         "--follow-symlinks",
@@ -156,8 +158,7 @@ def parse_arguments() -> argparse.Namespace:
         "--token-encoding",
         default="cl100k_base",
         help=(
-            "The token encoding model to use for token counting "
-            "(default: cl100k_base)."
+            "The token encoding model to use for token counting (default: cl100k_base)."
         ),
     )
     parser.add_argument(
@@ -209,8 +210,7 @@ def parse_arguments() -> argparse.Namespace:
         "--dry-run-output",
         type=str,
         help=(
-            "Optional: write the list of files processed during a dry run "
-            "to this file."
+            "Optional: write the list of files processed during a dry run to this file."
         ),
     )
     parser.add_argument(
@@ -378,19 +378,22 @@ class CodeMeld:
 
     def _run_generation(self, all_files_to_process: list[Path], ui: LiveUI) -> None:
         memory_monitor = TracemallocMemoryMonitor(
-            self.config.max_memory_mb, self.config.count_tokens
+            self.config.max_memory_mb,
+            self.config.count_tokens,
+            self.config.safety_margin,
         )
 
         with Publisher(total_files=len(all_files_to_process)) as publisher:
             token_counter_observer = None
-        if self.config.count_tokens:
-            token_counter_observer = TokenCounterObserver(
-                self.config.token_encoding_model
-            )
-            publisher.subscribe(token_counter_observer)
-            line_counter_observer = LineCounterObserver()
-            publisher.subscribe(line_counter_observer)
-            publisher.subscribe(TelemetryObserver())
+            line_counter_observer = None
+            if self.config.count_tokens:
+                token_counter_observer = TokenCounterObserver(
+                    self.config.token_encoding_model
+                )
+                publisher.subscribe(token_counter_observer)
+                line_counter_observer = LineCounterObserver()
+                publisher.subscribe(line_counter_observer)
+                publisher.subscribe(TelemetryObserver())
 
             output_written_by_streaming = False
             context = GeneratorContext(
@@ -409,8 +412,6 @@ class CodeMeld:
             try:
                 generator = InMemoryOutputGenerator(context)
                 output_content, _ = generator.generate()
-                # publisher.notify("processing_complete", (output_content, raw_content))
-                # Handled by __exit__
             except MemoryThresholdExceededError:
                 if not self.config.count_tokens and self.formatter.supports_streaming():
                     logging.warning(
@@ -419,9 +420,9 @@ class CodeMeld:
                     streaming_generator = StreamingOutputGenerator(context)
                     streaming_generator.generate()
                     output_written_by_streaming = True
-                    output_content = ""  # Clear content as it's already written
+                    output_content = ""
                 else:
-                    raise  # Re-raise if fallback is not allowed
+                    raise
 
             if not output_written_by_streaming and output_content:
                 write_output(

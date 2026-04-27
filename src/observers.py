@@ -233,8 +233,7 @@ class TelemetryObserver(Observer[ProcessingStartedData | None]):
             if data:
                 self.total_files_processed = data.get("total_files", 0)
         elif (
-            event == ProcessingEvent.PROCESSING_COMPLETE
-            and self.start_time is not None
+            event == ProcessingEvent.PROCESSING_COMPLETE and self.start_time is not None
         ):
             duration = time.time() - self.start_time
             logging.info(f"Processing complete. Duration: {duration:.2f}s")

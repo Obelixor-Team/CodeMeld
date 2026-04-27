@@ -51,6 +51,7 @@ class CombinerConfigBuilder:
             "final_output_format": None,
             "force": False,
             "always_include": [],
+            "safety_margin": 0.1,
         }
 
     def with_defaults(self) -> CombinerConfigBuilder:
@@ -107,6 +108,7 @@ class CombinerConfigBuilder:
         self._apply_arg_if_present(args, "summary")
         self._apply_arg_if_present(args, "dry_run_output")
         self._apply_arg_if_present(args, "progress_style")
+        self._apply_arg_if_present(args, "safety_margin")
 
         return self
 

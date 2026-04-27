@@ -207,9 +207,7 @@ def test_memory_threshold_fallback(tmp_path, caplog):
     )
 
 
-def test_dry_run_mode_with_streaming_fallback(
-    tmp_path, capsys, caplog
-):
+def test_dry_run_mode_with_streaming_fallback(tmp_path, capsys, caplog):
     """Test that --dry-run mode with forced streaming fallback prints to
     stdout and does not create an output file."""
     large_file = tmp_path / "large_file.txt"

@@ -8,9 +8,7 @@ from src.code_combiner import CodeMeld
 from src.config import MemoryThresholdExceededError
 
 
-def test_execute_output_written_by_streaming_path(
-    mock_code_combiner_config, tmp_path
-):
+def test_execute_output_written_by_streaming_path(mock_code_combiner_config, tmp_path):
     mock_code_combiner_config.count_tokens = False
     mock_code_combiner_config.output = str(tmp_path / "output.txt")
     combiner = CodeMeld(mock_code_combiner_config)
@@ -142,9 +140,7 @@ def test_execute_write_output_called_when_not_streaming(
                 )
 
 
-def test_execute_no_files_to_process(
-    mock_code_combiner_config, caplog, tmp_path
-):
+def test_execute_no_files_to_process(mock_code_combiner_config, caplog, tmp_path):
     mock_code_combiner_config.always_include = []
     mock_code_combiner_config.directory_path.resolve.return_value = tmp_path
     mock_code_combiner_config.directory_path.rglob.return_value = []

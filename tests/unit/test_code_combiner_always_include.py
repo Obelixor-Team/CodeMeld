@@ -15,8 +15,7 @@ def test_get_filtered_files_always_include_non_existent(
         combiner.execute()
     assert (
         f"Warning: --always-include path '{non_existent_file}' "
-        "is not a file or does not exist. Skipping."
-        in caplog.text
+        "is not a file or does not exist. Skipping." in caplog.text
     )
 
 
@@ -31,6 +30,5 @@ def test_get_filtered_files_always_include_directory(
         combiner.execute()
     assert (
         f"Warning: --always-include path '{mock_dir}' "
-        "is not a file or does not exist. Skipping."
-        in caplog.text
+        "is not a file or does not exist. Skipping." in caplog.text
     )

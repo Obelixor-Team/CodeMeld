@@ -30,6 +30,7 @@ class ConfigValidator:
         self._validate_header_width()
         self._validate_output_path()
         self._validate_conversion()
+        self._validate_max_memory_mb()
         self._validate_max_file_size_kb()
         self._validate_token_encoding_model()
         self._validate_custom_file_headers()
@@ -76,7 +77,13 @@ class ConfigValidator:
                     "to itself."
                 )
 
+    def _validate_max_memory_mb(self) -> None:
+        max_mem = self._config.get("max_memory_mb")
+        if max_mem is not None and (not isinstance(max_mem, int) or max_mem < -1):
+            raise CodeMeldError("Max memory must be an integer greater than -1.")
+
     def _validate_max_file_size_kb(self) -> None:
+
         max_size = self._config.get("max_file_size_kb")
         if max_size is not None and (not isinstance(max_size, int) or max_size <= 0):
             raise CodeMeldError("Max file size must be a positive integer.")
@@ -106,8 +113,9 @@ class ConfigValidator:
                 for key, value in parsed_headers.items():
                     if not isinstance(key, str) or not isinstance(value, str):
                         raise ValueError(
-                        "All keys and values in custom file headers must be strings."
-                    )
+                            "All keys and values in custom file headers "
+                            "must be strings."
+                        )
                 # If validation passes, store the parsed dictionary back in _config
                 self._config["custom_file_headers"] = parsed_headers
             except json.JSONDecodeError as e:

@@ -151,7 +151,10 @@ def test_markdown_formatter_with_custom_header():
     relative_path = Path("my_script.js")
     content = "console.log('Hello');"
     expected_output = (
-        "// JavaScript File: my_script.js\n```js\nconsole.log('Hello');\n```\n\n"
+        "// JavaScript File: my_script.js\n"
+        "```js\n"
+        "console.log('Hello');\n"
+        "```\n\n"
     )  # Formatter adds ```js
     assert formatter.format_file(relative_path, content) == expected_output
 
@@ -202,12 +205,14 @@ def test_markdown_formatter_begin_end_output():
 def test_json_formatter_streaming():
     formatter = JSONFormatter()
     assert formatter.begin_output() == "{\n"
-    assert formatter.format_file(
-        Path("file1.txt"), "content1"
-    ) == '    "file1.txt": "content1"'
-    assert formatter.format_file(
-        Path("file2.txt"), "content2"
-    ) == ',\n    "file2.txt": "content2"'
+    assert (
+        formatter.format_file(Path("file1.txt"), "content1")
+        == '    "file1.txt": "content1"'
+    )
+    assert (
+        formatter.format_file(Path("file2.txt"), "content2")
+        == ',\n    "file2.txt": "content2"'
+    )
     assert formatter.end_output() == "\n}"
 
 

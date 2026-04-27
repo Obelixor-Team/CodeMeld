@@ -22,3 +22,8 @@ max-complexity = 10
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
+
+[dependency-groups]
+dev = [
+    "lizard>=1.22.1",
+]

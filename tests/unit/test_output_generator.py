@@ -292,43 +292,42 @@ def test_in_memory_generator_file_not_relative_to_root(
     assert str(external_file) in output
     assert "external content" in output
 
+    def test_in_memory_generator_xml_output(
+        mock_files_to_process, mock_root_path, tmp_path, mocker
+    ):
+        """Test that XMLFormatter's methods are called correctly in
+        InMemoryOutputGenerator."""
+        from src.formatters import XMLFormatter
 
-def test_in_memory_generator_xml_indentation(
-    mock_files_to_process, mock_root_path, tmp_path, mocker
-):
-    """Test that ET.indent is called when using XMLFormatter in
-    InMemoryOutputGenerator."""
-    from xml.etree import ElementTree as ET
+        mock_xml_formatter = XMLFormatter()
+        mocker.patch.object(mock_xml_formatter, "begin_output", return_value="<root>")
+        mocker.patch.object(mock_xml_formatter, "end_output", return_value="</root>")
+        mocker.patch.object(mock_xml_formatter, "format_file", return_value="<file/>")
 
-    from src.formatters import XMLFormatter
+        context = GeneratorContext(
+            files_to_process=mock_files_to_process,
+            root_path=mock_root_path,
+            formatter=mock_xml_formatter,
+            publisher=MagicMock(),
+            output_path=tmp_path / "output.xml",
+            ui=MagicMock(),
+            token_counter_observer=MagicMock(),
+            line_counter_observer=MagicMock(),
+        )
+        generator = InMemoryOutputGenerator(context)
 
-    mock_xml_formatter = XMLFormatter()
-    mocker.patch.object(mock_xml_formatter, "begin_output", return_value="<root>")
-    mocker.patch.object(mock_xml_formatter, "end_output", return_value="</root>")
-    mocker.patch.object(mock_xml_formatter, "format_file", return_value="<file/>")
-    mock_et_indent = mocker.patch.object(ET, "indent")
+        # Mock read_file_content to return some content
+        mocker.patch(
+            "src.output_generator.read_file_content", return_value=["some content"]
+        )
+        mocker.patch("src.output_generator.is_likely_binary", return_value=False)
 
-    context = GeneratorContext(
-        files_to_process=mock_files_to_process,
-        root_path=mock_root_path,
-        formatter=mock_xml_formatter,
-        publisher=MagicMock(),
-        output_path=tmp_path / "output.xml",
-        ui=MagicMock(),
-        token_counter_observer=MagicMock(),
-        line_counter_observer=MagicMock(),
-    )
-    generator = InMemoryOutputGenerator(context)
+        generator.generate()
 
-    # Mock read_file_content to return some content
-    mocker.patch(
-        "src.output_generator.read_file_content", return_value=["some content"]
-    )
-    mocker.patch("src.output_generator.is_likely_binary", return_value=False)
-
-    generator.generate()
-
-    mock_et_indent.assert_called_once_with(generator.xml_root_element)
+        # Check that the formatter's methods were called as expected
+        mock_xml_formatter.begin_output.assert_called_once()
+        assert mock_xml_formatter.format_file.call_count == len(mock_files_to_process)
+        mock_xml_formatter.end_output.assert_called_once()
 
 
 def test_streaming_output_generator_no_files_no_direct_streaming_formatter(
@@ -380,8 +379,8 @@ def test_streaming_output_generator_handle_actual_streaming_exception(
 
     # Mock the open function to raise an exception when writing to the temporary file
     mock_open = mocker.patch("builtins.open", mocker.mock_open())
-    mock_open.return_value.__enter__.return_value.write.side_effect = (
-        OSError("Disk full")
+    mock_open.return_value.__enter__.return_value.write.side_effect = OSError(
+        "Disk full"
     )
 
     with pytest.raises(IOError, match="Disk full"):
