@@ -63,6 +63,7 @@ class CombinerConfig:
     final_output_format: ConvertType | None = None
     force: bool = False
     always_include: list[str] = field(default_factory=list)
+    only_files: list[str] = field(default_factory=list)
     follow_symlinks: bool = False
     token_encoding_model: str = "cl100k_base"
     max_memory_mb: int | None = 500

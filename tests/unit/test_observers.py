@@ -78,6 +78,7 @@ def test_line_counter_observer():
     )
     assert observer.total_lines == 5
 
+
 def test_token_counter_observer():
     # Mock tiktoken in sys.modules
 

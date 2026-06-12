@@ -49,6 +49,7 @@ def mock_code_combiner_config():
     config.final_output_format = None
     config.force = False
     config.always_include = []
+    config.only_files = []
     config.output = "output.txt"
     config.token_encoding_model = "cl100k_base"
     config.max_memory_mb = 500

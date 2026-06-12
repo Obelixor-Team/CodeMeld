@@ -1,9 +1,10 @@
-.PHONY: help install format lint check test coverage all check-strict audit run build clean-build clean uninstall update lizard pre-commit pre-commit-update
+.PHONY: help venv install format lint check test coverage all check-strict audit run build clean-build clean uninstall update lizard pre-commit pre-commit-update
 
 help:
 	@echo "Makefile for managing the project."
 	@echo ""
 	@echo "Targets:"
+	@echo "  venv       Create virtual environment and install dependencies."
 	@echo "  install    Install development dependencies."
 	@echo "  format     Format the code using ruff."
 	@echo "  lint       Lint the code using ruff."
@@ -21,6 +22,20 @@ help:
 	@echo "  pre-commit-update Update pre-commit hooks to latest versions."
 	@echo "  all        Run format, lint, check, coverage, and audit."
 	@echo "  audit      Run pip-audit to check for vulnerabilities."
+	@echo ""
+
+venv:
+	@echo ""
+	@echo "--- Ensuring virtual environment exists ---"
+	@echo ""
+	@if [ ! -d ".venv" ]; then \
+		uv venv --python 3.14.4; \
+	else \
+		echo "Virtual environment already exists at .venv"; \
+	fi
+	$(MAKE) install
+	@echo ""
+	@echo "--- Venv installation finished ---"
 	@echo ""
 
 install:

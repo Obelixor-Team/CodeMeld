@@ -5,14 +5,12 @@
 from __future__ import annotations
 
 import logging
-import sys
 import threading
 import time
 from builtins import BaseException
 from enum import Enum, auto
 from types import ModuleType, TracebackType
 from typing import Any, Literal, Protocol, Self, TypedDict, TypeVar, overload
-
 
 
 class ProcessingEvent(Enum):

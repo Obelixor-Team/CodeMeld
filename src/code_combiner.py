@@ -150,6 +150,14 @@ def parse_arguments() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--only",
+        nargs="+",
+        help=(
+            "Only combine these specific files, skipping the directory scan "
+            "(space-separated paths)."
+        ),
+    )
+    parser.add_argument(
         "--follow-symlinks",
         action="store_true",
         help="Follow symbolic links when scanning directories.",
@@ -342,12 +350,12 @@ class CodeMeld:
     def _process_always_include_files(self) -> list[Path]:
         """Process --always-include files with safety checks."""
         always_included_files: list[Path] = []
-        for path_str in self.config.always_include:
+        for path_str in self.config.always_include + self.config.only_files:
             path = Path(path_str)
             resolved_path = self._resolve_path(path)
             if not resolved_path.is_file():
                 logging.warning(
-                    f"Warning: --always-include path '{path_str}' "
+                    f"Warning: path '{path_str}' "
                     "is not a file or does not exist. Skipping."
                 )
                 continue
@@ -356,7 +364,7 @@ class CodeMeld:
                 resolved_path, {"root_path": self.root_path}
             ):
                 logging.warning(
-                    f"Warning: --always-include path '{path_str}' "
+                    f"Warning: path '{path_str}' "
                     "was filtered out by safety checks. Skipping."
                 )
                 continue
@@ -364,7 +372,10 @@ class CodeMeld:
         return always_included_files
 
     def _prepare_files(self) -> list[Path]:
-        all_files = self._collect_all_files()
+        if self.config.only_files:
+            all_files = [self._resolve_path(Path(p)) for p in self.config.only_files]
+        else:
+            all_files = self._collect_all_files()
         combined_files = sorted(set(all_files + self.always_included_files))
         return self._get_filtered_files(combined_files)
 
