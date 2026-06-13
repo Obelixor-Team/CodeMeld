@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pathspec
 
+from src import __version__
 from src.config import CodeMeldError, CombinerConfig, MemoryThresholdExceededError
 from src.config_builder import load_and_merge_config
 from src.context import GeneratorContext
@@ -82,6 +83,11 @@ def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments for the CodeMeld script."""
     parser = argparse.ArgumentParser(
         description="Combine code files from a directory into a single file."
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"codemeld {__version__}",
     )
     parser.add_argument("directory", help="The directory to scan for code files.")
     parser.add_argument(

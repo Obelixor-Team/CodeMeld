@@ -9,6 +9,7 @@ import shutil
 import sys
 import time
 from typing import Any
+from src import __version__ as DEFAULT_VERSION
 
 from tqdm import tqdm
 
@@ -28,7 +29,7 @@ class LiveUI:
         self,
         total_files: int = 0,
         title: str = "CODEMELD",
-        version: str = "v0.1.0",
+        version: str = f"v{DEFAULT_VERSION}",
     ):
         """Initialize the LiveUI with default values."""
         self.total_files = total_files

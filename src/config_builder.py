@@ -97,6 +97,7 @@ class CombinerConfigBuilder:
         self._apply_arg_if_present(args, "convert_to", "final_output_format")
         self._apply_arg_if_present(args, "force")
         self._apply_arg_if_present(args, "always_include")
+        self._apply_arg_if_present(args, "only", "only_files")
         self._apply_arg_if_present(args, "follow_symlinks")
         self._apply_arg_if_present(args, "token_encoding_model")
         self._apply_arg_if_present(args, "max_memory_mb")
